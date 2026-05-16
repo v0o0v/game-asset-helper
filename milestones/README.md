@@ -29,12 +29,13 @@ M{N}_verification.md  # 자동/수동 검증 결과
 | 마일스톤 | 상태 | 자동 테스트 | 수동 검증 | 산출물 |
 |---|---|---|---|---|
 | [M0 — 뼈대](./M0_plan.md) | ✅ 완료 | 18/18 | ✅ 트레이·단일 인스턴스 | config·logging·single_instance·tray 셸·CLI |
-| M1 — 워처 + Pack Manager + DB | 다음 | — | — | watchdog·pack_manager·SQLite 스키마(packs/assets/tags) |
-| M2 — 분석 파이프라인 | 대기 | — | — | Pillow·librosa·Ollama 클라이언트·임베딩 |
-| M3 — 검색 + 통일성 + MCP | 대기 | — | — | FTS5·코사인·MCP stdio·suggest_packs·find_asset |
-| M4 — 시트 분석 + 애니메이션 | 대기 | — | — | 격자 자동 분할·suggest_animation_frames |
-| M5 — Unity Asset Store 임포트 | 대기 | — | — | .unitypackage 파서·캐시 스캐너 |
-| M6 — GUI 마감 + 패키징 | 대기 | — | — | 라이브러리/팩/프로젝트/설정 탭·PyInstaller |
+| [M1 — 워처 + Pack Manager + DB](./M1_plan.md) | ✅ 완료 | 45/45 (전체 67/67) | 항목 정리 (수동 시나리오는 `M1_verification.md` §3) + 트레이 아이콘/더블클릭 폴리시 4 테스트 추가 | watchdog 어댑터+디바운서·매니페스트/벤더 휴리스틱·SQLite 4테이블·부팅 풀스캔·GUI 팩/라이브러리 탭 |
+| M2 — 분석 파이프라인 + CLIP (3주) | 다음 | — | — | Pillow·librosa·Ollama 클라이언트·CLIP 라벨 스코어러·임베딩·듀얼 언어 출력 |
+| M3 — 검색 백엔드 + 통일성 + MCP (2주) | 대기 | — | — | FTS5·코사인·라벨 점수·MCP stdio·suggest_packs·find_asset (GUI 는 최소 동작만) |
+| M4 — 검색 UX (라이브러리 탭 풍부화) (1.5주) | 대기 | — | — | 자연어+부울 라벨 쿼리·다축 필터·가중치 슬라이더·저장된 검색·그리드/리스트 토글 |
+| M5 — 시트 분석 + 애니메이션 (1주) | 대기 | — | — | 격자 자동 분할·suggest_animation_frames |
+| M6 — Unity Asset Store 임포트 (1주) | 대기 | — | — | .unitypackage 파서·캐시 스캐너 |
+| M7 — GUI 마감 + 패키징 (1주) | 대기 | — | — | 상세/설정/프로젝트 탭·Qt i18n·PyInstaller |
 
 ## 새 마일스톤 시작 방법
 

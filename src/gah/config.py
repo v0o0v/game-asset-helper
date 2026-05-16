@@ -87,6 +87,9 @@ class Config:
     mcp_port: int = 9874
     consistency_weight: float = 0.20
     autostart: bool = False
+    # M1 fields
+    watch_debounce_seconds: float = 2.0
+    library_dir_override: str | None = None
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "Config":
@@ -107,7 +110,9 @@ def _atomic_write(path: Path, payload: bytes) -> None:
 
 def save_config(cfg: Config, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = tomli_w.dumps(cfg.to_mapping()).encode("utf-8")
+    # TOML has no null type — drop None-valued keys; load_config restores defaults for them.
+    mapping = {k: v for k, v in cfg.to_mapping().items() if v is not None}
+    payload = tomli_w.dumps(mapping).encode("utf-8")
     _atomic_write(path, payload)
 
 
