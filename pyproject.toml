@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "game-asset-helper"
+version = "0.0.1"
+description = "MCP server + tray app that catalogs game assets and serves them to Unity workflows via Claude Code"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Game Asset Helper Authors" }]
+dependencies = [
+  "PySide6>=6.6",
+  "portalocker>=2.8",
+  "tomli_w>=1.0",
+  "tomli>=2.0; python_version<'3.11'",
+  "platformdirs>=4.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-mock>=3.12",
+]
+
+[project.scripts]
+game-asset-helper = "gah.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+  "ignore::DeprecationWarning",
+]

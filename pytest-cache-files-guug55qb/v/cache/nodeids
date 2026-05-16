@@ -1,0 +1,20 @@
+[
+  "tests/test_config.py::test_corrupt_toml_is_backed_up_and_defaults_used",
+  "tests/test_config.py::test_default_app_paths_uses_env_override",
+  "tests/test_config.py::test_load_config_creates_file_when_missing",
+  "tests/test_config.py::test_load_config_reads_existing_values",
+  "tests/test_config.py::test_paths_are_created_idempotently",
+  "tests/test_config.py::test_save_and_reload_roundtrip",
+  "tests/test_entrypoint.py::test_data_dir_override_used",
+  "tests/test_entrypoint.py::test_mcp_flag_returns_not_implemented_exit_code",
+  "tests/test_entrypoint.py::test_version_flag_prints_version_and_exits_zero",
+  "tests/test_imports.py::test_all_modules_importable",
+  "tests/test_logging.py::test_setup_logging_creates_log_file",
+  "tests/test_logging.py::test_setup_logging_format_contains_level_and_message",
+  "tests/test_logging.py::test_setup_logging_is_idempotent",
+  "tests/test_logging.py::test_setup_logging_writes_record",
+  "tests/test_single_instance.py::test_first_instance_acquires_lock",
+  "tests/test_single_instance.py::test_lock_released_after_context_exit",
+  "tests/test_single_instance.py::test_second_instance_raises_already_running",
+  "tests/test_single_instance.py::test_stale_lock_file_does_not_block"
+]
