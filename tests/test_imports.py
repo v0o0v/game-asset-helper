@@ -14,6 +14,17 @@ MODULES = [
     "gah.platform.single_instance",
     "gah.app",
     "gah.tray",
+    "gah.core",
+    "gah.core.asset_kind",
+    "gah.core.manifest",
+    "gah.core.store",
+    "gah.core.pack_manager",
+    "gah.core.scanner",
+    "gah.core.watcher",
+    "gah.ui",
+    "gah.ui.main_window",
+    "gah.ui.pack_view",
+    "gah.ui.library_view",
 ]
 
 

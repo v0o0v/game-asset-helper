@@ -19,12 +19,13 @@
 | 마일스톤 | 상태 | 산출물 |
 |---|---|---|
 | M0 — 뼈대 | ✅ 완료 | 패키지 스캐폴딩, config/logging/single-instance, 트레이 셸, CLI |
-| M1 — 워처 + Pack Manager + DB | 다음 | |
-| M2 — 분석 파이프라인 | 대기 | |
-| M3 — 검색 + 통일성 + MCP | 대기 | |
-| M4 — 시트 분석 + 애니메이션 | 대기 | |
-| M5 — Unity Asset Store 임포트 | 대기 | |
-| M6 — GUI 마감 + 패키징 | 대기 | |
+| M1 — 워처 + Pack Manager + DB | ✅ 완료 | watchdog 래퍼+디바운서, 매니페스트/벤더 휴리스틱, SQLite 4테이블, 부팅 풀스캔, GUI 팩/라이브러리 탭 |
+| M2 — 분석 파이프라인 + CLIP (3주) | 다음 | Pillow·librosa·Ollama·CLIP·임베딩·듀얼 언어 출력 |
+| M3 — 검색 백엔드 + 통일성 + MCP (2주) | 대기 | FTS5+벡터+라벨 점수·MCP 도구 7~8개·GUI 최소 동작 |
+| M4 — 검색 UX 풍부화 (1.5주, 신설) | 대기 | 부울 라벨 쿼리·다축 필터·가중치 슬라이더·저장된 검색 |
+| M5 — 시트 분석 + 애니메이션 (1주) | 대기 | 격자 분할·`suggest_animation_frames` |
+| M6 — Unity Asset Store 임포트 (1주) | 대기 | `.unitypackage` 파서·캐시 스캐너 |
+| M7 — GUI 마감 + 패키징 (1주) | 대기 | 상세/설정/프로젝트 탭·Qt i18n·PyInstaller |
 
 각 마일스톤의 상세 계획·체크리스트·검증 결과는 `milestones/M{N}_plan.md`, `M{N}_todo.md`, `M{N}_verification.md`.
 
@@ -79,9 +80,8 @@ game-asset-helper/
 ├── pyproject.toml
 ├── milestones/
 │   ├── README.md             # 마일스톤 디렉터리 안내
-│   ├── M0_plan.md
-│   ├── M0_todo.md
-│   ├── M0_verification.md
+│   ├── M0_plan.md / M0_todo.md / M0_verification.md
+│   ├── M1_plan.md / M1_todo.md / M1_verification.md
 │   └── M{N}_*.md             # 각 마일스톤별 3종 세트
 ├── src/
 │   └── gah/
@@ -91,15 +91,24 @@ game-asset-helper/
 │       ├── logging_setup.py  # 회전 파일 + stderr 핸들러
 │       ├── platform/
 │       │   └── single_instance.py
-│       ├── app.py            # QApplication 부트 (지연 import)
-│       └── tray.py           # 트레이 아이콘 골격
+│       ├── app.py            # QApplication 부트 (지연 import) + 워처/스토어 연결
+│       ├── tray.py           # 트레이 아이콘 + "메인 창 열기" 액션
+│       ├── core/             # M1 도메인 로직
+│       │   ├── asset_kind.py     # 확장자→sprite/sound
+│       │   ├── manifest.py       # pack.json/pack.toml + 벤더 휴리스틱
+│       │   ├── store.py          # SQLite + packs/assets/tags/asset_tags
+│       │   ├── pack_manager.py   # 팩 디렉터리 인테이크
+│       │   ├── scanner.py        # 부팅 풀스캔 화해
+│       │   └── watcher.py        # watchdog 어댑터 + PackDebouncer
+│       └── ui/               # M1 GUI
+│           ├── main_window.py    # QMainWindow + 탭 컨테이너 + packChanged 시그널
+│           ├── pack_view.py      # 팩 리스트 테이블
+│           └── library_view.py   # 에셋 리스트 테이블
 └── tests/
     ├── conftest.py
-    ├── test_config.py
-    ├── test_logging.py
-    ├── test_single_instance.py
-    ├── test_entrypoint.py
-    └── test_imports.py
+    ├── test_config.py / test_logging.py / test_single_instance.py / test_entrypoint.py / test_imports.py  # M0
+    ├── test_asset_kind.py / test_manifest.py / test_store.py                                              # M1
+    ├── test_pack_manager.py / test_scanner.py / test_watcher.py / test_ui_smoke.py                        # M1
 ```
 
 후속 마일스톤에서 추가될 모듈은 `DESIGN.md §7` 참고.
@@ -126,7 +135,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-`pytest -q`가 18 passed로 떨어지면 준비 완료. M0 시점 검증 결과는 [`milestones/M0_verification.md`](./milestones/M0_verification.md).
+`pytest -q`가 63 passed로 떨어지면 준비 완료 (M0 18 + M1 45). M1 시점 검증 결과는 [`milestones/M1_verification.md`](./milestones/M1_verification.md).
 
 ## 7. 자주 쓰는 명령
 
@@ -154,25 +163,29 @@ python -m gah --tray
 python -m gah --version
 ```
 
-## 8. 다음 작업 (M1)
+## 8. 다음 작업 (M2)
 
-M1 — **워처 + Pack Manager + DB** (예상 1.5주 분량).
+M2 — **분석 파이프라인** (예상 2주 분량).
 
-핵심 산출물 (자세한 건 M0 사이클을 본떠 `milestones/M1_plan.md`부터 작성):
+핵심 산출물 (자세한 건 M1 사이클을 본떠 `milestones/M2_plan.md`부터 작성):
 
-- `library/` 재귀 감시 (`watchdog`)
-- 팩 단위 디바운스 (top-level 디렉터리 = 1 팩)
-- `pack.json` 매니페스트 파싱, 벤더 휴리스틱
-- SQLite 스키마 생성 (`DESIGN.md §5.1`의 `packs`, `assets`, `tags`, `asset_tags` 우선. 나머지 테이블은 후속 마일스톤에서 추가)
-- 부팅 시 풀스캔 diff
-- GUI에 팩 탭과 라이브러리 탭(메타 없는 단순 리스트)
+- Pillow / `numpy` 로 스프라이트 기술 특성 (해상도·알파·도미넌트 컬러·픽셀아트 판정)
+- `librosa` / `soundfile` 로 사운드 기술 특성 (길이·sample rate·RMS·BPM)
+- Ollama HTTP 클라이언트 (`gemma4:e4b` 멀티모달 + `nomic-embed-text` 임베딩)
+- Gemma 4 응답 Pydantic 검증 + 화이트리스트 (`DESIGN.md §5.3`)
+- 사운드 1·2·3차 폴백 체인 (네이티브 오디오 → 멜 스펙트로그램 비전 → 휴리스틱)
+- 새 SQLite 테이블 추가 (`sprite_meta`, `sound_meta`, `assets_fts`, `asset_embeddings`)
+- `assets.analysis_state` 전이: `pending → analyzing → ok / partial / failed`
+- 분석 큐 워커 (M1 의 `LibraryWatcher.on_pack_changed` 콜백 + 부팅 시 pending 행 드레인)
 
-**M1 시작 방법**
+**M2 시작 방법**
 
-1. `milestones/M1_plan.md` 작성 (M0 plan을 템플릿 삼아)
-2. `milestones/M1_todo.md` 작성
-3. `tests/test_watcher.py`, `tests/test_pack_manager.py`, `tests/test_store.py` 등 실패 테스트부터 작성
-4. 구현 → 통과 → `milestones/M1_verification.md`
+1. `milestones/M2_plan.md` 작성 (M1 plan을 템플릿 삼아)
+2. `milestones/M2_todo.md` 작성
+3. `tests/test_analyzer_sprite.py`, `tests/test_analyzer_sound.py`, `tests/test_ollama_client.py`, `tests/test_store_m2.py` 등 실패 테스트부터 작성
+4. 구현 → 통과 → `milestones/M2_verification.md`
+
+참고할 DESIGN 섹션: §4.2 / §4.3 / §5.1 (M2 신규 테이블) / §5.3 / §8.1 / §8.2 / §8.3.
 
 ## 9. 알려진 이슈·주의사항
 

@@ -16,6 +16,7 @@ dependencies = [
   "tomli_w>=1.0",
   "tomli>=2.0; python_version<'3.11'",
   "platformdirs>=4.2",
+  "watchdog>=4.0",
 ]
 
 [project.optional-dependencies]

@@ -21,6 +21,8 @@ Game Asset Helper(이하 **GAH**)는 Unity 게임 개발 중 Claude Code(또는 
 > 더 큰 26B/31B는 사용자 옵션으로 노출하되 기본은 아니다.
 >
 > Gemma 4의 오디오 입력은 conformer 기반 인코더로 ASR/이해를 직접 처리하며, 클립당 최대 30초, 단일 채널, 1초당 25 토큰을 사용한다. 따라서 30초가 넘는 BGM은 청크로 잘라서 보내거나 librosa로 대표 구간만 추출해 보내는 전략이 필요하다(§8.2 참고). 또한 2026-05 시점 기준 Ollama 런너에서 `gemma4:e4b` 오디오 추론 중 간헐적 GGML assertion 크래시가 보고돼 있다([ollama/ollama#15333](https://github.com/ollama/ollama/issues/15333)). 이에 대비해 오디오 분석은 항상 폴백 경로(librosa 기술 특성 + 멜 스펙트로그램 비전 입력)를 함께 갖추도록 설계한다.
+>
+> **백엔드 추상화** — 분석 클라이언트는 Ollama 의 `/api/chat` 만 호출하지 않고, OpenAI 호환 `/v1/chat/completions` 을 우선 시도해 LM Studio·llama-server 등 다른 백엔드로 교체 가능하게 둔다(§4.2.4 ADR). llama.cpp/llama-server 의 오디오 입력은 2026-04 시점 미구현이라 현재는 후보에서 빠지지만, 패치되면 base URL 한 줄로 옮길 수 있도록.
 
 
 ## 2. 목표 및 범위
@@ -164,6 +166,26 @@ Gemma 4의 E2B/E4B는 conformer 기반 오디오 인코더를 내장해 **원본
 5. **3차 최후 폴백** : 위 둘 다 실패하면 기술 특성(길이/RMS/BPM)과 파일명만으로 휴리스틱 분류 (예: 파일명에 `bgm`·`loop`·`music` 포함 시 BGM 추정). `analysis_state='partial'`로 마킹해 GUI에서 사용자가 보정하도록.
 
 > 1·2차 경로 모두 같은 JSON 스키마를 따르므로, 검색 단계에서는 어떤 경로로 분석됐는지 구분 없이 동일하게 다뤄도 된다.
+
+#### 4.2.4 분석 클라이언트의 백엔드 추상화 (ADR, 2026-05-16)
+
+v1은 Ollama 를 1차 백엔드로 채택하지만, 분석 클라이언트(`gah.core.ollama_client`)는 **얇은 HTTP 래퍼**로만 짜서 백엔드를 갈아끼울 수 있게 둔다. 이유:
+
+- **llama.cpp / llama-server 는 2026-04 시점 오디오 입력 미구현** 이라 우리 1차 경로(네이티브 오디오)를 못 탄다. 이미지·텍스트만 안정이라 후보에서 탈락.
+- **LM Studio**는 데몬 모드(`lms daemon up`, `lms server start`) + OpenAI 호환 엔드포인트를 제공하고 모델 페이지에서도 오디오 지원을 표기하지만, 2026-05 시점 공식 developer docs 에는 **오디오 입력 요청 스키마가 명시되지 않았다**. 의존하면 비공개 동작에 종속된다.
+- **Ollama 의 GGML assertion 크래시([#15333])** 는 자동 재시작 6~8초로 부분 회복되고, §4.2.3 의 1·2·3차 폴백이 정확히 이 시나리오를 흡수한다. 즉 우리 분석 큐 입장에선 "한 항목 실패 → 다음 항목"으로 자연 진행.
+
+규약:
+
+- 호출은 `POST {base_url}/v1/chat/completions` (OpenAI 호환) 우선. 실패하면 `POST {base_url}/api/chat` (Ollama 네이티브) 폴백. LM Studio·llama-server 도 `/v1/...` 을 따르므로 base URL 한 줄 변경으로 백엔드 교체가 끝나야 한다.
+- 모델명·base URL·타임아웃·동시성은 전부 `Config` 필드에서 주입 (이미 있는 `ollama_url`, `model_image`, `model_audio`, `model_embed` 외에 M2 에서 `analysis_timeout_seconds`, `analysis_concurrency` 추가 예정).
+- **Ollama 네이티브 `/api/chat` 의 멀티모달 입력은 `images: [base64, ...]` 단일 필드로 통합돼 있다** — 이미지든 오디오든 base64 바이트를 그 배열에 넣으면 모델이 modality 를 자동 추론한다. 공식 문서는 2026-05 시점 미공개 ([ollama/ollama#15427](https://github.com/ollama/ollama/issues/15427)) 이지만 2026-05-16 GAH 에서 실측 검증 완료(이미지=Windows 로고 식별, 오디오=Alarm01.wav "bouncy rhythmic synth beat" 묘사, 한국어+`format:"json"` JSON 강제 출력 모두 정상). OpenAI 호환 `/v1/chat/completions` 경로는 `input_audio.{data,format}` / `image_url` 등 분리 스키마를 따르므로 어댑터에서 두 형식을 모두 받게 둔다.
+- LM Studio·llama-server 가 향후 오디오를 추가하면 그쪽 스키마(통상 OpenAI 호환)를 어댑터 한쪽에서 흡수.
+
+이 결정은 **언제 다시 볼지** 기준선:
+
+- Ollama #15333 이 닫혀 안정성이 회복되면 추상화는 그대로 두고 단순 Ollama 호출로 회귀해도 된다.
+- 추상화가 짐이 될 만큼 무거워지면(예: 분기 로직이 클라이언트 코드의 30% 초과) 백엔드를 한쪽으로 고정한다.
 
 ### 4.3 Embedding 인덱스
 
@@ -468,10 +490,12 @@ CREATE INDEX idx_unity_imports_pack ON unity_imports(pack_id);
 
 ### 5.3 Gemma 4 응답 JSON 스키마(스프라이트 예)
 
+스키마는 **듀얼 언어 구조** — 검색·통일성·임베딩 정렬을 위해 정규(canonical) 필드는 영어 화이트리스트로 고정하고, 사용자에게 노출되는 자연어(`description`, `subject`)만 호출 시 지정한 언어로 출력한다.
+
 ```json
 {
   "category": "character",
-  "subject": "knight",
+  "subject": "검을 든 중세 기사",
   "style": "pixel_art",
   "mood": ["heroic", "serious"],
   "palette": ["warm", "muted"],
@@ -481,7 +505,15 @@ CREATE INDEX idx_unity_imports_pack ON unity_imports(pack_id);
 }
 ```
 
-Pydantic 모델로 검증하고, `category`/`style`/`animation_hint`는 화이트리스트로 강제한다. 화이트리스트 밖이면 `other`로 강등하고 원문은 `description`에 보존한다.
+| 필드 | 언어 정책 | 비고 |
+|---|---|---|
+| `category` / `style` / `mood` / `palette` / `animation_hint` | 영어 enum 화이트리스트 고정 | 검색·통일성·임베딩의 어휘 공간 통일. 한국어로 받지 않는다. |
+| `description` / `subject` | 호출 시 `language` 인자(`"ko"`/`"en"`, 기본 `"ko"`)에 따른 자연어 | M2 의 시스템 프롬프트가 이 인자에 따라 출력 언어를 지시. |
+| `confidence` | 숫자 | 언어 무관. |
+
+Pydantic 모델로 검증하고, `category`/`style`/`mood`/`palette`/`animation_hint`는 화이트리스트로 강제한다. 화이트리스트 밖이면 `other`로 강등하고 원문은 `description`에 보존한다. 사운드 응답(`sfx`/`bgm`/`voice`/`ui`/`ambient` 등)도 같은 듀얼 구조를 따른다 — `category`/`mood`/`instruments` 는 영어 enum, `description`/`transcript` 는 호출 언어.
+
+GUI 텍스트(메뉴·탭·컬럼 헤더·에러)는 Qt i18n(`.ts/.qm`) 으로 별도 관리하며 v1 에서는 한국어 단일로 출발해 M6 마감 시점에 영어 번역 추가(§12 #4 참고).
 
 
 ## 6. MCP 도구 명세
@@ -889,8 +921,9 @@ mcp.find_asset(query, project_id, ...)
 | 이미지 | `Pillow`, `numpy` | 픽셀아트 판정 등 |
 | 오디오 | `librosa`, `soundfile` | mel-spectrogram 포함 |
 | 파일 감시 | `watchdog` | NTFS USN 기반 |
-| LLM | `httpx` + Ollama REST | `gemma4:e4b` 기본 (이미지+오디오), `gemma4:e2b` 폴백 |
-| 임베딩 | Ollama `nomic-embed-text` | |
+| LLM | `httpx` + Ollama REST | `gemma4:e4b` 기본 (이미지+오디오), `gemma4:e2b` 폴백. 클라이언트는 OpenAI 호환 `/v1/chat/completions` 우선 + Ollama 네이티브 `/api/chat` 폴백 (§4.2.4) |
+| 임베딩 | Ollama `nomic-embed-text` | 검색용 의미 벡터 |
+| 라벨 스코어러 | `open_clip_torch` + `torch` | CLIP zero-shot 으로 라벨 화이트리스트별 객관 0~1 점수. M2 도입 (이미지 전용, 사운드 라벨링은 Gemma) |
 | DB | `sqlite3` (표준) | FTS5, JSON1 사용 |
 | 검증 | `pydantic v2` | LLM 응답 |
 | 패키징 | `pyinstaller` or `briefcase` | 단일 exe |
@@ -909,35 +942,53 @@ mcp.find_asset(query, project_id, ...)
 - `pack.json` 파싱, 벤더 휴리스틱, 팩 단위 enable/disable.
 - GUI 팩 탭과 라이브러리 탭(메타 없이 단순 리스트).
 
-### Milestone 2 — 분석 파이프라인 (2주)
+### Milestone 2 — 분석 파이프라인 (3주, 2026-05-16 CLIP 편입으로 +1주)
 - Pillow/librosa 기술 특성.
-- Ollama 클라이언트 + Gemma 4 멀티모달 호출 (이미지 입력 우선).
-- 사운드 네이티브 오디오 경로 + 스펙트로그램 폴백 + 휴리스틱 최후 폴백 체인.
-- Pydantic 검증, 화이트리스트.
-- 임베딩 생성 및 저장.
+- Ollama 클라이언트 + Gemma 4 멀티모달 호출 (이미지 입력 우선). **Gemma 라벨링은 많은 라벨 + 이산 가중치 3단계**(`primary`/`secondary`/`tertiary`) JSON 으로.
+- 사운드 네이티브 오디오 경로 + 스펙트로그램 폴백 + 휴리스틱 최후 폴백 체인 (사운드는 Gemma only).
+- **CLIP zero-shot 라벨 스코어러** — `open_clip` (또는 transformers CLIPModel) + PyTorch 도입. 라벨 화이트리스트(100~300개) 텍스트 임베딩 사전 계산 + 이미지당 라벨별 0~1 점수 산출.
+- DB 새 테이블 `asset_labels(asset_id, label, score REAL, source)` — `source` 는 `'gemma'`/`'clip'`/`'user'`.
+- Pydantic 검증, 영어 enum 화이트리스트, 자연어 description 호출 언어(기본 `ko`).
+- 임베딩 생성 및 저장 (`nomic-embed-text`).
+- GUI 문자열 일괄 `tr()` 래핑(M6 i18n 준비).
 
-### Milestone 3 — 검색 + 통일성 + MCP (2주)
-- FTS5 + 벡터 코사인 결합 검색.
+### Milestone 3 — 검색 백엔드 + 통일성 + MCP (2주)
+- FTS5 + 벡터 코사인 + 라벨 점수 결합 검색.
 - Consistency Scorer, Usage Tracker (명시 + 암묵 top-1 추정).
 - MCP 서버(stdio) `find_asset`(project_id 포함), `get_asset`, `list_assets`, `list_packs`, `record_asset_use`, `set_project_pin`, `request_rescan`.
+- GUI 라이브러리 탭은 **최소 동작**(쿼리 박스 + 결과 그리드 + 팩 드롭다운)만. 풍부 UX 는 M4 책임.
 - Claude Code에서 실제로 붙여 보고 프롬프트 튜닝. 같은 프로젝트에서 여러 번 요청해 팩이 점점 굳는지 검증.
 
-### Milestone 4 — 시트 분석 + 애니메이션 (1주)
+### Milestone 4 — 검색 UX (라이브러리 탭 풍부화) (1.5주, 2026-05-16 신설)
+- 라이브러리 탭에 풍부한 검색·필터·소팅 UI:
+  - 자연어 검색 박스 + 부울 라벨 쿼리(`#warrior +#pixel_art -#dark` 같은 문법)
+  - 라벨 칩 필터 (화이트리스트 다중 선택, AND/OR/NOT)
+  - 다축 필터 (팩 다중, kind, 분석 상태, 라이선스, 벤더, 해상도/길이 범위)
+  - 소팅 (의미·키워드·통일성·라벨 점수 / 추가일 / 파일 크기 / 이름)
+  - 결과 뷰 그리드 ↔ 리스트 토글, hover 미리보기, 사운드 인라인 재생
+  - 가중치 슬라이더 (의미/키워드/통일성/라벨 비중 실시간 조절, Config 와 양방향)
+  - 저장된 검색 (`saved_searches` 새 테이블)
+  - 결과 비교 보기, 키보드 단축키
+- M3 백엔드는 그대로, 부울 쿼리 파서·UI 위젯·바인딩만 추가.
+- 모든 신규 GUI 문자열은 `tr()` 래핑 (M7 i18n 준비).
+
+### Milestone 5 — 시트 분석 + 애니메이션 (1주)
 - 격자 자동 분할, Aseprite/TexturePacker JSON 지원.
 - `suggest_animation_frames` 도구.
 
-### Milestone 5 — Unity Asset Store 임포트 (1주)
+### Milestone 6 — Unity Asset Store 임포트 (1주)
 - 캐시 경로 자동 검출(환경변수 + Preferences 폴백) + 사용자 오버라이드.
 - `.unitypackage` 파서, 선택적 추출(이미지/사운드만), 매니페스트 자동 생성.
 - 증분 동기화, `unity_imports` 테이블, `sync_unity_asset_store` MCP 도구.
 - GUI Unity Asset Store 탭.
 - 비공식 publisher 패널 경로는 스켈레톤만(기본 비활성), 안정성 모니터링 후 별도 마일스톤에서 본 구현.
 
-### Milestone 6 — GUI 마감 + 패키징 (1주)
+### Milestone 7 — GUI 마감 + 패키징 (1주)
 - 상세/설정/프로젝트 탭, 메타 수정, manual_override, 프로젝트 pin/block UI.
-- PyInstaller로 단일 exe, 자동 시작 토글, 트레이 알림.
+- Qt i18n 도입 — `.ts/.qm` 한국어/영어, `Config.ui_language` 토글 (§5.3, §12 #4).
+- PyInstaller로 단일 exe (CLIP 모델 가중치 사이즈 ~600 MB~1.7 GB 포함 또는 첫 실행 시 다운로드 옵션), 자동 시작 토글, 트레이 알림.
 
-총 9.5주 가량을 v1 목표로 잡는다. 각 마일스톤 끝에 Claude Code에서 직접 써보며 검증한다.
+총 12주 가량을 v1 목표로 잡는다 (M2 CLIP +1주 + M4 검색 UX +1.5주). 각 마일스톤 끝에 Claude Code에서 직접 써보며 검증한다.
 
 
 ## 12. 열린 질문 / 결정 보류
@@ -945,7 +996,7 @@ mcp.find_asset(query, project_id, ...)
 1. **시트 메타데이터 입력 UX** — JSON이 없는 시트는 자동 분할 실패 가능성이 있다. 사용자가 frame size를 입력하는 다이얼로그를 매번 띄울지, 일괄 처리 큐로 모아둘지.
 2. **임베딩 차원 선택** — `nomic-embed-text`는 768. 라이브러리가 작으면 굳이 임베딩 없이 FTS만으로도 충분할 수도 있다. 임베딩 on/off 토글이 필요할지 v1에서 정한다.
 3. **에셋 라이선스 필드** — 메타에 `license`, `source_url` 같은 자유 필드를 두긴 하지만, MCP 응답에 포함해서 Claude Code가 라이선스 표기를 권유하게 할지.
-4. **GUI 언어** — 한국어/영어 토글. 일단 한국어 단일로 만들고 추후 i18n.
+4. **GUI 언어 / 모델 출력 언어** — 결정(2026-05-16): **모델 출력은 M2 부터 듀얼 구조**(정규 enum 영어 고정 + 자연어 description 호출 언어). v1 기본 description 언어는 한국어. **GUI Qt i18n 은 M6 마감에서 도입** — `.ts/.qm` 파일 + `Config.ui_language`(`"ko"`/`"en"`/`"auto"`) 필드. M2~M5 의 GUI 문자열은 한국어 그대로 두되 사용자 노출 문자열을 모두 `tr("...")` 으로 감싸 두면 M6 작업이 단순 번역 추가로 끝난다.
 5. **사운드 의미 라벨 정확도** — Gemma 4 네이티브 오디오 경로의 실제 분류 정확도(특히 SFX vs BGM, 분위기 다중 라벨)를 측정해보고, 부족하면 v2에서 CLAP/PANNs 같은 전용 오디오 임베딩 모델을 보조로 추가.
 6. **Ollama 오디오 안정성 모니터링** — `gemma4:e4b` 오디오 추론 GGML assertion 이슈([ollama/ollama#15333](https://github.com/ollama/ollama/issues/15333))가 패치될 때까지 1차 경로 실패율을 메트릭으로 수집한다. 실패율이 X% 이상이면 사용자 환경에서는 자동으로 스펙트로그램 폴백을 기본 경로로 승격하는 옵션을 검토.
 7. **암묵 채택의 정확도와 위험** — `record_asset_use` 명시 호출 없이 직전 응답의 top-1을 자동 채택 처리하는 휴리스틱은 잘못된 학습을 만들 위험이 있다. v1에서는 명시 호출만 신뢰하고, 암묵 추정은 옵트인으로 둔다. 시스템 프롬프트로 Claude Code에게 `record_asset_use` 호출을 강하게 권장하는 문구를 README에 정리.
