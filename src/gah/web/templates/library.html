@@ -8,8 +8,7 @@
         hx-post="/ui/search-results"
         hx-target="#results"
         hx-swap="innerHTML"
-        hx-trigger="keyup changed delay:300ms from:input[name=query], submit, change from:select[name=sort], load"
-        hx-include="this"
+        hx-trigger="input changed delay:300ms, submit, change, load"
         x-data="{}"
         @submit.prevent>
     <input type="search" name="query"
