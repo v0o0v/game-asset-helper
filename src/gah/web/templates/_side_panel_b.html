@@ -1,4 +1,58 @@
-<div class="placeholder-content">
-  <h3>{{ _("B 필터") }}</h3>
-  <p>{{ _("Phase 3B 에서 매칭 모드 + 라벨 검색 + 종류 탭 + axis 칩 + 다축 필터가 채워집니다.") }}</p>
+<div class="b-panel-content">
+  <h3 class="side-panel-heading">{{ _("B 필터") }}</h3>
+
+  {# ── 매칭 모드 (Task 3.4) ──────────────────────────────── #}
+  <fieldset class="match-mode">
+    <legend class="match-mode-legend">{{ _("매칭 모드") }}</legend>
+    <label class="match-mode-option">
+      <input type="radio" name="match_mode" value="all"
+             x-model="$store.search.matchMode"
+             @change="htmx.trigger('form.search-bar', 'submit')" />
+      {{ _("AND") }}
+    </label>
+    <label class="match-mode-option">
+      <input type="radio" name="match_mode" value="any"
+             x-model="$store.search.matchMode"
+             @change="htmx.trigger('form.search-bar', 'submit')" />
+      {{ _("OR") }}
+    </label>
+    <label class="match-mode-option">
+      <input type="radio" name="match_mode" value="none"
+             x-model="$store.search.matchMode"
+             @change="htmx.trigger('form.search-bar', 'submit')" />
+      {{ _("NOT") }}
+    </label>
+  </fieldset>
+
+  {# ── 라벨 검색 input (Task 3.5) ───────────────────────── #}
+  <div class="label-filter-wrap">
+    <input type="search"
+           class="label-filter-input"
+           x-model="$store.b.labelFilter"
+           placeholder="{{ _('🔍 라벨 검색…') }}" />
+  </div>
+
+  {# ── 종류 탭 (Task 3.6) ───────────────────────────────── #}
+  <nav class="kind-tabs">
+    <button
+      @click="$store.b.kindTab = 'sprite'"
+      :class="{ active: $store.b.kindTab === 'sprite' }">
+      {{ _("스프라이트") }}
+    </button>
+    <button
+      @click="$store.b.kindTab = 'sheet'"
+      :class="{ active: $store.b.kindTab === 'sheet' }">
+      {{ _("시트") }}
+    </button>
+    <button
+      @click="$store.b.kindTab = 'sound'"
+      :class="{ active: $store.b.kindTab === 'sound' }">
+      {{ _("사운드") }}
+    </button>
+  </nav>
+
+  {# ── axis 칩 영역 placeholder (Task 3.7 가 채움) ─────── #}
+  <div class="axis-chips-area" id="axis-chips">
+    {# Task 3.7 (axis 칩 렌더) 에서 hx-get 으로 채워짐 #}
+  </div>
 </div>

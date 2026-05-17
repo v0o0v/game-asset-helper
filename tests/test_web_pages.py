@@ -254,10 +254,13 @@ def test_library_page_has_tab_labels(client):
     assert "D 조정" in r.text
 
 
-def test_library_page_has_b_placeholder(client):
-    """B 탭 placeholder 내용이 렌더된다 (Jinja include)."""
+def test_library_page_has_b_match_mode(client):
+    """B 탭에 매칭 모드 fieldset (match-mode 클래스 + AND/OR/NOT) 이 렌더된다."""
     r = client.get("/library")
-    assert "Phase 3B" in r.text
+    assert "match-mode" in r.text
+    assert "AND" in r.text
+    assert "OR" in r.text
+    assert "NOT" in r.text
 
 
 def test_library_page_has_c_placeholder(client):
