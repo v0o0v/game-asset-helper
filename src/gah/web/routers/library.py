@@ -102,13 +102,56 @@ def _apply_sort(rows: list[dict[str, Any]], sort: str) -> list[dict[str, Any]]:
         return rows  # 필드 타입 불일치 시 정렬 안 함
 
 
+def _asset_row_to_dict(row: Any) -> dict[str, Any]:
+    """AssetRow dataclass → JSON-직렬화 가능 dict (디폴트 상태 폴백용).
+
+    ResultRow 와 달리 score / matched_labels / why / score_breakdown 가 없으므로
+    기본값으로 채운다.
+    """
+    from pathlib import Path as _Path
+
+    d: dict[str, Any] = {
+        "asset_id": row.id,
+        "pack_id": row.pack_id,
+        "pack_name": "",       # 디폴트 상태에서는 pack join 없이 빠르게 처리
+        "path": row.path,
+        "name": _Path(row.path).stem,
+        "score": 0.0,
+        "score_breakdown": {},
+        "matched_labels": [],
+        "why": "",
+        "meta": {},
+        "width": None,
+        "height": None,
+        "size_kb": row.file_size // 1024 if row.file_size else None,
+        "added_at": row.added_at,
+        "kind": row.kind,
+    }
+    return d
+
+
 def _do_search(deps: Any, body: SearchBody) -> dict[str, Any]:
     """HybridSearcher 호출 핵심 로직 — /api/search 와 /ui/search-results 가 공유.
 
     SearchRequest 에 offset 필드가 없으므로 fetch_count = count + offset 으로
     더 많이 받아온 뒤 Python 에서 슬라이싱한다.
+
+    빈 검색 (query 비어 + label_query 없음 + 기타 필터 없음) 인 경우에는
+    HybridSearcher 를 거치지 않고 store.list_assets() 폴백으로 라이브러리
+    전체를 추가일↓ 순으로 반환한다. sort=score 는 이 경우 added_desc 로 전환.
     """
     from ...core.search import SearchRequest
+
+    # ── 빈 검색 판정 ────────────────────────────────────────────────────
+    is_empty_search = (
+        not body.query
+        and not body.label_query
+        and not (body.labels or [])
+        and not (body.pack_ids or [])
+        and not body.kind
+    )
+    if is_empty_search:
+        return _list_all_assets(deps, body)
 
     # offset 만큼 앞 결과를 버릴 수 있도록 충분히 가져온다.
     fetch_count = body.count + body.offset
@@ -140,6 +183,39 @@ def _do_search(deps: Any, body: SearchBody) -> dict[str, Any]:
     )
     return {
         "query_id": response.query_id,
+        "total": total,
+        "rows": sliced,
+        "next_offset": next_offset,
+    }
+
+
+def _list_all_assets(deps: Any, body: SearchBody) -> dict[str, Any]:
+    """빈 검색 폴백 — store.list_assets() 로 전체 에셋을 가져와 정렬 후 페이지 분할.
+
+    sort=score 는 의미 없으므로 added_desc 로 전환한다.
+    """
+    effective_sort = body.sort if body.sort != "score" else "added_desc"
+
+    # 전체 에셋을 넉넉하게 가져온다 (큰 라이브러리 대비 limit 높게).
+    # store.list_assets 는 ORDER BY path 고정이므로 Python 에서 재정렬.
+    try:
+        all_assets = deps.store.list_assets(limit=10_000, offset=0)
+    except Exception:
+        # store API 가 없거나 실패하면 빈 결과 반환
+        return {"query_id": None, "total": 0, "rows": [], "next_offset": None}
+
+    all_rows = [_asset_row_to_dict(a) for a in all_assets]
+    all_rows = _apply_sort(all_rows, effective_sort)
+
+    total = len(all_rows)
+    sliced = all_rows[body.offset: body.offset + body.count]
+    next_offset: int | None = (
+        body.offset + body.count
+        if total > body.offset + body.count
+        else None
+    )
+    return {
+        "query_id": None,
         "total": total,
         "rows": sliced,
         "next_offset": next_offset,
