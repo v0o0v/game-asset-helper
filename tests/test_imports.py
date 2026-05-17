@@ -25,6 +25,14 @@ MODULES = [
     "gah.ui.main_window",
     "gah.ui.pack_view",
     "gah.ui.library_view",
+    # M3 신규 모듈
+    "gah.core.search",
+    "gah.core.consistency",
+    "gah.core.usage_tracker",
+    "gah.mcp",
+    "gah.mcp.models",
+    "gah.mcp.tools",
+    "gah.mcp.server",
 ]
 
 

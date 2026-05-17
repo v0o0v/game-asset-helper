@@ -30,9 +30,10 @@ M{N}_verification.md  # 자동/수동 검증 결과
 |---|---|---|---|---|
 | [M0 — 뼈대](./M0_plan.md) | ✅ 완료 | 18/18 | ✅ 트레이·단일 인스턴스 | config·logging·single_instance·tray 셸·CLI |
 | [M1 — 워처 + Pack Manager + DB](./M1_plan.md) | ✅ 완료 | 45/45 (전체 67/67) | 항목 정리 (수동 시나리오는 `M1_verification.md` §3) + 트레이 아이콘/더블클릭 폴리시 4 테스트 추가 | watchdog 어댑터+디바운서·매니페스트/벤더 휴리스틱·SQLite 4테이블·부팅 풀스캔·GUI 팩/라이브러리 탭 |
-| [M2 — 분석 파이프라인 + CLIP](./M2_plan.md) | ✅ 완료 | 134/134 (전체 204/204, `clip_integration` 2 옵트인 제외) | 수동 시나리오는 `M2_verification.md` §3 | Pillow·numpy 기술 특성·librosa+soundfile·Ollama 클라이언트(OpenAI 호환+네이티브 폴백)·`nomic-embed-text`·CLIP zero-shot 라벨러·24축 ≈ 316 라벨 시드+`LabelRegistry`+라벨 관리 다이얼로그·분석 큐+ETA 상태바·M3 인계 stub |
-| M3 — 검색 백엔드 + 통일성 + MCP (2주) | 다음 | — | — | FTS5·코사인·라벨 점수·MCP stdio·suggest_packs·find_asset (GUI 는 최소 동작만) |
-| M4 — 검색 UX (라이브러리 탭 풍부화) (1.5주) | 대기 | — | — | 자연어+부울 라벨 쿼리·다축 필터·가중치 슬라이더·저장된 검색·그리드/리스트 토글 |
+| [M2 — 분석 파이프라인 + CLIP](./M2_plan.md) | ✅ 완료 | 134/134 (전체 204/204, `clip_integration` 2 옵트인 제외) | 수동 시나리오는 `M2_verification.md` §3 | Pillow·numpy 기술 특성·librosa+soundfile·Ollama 클라이언트(OpenAI 호환+네이티브 폴백)·`nomic-embed-text`·CLIP zero-shot 라벨러·24축 ≈ 316 라벨 시드+`LabelRegistry`+라벨 관리 다이얼로그·분석 큐+ETA 상태바 |
+| [M2.1 — 분석 큐 병렬화 패치](./M2.1_plan.md) | ✅ 완료 | 16/16 (전체 221/221, `clip_integration` 2 옵트인 제외) | 수동 시나리오는 `M2.1_verification.md` §3 | 동시성 1→3, Ollama semaphore(parallel=2), CLIP threading.Lock, SQLite write_lock+busy_timeout, GUI 250ms 디바운스 |
+| [M3 — 검색 백엔드 + 통일성 + MCP](./M3_plan.md) | ✅ 완료 | 112/112 (전체 333/333, `clip_integration` 2 + `mcp_integration` 2 옵트인 제외) | 수동 시나리오는 `M3_verification.md` §4 (GUI 검색 박스 1 항목, 검증 중 발견된 `EmbeddingEncoder.decode_vector` 인터페이스 갭 fix + 회귀 가드 2 §3.6 참고) | HybridSearcher 가중합 0.40/0.15/0.20/0.20/0.05·ConsistencyScorer §4.6 표·UsageTracker·MCP stdio 12 도구 (mcp 1.27)·GUI 검색 박스·`docs/MCP_USAGE_GUIDE.md` 본격화 |
+| M4 — 검색 UX 풍부화 (1.5주) | 다음 | — | — | 자연어 라벨 부울 파서·다축 필터 칩·가중치 슬라이더·저장된 검색·suggest_packs samples 풍부화 |
 | M5 — 시트 분석 + 애니메이션 (1주) | 대기 | — | — | 격자 자동 분할·suggest_animation_frames |
 | M6 — Unity Asset Store 임포트 (1주) | 대기 | — | — | .unitypackage 파서·캐시 스캐너 |
 | M7 — GUI 마감 + 패키징 (1주) | 대기 | — | — | 상세/설정/프로젝트 탭·Qt i18n·PyInstaller |

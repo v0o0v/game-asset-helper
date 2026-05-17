@@ -113,6 +113,25 @@ class Config:
     clip_enable: bool = True
     audio_max_seconds: int = 30
     audio_chunk_strategy: str = "smart"  # "smart" | "first" | "rms_peak"
+    # M3 fields — 검색 가중합 + 통일성 임계 + MCP 옵션
+    # 가중치 5 채널 합 = 1.00 (semantic 40% + keyword 15% + label 20% + cons 20% + recency 5%).
+    # label_match=0 케이스(자유 쿼리) 에서도 다른 채널 재정규화 없음 — 의도적으로 max 0.80.
+    weight_semantic: float = 0.40
+    weight_keyword: float = 0.15
+    weight_label_match: float = 0.20
+    weight_consistency: float = 0.20
+    weight_recency: float = 0.05
+    # 통일성 "굳음" 판정 임계: distinct pack ≤ max AND uses ≥ min.
+    consistency_locked_max_packs: int = 2
+    consistency_locked_min_uses: int = 5
+    # 팔레트 ΔE (LAB 평균 유클리드) 임계 — 이하면 "팔레트 근접" 보너스 +0.1.
+    palette_delta_e_threshold: float = 30.0
+    # 암묵 top1 추정. 기본 OFF — record_asset_use 명시 호출 권장 (MCP instructions 참조).
+    implicit_top1_enabled: bool = False
+    # MCP find_asset count 디폴트 (사용자가 명시 안 했을 때).
+    mcp_search_default_count: int = 5
+    # recency 채널의 지수 감쇠 윈도우 (초). 30일.
+    recency_window_seconds: int = 2_592_000
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "Config":

@@ -325,3 +325,303 @@ def analyzer_inputs(fixture_dir: Path):
         )
 
     return _build
+
+
+# ─────────────────────────────────────────────────────────────────────
+# M3 fixtures — deterministic embedder + populated store + consistency
+# summary builder + MCP tool deps.
+#
+# Same lazy-import policy as M2: any fixture that touches a yet-to-be-
+# implemented M3 module imports it inside the fixture body, so M0/M1/M2
+# tests still collect during the RED phase.
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _fake_embed_vec(text: str, dim: int = 768) -> bytes:
+    """Deterministic float32 LE vector derived from sha256(text).
+
+    Used by the M3 ``HybridSearcher`` tests as a drop-in replacement for
+    ``gah.core.embedding.EmbeddingEncoder`` — same byte format
+    (float32 little-endian, dim * 4 bytes) so it round-trips through
+    ``Store.semantic_candidates_load``.
+    """
+    import hashlib
+    import struct
+
+    digest = hashlib.sha256(text.encode("utf-8")).digest()
+    # Stretch the 32-byte digest into ``dim`` float32 values in [-1, 1].
+    out = bytearray()
+    for i in range(dim):
+        b = digest[i % 32]
+        # Center on 0, scale to roughly unit range.
+        f = (b - 127.5) / 127.5
+        out += struct.pack("<f", f)
+    return bytes(out)
+
+
+@pytest.fixture
+def fake_embedder():
+    """Lightweight stand-in for ``gah.core.embedding.EmbeddingEncoder``.
+
+    Exposes the same surface used by the M3 search path::
+
+        embedder.encode_text(text) -> (bytes, dim)
+        embedder.decode_vector(blob, dim) -> np.ndarray
+
+    The encoding is purely deterministic (sha256-derived), so query
+    vectors hash to the same point as identical asset texts — handy for
+    asserting that semantic similarity rises monotonically with text
+    overlap in unit tests.
+    """
+    import numpy as np
+
+    class _FakeEmbedder:
+        def __init__(self, dim: int = 768) -> None:
+            self.dim = dim
+            self.model = "fake-embed"
+
+        def encode_text(self, text: str) -> tuple[bytes, int]:
+            return _fake_embed_vec(text, self.dim), self.dim
+
+        def decode_vector(self, blob: bytes, dim: int) -> "np.ndarray":
+            return np.frombuffer(blob, dtype="<f4", count=dim).copy()
+
+    return _FakeEmbedder()
+
+
+@pytest.fixture
+def populated_store(store, fake_embedder):
+    """A live Store seeded with 2 packs × 3 analyzed assets.
+
+    Layout:
+
+        pack_a (vendor=kenney,  main_style=pixel_art)
+          ├─ assets/hero.png      labels: category=character, style=pixel_art
+          ├─ assets/coin.png      labels: category=item,      style=pixel_art
+          └─ sounds/jump.wav      labels: sound_category=sfx
+        pack_b (vendor=craftpix, main_style=vector_cartoon)
+          ├─ assets/menu_bg.png   labels: category=background, style=vector_cartoon
+          ├─ assets/button.png    labels: category=ui,         style=vector_cartoon
+          └─ sounds/bgm_loop.ogg  labels: sound_category=bgm, sound_mood=calm
+
+    Each asset has analysis_state='ok', an embedding (via fake_embedder),
+    label rows, and the parent pack carries an ``aggregate_meta`` JSON
+    with ``main_style`` + ``palette``.  Returns a dict with handles for
+    each row so tests can assert on stable IDs::
+
+        store, ids = populated_store
+        ids["pack_a"], ids["hero"], ids["bgm_loop"], ...
+    """
+    import json
+    import time
+
+    from gah.core.store import AssetRow  # noqa: F401 -- import sanity-check
+
+    now = int(time.time())
+
+    def _add_pack(name: str, vendor: str, main_style: str, palette: list[str]) -> int:
+        store.conn.execute(
+            "INSERT INTO packs (name, display_name, vendor, enabled, added_at, scanned_at, aggregate_meta) "
+            "VALUES (?,?,?,1,?,?,?)",
+            (
+                name,
+                name.replace("_", " ").title(),
+                vendor,
+                now,
+                now,
+                json.dumps({"main_style": main_style, "palette": palette}),
+            ),
+        )
+        return int(store.conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+    def _add_asset(
+        pack_id: int, rel_path: str, kind: str, labels: list[tuple[str, str, float, str]]
+    ) -> int:
+        store.conn.execute(
+            "INSERT INTO assets (pack_id, path, kind, file_hash, file_size, added_at, "
+            "analyzed_at, analysis_state) VALUES (?,?,?,?,?,?,?,?)",
+            (pack_id, rel_path, kind, "hash_" + rel_path, 1024, now, now, "ok"),
+        )
+        asset_id = int(store.conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+        # FTS text — pack name + path + label tokens.
+        fts_text = " ".join(
+            [
+                rel_path.replace("/", " "),
+                kind,
+                *(f"label:{label}" for _, label, _, _ in labels),
+                *(f"{axis}:{label}" for axis, label, _, _ in labels),
+            ]
+        )
+        store.conn.execute(
+            "INSERT INTO assets_fts (asset_id, searchable_text) VALUES (?, ?)",
+            (asset_id, fts_text),
+        )
+        # Labels.
+        for axis, label, score, source in labels:
+            store.conn.execute(
+                "INSERT INTO asset_labels (asset_id, axis, label, score, source) "
+                "VALUES (?,?,?,?,?)",
+                (asset_id, axis, label, score, source),
+            )
+        # Embedding — fake deterministic.
+        blob, dim = fake_embedder.encode_text(fts_text)
+        store.conn.execute(
+            "INSERT INTO asset_embeddings (asset_id, model, dim, vector) VALUES (?,?,?,?)",
+            (asset_id, fake_embedder.model, dim, blob),
+        )
+        # kind-specific meta (minimal — just to satisfy joins).
+        if kind == "sprite":
+            store.conn.execute(
+                "INSERT INTO sprite_meta (asset_id, width, height, has_alpha, "
+                "is_pixel_art, dominant_colors) VALUES (?,?,?,?,?,?)",
+                (asset_id, 64, 64, 0, 1 if "pixel" in fts_text else 0, json.dumps([])),
+            )
+        elif kind == "sound":
+            store.conn.execute(
+                "INSERT INTO sound_meta (asset_id, duration_ms, sample_rate, channels, "
+                "audio_path_used) VALUES (?,?,?,?,?)",
+                (asset_id, 1500, 16000, 1, "native"),
+            )
+        return asset_id
+
+    with store.write_lock:
+        pack_a = _add_pack(
+            "pack_a", "kenney", "pixel_art", ["#aa1122", "#22aa11", "#1122aa"]
+        )
+        pack_b = _add_pack(
+            "pack_b", "craftpix", "vector_cartoon", ["#ffffff", "#000000", "#888888"]
+        )
+        hero = _add_asset(
+            pack_a,
+            "pack_a/assets/hero.png",
+            "sprite",
+            [
+                ("category", "character", 0.92, "gemma"),
+                ("style", "pixel_art", 0.88, "gemma"),
+            ],
+        )
+        coin = _add_asset(
+            pack_a,
+            "pack_a/assets/coin.png",
+            "sprite",
+            [
+                ("category", "item", 0.91, "gemma"),
+                ("style", "pixel_art", 0.85, "gemma"),
+            ],
+        )
+        jump = _add_asset(
+            pack_a,
+            "pack_a/sounds/jump.wav",
+            "sound",
+            [("sound_category", "sfx", 0.93, "gemma")],
+        )
+        menu_bg = _add_asset(
+            pack_b,
+            "pack_b/assets/menu_bg.png",
+            "sprite",
+            [
+                ("category", "background", 0.88, "gemma"),
+                ("style", "vector_cartoon", 0.86, "gemma"),
+            ],
+        )
+        button = _add_asset(
+            pack_b,
+            "pack_b/assets/button.png",
+            "sprite",
+            [
+                ("category", "ui", 0.90, "gemma"),
+                ("style", "vector_cartoon", 0.84, "gemma"),
+            ],
+        )
+        bgm_loop = _add_asset(
+            pack_b,
+            "pack_b/sounds/bgm_loop.ogg",
+            "sound",
+            [
+                ("sound_category", "bgm", 0.94, "gemma"),
+                ("sound_mood", "calm", 0.81, "gemma"),
+            ],
+        )
+        store.conn.commit()
+
+    ids = {
+        "pack_a": pack_a,
+        "pack_b": pack_b,
+        "hero": hero,
+        "coin": coin,
+        "jump": jump,
+        "menu_bg": menu_bg,
+        "button": button,
+        "bgm_loop": bgm_loop,
+    }
+    return store, ids
+
+
+@pytest.fixture
+def consistency_summary_factory():
+    """Builder for ``ProjectUsageSummary`` instances in consistency tests.
+
+    Lazy import means the fixture is resolvable only after C.3 lands the
+    ``gah.core.usage_tracker`` module — exactly the M2 pattern.
+    """
+    from gah.core.usage_tracker import ProjectUsageSummary  # type: ignore[import-not-found]
+
+    def _make(
+        *,
+        pack_uses: dict[int, int] | None = None,
+        vendor_uses: dict[str, int] | None = None,
+        dominant_style: str | None = None,
+        dominant_palette: list[str] | None = None,
+    ) -> "ProjectUsageSummary":
+        pu = dict(pack_uses or {})
+        vu = dict(vendor_uses or {})
+        return ProjectUsageSummary(
+            pack_uses=pu,
+            vendor_uses=vu,
+            total_uses=sum(pu.values()),
+            distinct_packs=len(pu),
+            dominant_style=dominant_style,
+            dominant_palette=list(dominant_palette or []),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def mcp_tool_deps(populated_store, fake_embedder):
+    """Factory for a ``ToolDeps`` carrying the live store + sensible defaults.
+
+    Tests can override individual components by passing kwargs::
+
+        deps = mcp_tool_deps(queue=None, registry=my_fake_registry)
+
+    Resolves M3 modules lazily so RED-phase collection still works.
+    """
+    from gah.config import Config
+    from gah.core.consistency import ConsistencyScorer  # type: ignore[import-not-found]
+    from gah.core.search import HybridSearcher  # type: ignore[import-not-found]
+    from gah.core.usage_tracker import UsageTracker  # type: ignore[import-not-found]
+    from gah.core.labels import LabelRegistry
+    from gah.mcp.tools import ToolDeps  # type: ignore[import-not-found]
+
+    store, _ids = populated_store
+    config = Config()
+    registry = LabelRegistry(store)
+    registry.bootstrap()
+    consistency = ConsistencyScorer(store, config)
+    usage = UsageTracker(store, config)
+    search = HybridSearcher(store, fake_embedder, consistency, registry, config)
+
+    def _build(**overrides):
+        kwargs = dict(
+            store=store,
+            search=search,
+            usage=usage,
+            registry=registry,
+            queue=None,
+            config=config,
+        )
+        kwargs.update(overrides)
+        return ToolDeps(**kwargs)
+
+    return _build

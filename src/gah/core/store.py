@@ -9,6 +9,7 @@ file boots cleanly on first run *and* on upgrade.
 
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 import threading
@@ -99,6 +100,35 @@ class LabelRow:
     description: str | None
     source: str           # 'seed' | 'user'
     enabled: bool
+
+
+@dataclass(frozen=True)
+class ProjectRow:
+    """M3: 프로젝트 (Claude Code 가 보내는 external_id 로 식별)."""
+
+    id: int
+    external_id: str
+    display_name: str | None
+    first_seen: int
+    last_seen: int
+    pinned_pack_id: int | None
+    blocked_packs: list[int]   # JSON 디코드 결과
+
+
+@dataclass(frozen=True)
+class ProjectUsageSummary:
+    """M3: 프로젝트의 사용 이력 요약 — ConsistencyScorer 의 핵심 입력.
+
+    ``usage_tracker.py`` 에서도 그대로 import 해 쓴다 — 모듈 경계는 데이터
+    의존 방향(usage → store) 을 거꾸로 만들지 않도록 store 가 source of truth.
+    """
+
+    pack_uses: dict[int, int]            # {pack_id: count}
+    vendor_uses: dict[str, int]
+    total_uses: int
+    distinct_packs: int
+    dominant_style: str | None
+    dominant_palette: list[str]
 
 
 # ── schemas ──────────────────────────────────────────────────────────
@@ -227,6 +257,40 @@ CREATE INDEX IF NOT EXISTS idx_labels_axis_enabled ON labels(axis, enabled);
 """
 
 
+_M3_SCHEMA = """
+CREATE TABLE IF NOT EXISTS projects (
+  id              INTEGER PRIMARY KEY,
+  external_id     TEXT NOT NULL UNIQUE,
+  display_name    TEXT,
+  first_seen      INTEGER NOT NULL,
+  last_seen       INTEGER NOT NULL,
+  pinned_pack_id  INTEGER REFERENCES packs(id) ON DELETE SET NULL,
+  blocked_packs   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS asset_usage (
+  id          INTEGER PRIMARY KEY,
+  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  asset_id    INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+  pack_id     INTEGER NOT NULL,
+  used_at     INTEGER NOT NULL,
+  source      TEXT NOT NULL,
+  context     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_usage_project ON asset_usage(project_id, used_at);
+CREATE INDEX IF NOT EXISTS idx_usage_pack    ON asset_usage(project_id, pack_id);
+
+CREATE TABLE IF NOT EXISTS search_queries (
+  id           INTEGER PRIMARY KEY,
+  project_id   INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  query_text   TEXT NOT NULL,
+  results_json TEXT NOT NULL,
+  created_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_search_queries_project ON search_queries(project_id, created_at);
+"""
+
+
 # ── Store ────────────────────────────────────────────────────────────
 
 
@@ -262,9 +326,10 @@ class Store:
     # -- lifecycle ----------------------------------------------------
 
     def initialize(self) -> None:
-        """Create M1 + M2 tables.  Safe to call repeatedly."""
+        """Create M1 + M2 + M3 tables.  Safe to call repeatedly."""
         self.conn.executescript(_M1_SCHEMA)
         self.conn.executescript(_M2_SCHEMA)
+        self.conn.executescript(_M3_SCHEMA)
 
     def close(self) -> None:
         try:
@@ -709,8 +774,344 @@ class Store:
             for r in self.conn.execute(sql, params).fetchall()
         ]
 
+    # -- M3: projects -----------------------------------------------------
+
+    def upsert_project(
+        self, external_id: str, *, display_name: str | None = None
+    ) -> ProjectRow:
+        import time as _time
+
+        now = int(_time.time())
+        with self.write_lock:
+            cur = self.conn.execute(
+                "SELECT id FROM projects WHERE external_id = ?", (external_id,)
+            )
+            row = cur.fetchone()
+            if row is None:
+                self.conn.execute(
+                    "INSERT INTO projects (external_id, display_name, first_seen, last_seen) "
+                    "VALUES (?, ?, ?, ?)",
+                    (external_id, display_name, now, now),
+                )
+            else:
+                # display_name=None 일 때는 기존 값 보존, 아니면 갱신.
+                if display_name is None:
+                    self.conn.execute(
+                        "UPDATE projects SET last_seen = ? WHERE id = ?",
+                        (now, int(row[0])),
+                    )
+                else:
+                    self.conn.execute(
+                        "UPDATE projects SET display_name = ?, last_seen = ? WHERE id = ?",
+                        (display_name, now, int(row[0])),
+                    )
+        got = self.get_project(external_id)
+        assert got is not None
+        return got
+
+    def get_project(self, external_id: str) -> ProjectRow | None:
+        row = self.conn.execute(
+            "SELECT id, external_id, display_name, first_seen, last_seen, "
+            "pinned_pack_id, blocked_packs FROM projects WHERE external_id = ?",
+            (external_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return _project_row(row)
+
+    def get_project_by_id(self, project_id: int) -> ProjectRow | None:
+        row = self.conn.execute(
+            "SELECT id, external_id, display_name, first_seen, last_seen, "
+            "pinned_pack_id, blocked_packs FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return _project_row(row)
+
+    def set_project_pin(self, project_id: int, pinned_pack_id: int | None) -> None:
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE projects SET pinned_pack_id = ? WHERE id = ?",
+                (pinned_pack_id, project_id),
+            )
+
+    def set_blocked_packs(self, project_id: int, pack_ids: list[int]) -> None:
+        import json as _json
+
+        payload = _json.dumps(list(pack_ids)) if pack_ids else None
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE projects SET blocked_packs = ? WHERE id = ?",
+                (payload, project_id),
+            )
+
+    # -- M3: asset_usage --------------------------------------------------
+
+    def record_asset_use(
+        self,
+        project_id: int,
+        asset_id: int,
+        pack_id: int,
+        *,
+        source: str = "explicit",
+        context: str | None = None,
+    ) -> int:
+        import time as _time
+
+        with self.write_lock:
+            self.conn.execute(
+                "INSERT INTO asset_usage (project_id, asset_id, pack_id, used_at, "
+                "source, context) VALUES (?, ?, ?, ?, ?, ?)",
+                (project_id, asset_id, pack_id, int(_time.time()), source, context),
+            )
+            return int(self.conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+    def project_usage_summary(self, project_id: int) -> ProjectUsageSummary:
+        rows = self.conn.execute(
+            "SELECT au.pack_id, p.vendor "
+            "FROM asset_usage au LEFT JOIN packs p ON p.id = au.pack_id "
+            "WHERE au.project_id = ?",
+            (project_id,),
+        ).fetchall()
+        pack_uses: dict[int, int] = {}
+        vendor_uses: dict[str, int] = {}
+        for pack_id, vendor in rows:
+            pack_uses[int(pack_id)] = pack_uses.get(int(pack_id), 0) + 1
+            if vendor:
+                vendor_uses[vendor] = vendor_uses.get(vendor, 0) + 1
+        dominant_style = None
+        dominant_palette: list[str] = []
+        if pack_uses:
+            dom_pack_id = max(pack_uses, key=lambda k: pack_uses[k])
+            agg = self.pack_aggregate(dom_pack_id) or {}
+            dominant_style = agg.get("main_style")
+            pal = agg.get("palette") or []
+            if isinstance(pal, list):
+                dominant_palette = [str(x) for x in pal]
+        return ProjectUsageSummary(
+            pack_uses=pack_uses,
+            vendor_uses=vendor_uses,
+            total_uses=sum(pack_uses.values()),
+            distinct_packs=len(pack_uses),
+            dominant_style=dominant_style,
+            dominant_palette=dominant_palette,
+        )
+
+    # -- M3: search_queries ----------------------------------------------
+
+    def insert_search_query(
+        self, project_id: int | None, query_text: str, results: list[tuple[int, float]]
+    ) -> int:
+        import json as _json
+        import time as _time
+
+        payload = _json.dumps([[int(aid), float(score)] for aid, score in results])
+        with self.write_lock:
+            self.conn.execute(
+                "INSERT INTO search_queries (project_id, query_text, results_json, "
+                "created_at) VALUES (?, ?, ?, ?)",
+                (project_id, query_text, payload, int(_time.time())),
+            )
+            return int(self.conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+    def last_query_top1_for_project(
+        self, project_id: int, *, within_seconds: int = 3600
+    ) -> tuple[int, int] | None:
+        import json as _json
+        import time as _time
+
+        # within_seconds 가 0 이하면 "최근 0초 안" — 정의상 항상 빈 윈도우.
+        if within_seconds <= 0:
+            return None
+        cutoff = int(_time.time()) - int(within_seconds)
+        row = self.conn.execute(
+            "SELECT id, results_json FROM search_queries "
+            "WHERE project_id = ? AND created_at > ? "
+            "ORDER BY created_at DESC LIMIT 1",
+            (project_id, cutoff),
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            data = _json.loads(row[1])
+            if not data:
+                return None
+            return (int(row[0]), int(data[0][0]))
+        except (json.JSONDecodeError, IndexError, ValueError, TypeError):
+            return None
+
+    # -- M3: search inputs (FTS + semantic + labels + meta) --------------
+
+    def fts_search(
+        self,
+        query: str,
+        *,
+        kind: str | None = None,
+        pack_id: int | None = None,
+        exclude_pack_ids: Iterable[int] = (),
+        k: int = 200,
+    ) -> list[tuple[int, float]]:
+        """`(asset_id, raw_bm25)` 페어. caller 가 부호 뒤집기 + 정규화.
+
+        FTS5 의 unicode61 토크나이저는 `:` 를 단어 구분자로 다루므로
+        ``label:pixel_art`` 같은 쿼리는 column-prefix 매칭으로 잘못
+        해석된다. 그래서 콜론·하이픈·괄호·따옴표·별 등을 포함한 토큰은
+        자동으로 phrase quote 한다. 호출자는 plain text 그대로 보내면 된다.
+        """
+        params: list = [_safe_fts_query(query)]
+        sql_parts = [
+            "SELECT f.asset_id, bm25(assets_fts) AS rank, a.pack_id, a.kind",
+            "FROM assets_fts f JOIN assets a ON a.id = f.asset_id",
+            "WHERE assets_fts MATCH ?",
+        ]
+        if kind is not None:
+            sql_parts.append("AND a.kind = ?")
+            params.append(kind)
+        if pack_id is not None:
+            sql_parts.append("AND a.pack_id = ?")
+            params.append(int(pack_id))
+        excl = list(exclude_pack_ids)
+        if excl:
+            placeholders = ",".join("?" * len(excl))
+            sql_parts.append(f"AND a.pack_id NOT IN ({placeholders})")
+            params.extend(int(p) for p in excl)
+        sql_parts.append("ORDER BY rank LIMIT ?")
+        params.append(int(k))
+        sql = " ".join(sql_parts)
+        try:
+            return [(int(r[0]), float(r[1])) for r in self.conn.execute(sql, params).fetchall()]
+        except sqlite3.OperationalError:
+            # FTS5 syntax 오류 (사용자 입력에 special char 등) → 빈 결과.
+            return []
+
+    def semantic_candidates_load(
+        self, *, asset_ids: list[int] | None = None
+    ) -> tuple[list[int], "np.ndarray", str]:  # type: ignore[name-defined]
+        """``(ids, matrix[N×dim] float32, model)`` 반환. import numpy 는 lazy."""
+        import numpy as _np
+
+        if asset_ids is not None and not asset_ids:
+            empty = _np.zeros((0, 0), dtype="<f4")
+            return [], empty, ""
+        sql = "SELECT asset_id, model, dim, vector FROM asset_embeddings"
+        params: list = []
+        if asset_ids is not None:
+            placeholders = ",".join("?" * len(asset_ids))
+            sql += f" WHERE asset_id IN ({placeholders})"
+            params.extend(int(x) for x in asset_ids)
+        rows = self.conn.execute(sql, params).fetchall()
+        if not rows:
+            empty = _np.zeros((0, 0), dtype="<f4")
+            return [], empty, ""
+        # All rows must share dim — first row sets the contract.
+        dim = int(rows[0][2])
+        model = str(rows[0][1])
+        ids: list[int] = []
+        matrix = _np.zeros((len(rows), dim), dtype="<f4")
+        for i, (aid, _m, d, blob) in enumerate(rows):
+            ids.append(int(aid))
+            vec = _np.frombuffer(blob, dtype="<f4", count=int(d))
+            matrix[i] = vec
+        return ids, matrix, model
+
+    def asset_labels_for(
+        self, asset_ids: list[int]
+    ) -> dict[int, list[LabelScore]]:
+        if not asset_ids:
+            return {}
+        placeholders = ",".join("?" * len(asset_ids))
+        rows = self.conn.execute(
+            f"SELECT asset_id, axis, label, score, source, weight "
+            f"FROM asset_labels WHERE asset_id IN ({placeholders})",
+            [int(x) for x in asset_ids],
+        ).fetchall()
+        result: dict[int, list[LabelScore]] = {int(aid): [] for aid in asset_ids}
+        for aid, axis, label, score, source, weight in rows:
+            result[int(aid)].append(
+                LabelScore(
+                    axis=axis,
+                    label=label,
+                    score=float(score),
+                    source=source,
+                    weight=weight,
+                )
+            )
+        return result
+
+    def pack_aggregate(self, pack_id: int) -> dict | None:
+        import json as _json
+
+        row = self.conn.execute(
+            "SELECT aggregate_meta FROM packs WHERE id = ?", (int(pack_id),)
+        ).fetchone()
+        if row is None or row[0] is None:
+            return None
+        try:
+            return _json.loads(row[0])
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    def recent_assets_score(
+        self, asset_ids: list[int], *, window_seconds: int = 2_592_000
+    ) -> dict[int, float]:
+        """analyzed_at 기준 지수 감쇠 0..1. NULL 이면 added_at → 현재시간 순 폴백."""
+        import math as _math
+        import time as _time
+
+        if not asset_ids:
+            return {}
+        placeholders = ",".join("?" * len(asset_ids))
+        rows = self.conn.execute(
+            f"SELECT id, analyzed_at, added_at FROM assets WHERE id IN ({placeholders})",
+            [int(x) for x in asset_ids],
+        ).fetchall()
+        now = int(_time.time())
+        out: dict[int, float] = {}
+        for aid, analyzed_at, added_at in rows:
+            ts = analyzed_at if analyzed_at is not None else added_at
+            if ts is None:
+                out[int(aid)] = 1.0
+                continue
+            age = max(0, now - int(ts))
+            # 지수 감쇠 — window 안이면 ≥ 1/e ≈ 0.37.
+            decay = _math.exp(-age / max(1, window_seconds))
+            out[int(aid)] = float(max(0.0, min(1.0, decay)))
+        return out
+
+    def asset_count_by_kind(self, pack_id: int | None = None) -> dict[str, int]:
+        if pack_id is None:
+            rows = self.conn.execute(
+                "SELECT kind, COUNT(*) FROM assets GROUP BY kind"
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                "SELECT kind, COUNT(*) FROM assets WHERE pack_id = ? GROUP BY kind",
+                (int(pack_id),),
+            ).fetchall()
+        return {str(k): int(c) for k, c in rows}
+
 
 # ── helpers ──────────────────────────────────────────────────────────
+
+
+_FTS_SPECIAL = set(':*-()"+^')
+
+
+def _safe_fts_query(query: str) -> str:
+    """FTS5 special-char 가 든 토큰을 phrase-quote 해서 안전 변환."""
+    stripped = query.strip()
+    if not stripped:
+        return '""'
+    parts: list[str] = []
+    for tok in stripped.split():
+        if any(ch in tok for ch in _FTS_SPECIAL):
+            # 내부 따옴표는 두 번 escape (FTS5 phrase 규칙)
+            inner = tok.replace('"', '""')
+            parts.append(f'"{inner}"')
+        else:
+            parts.append(tok)
+    return " ".join(parts)
 
 
 def _pack_row(r: tuple) -> PackRow:
@@ -740,4 +1141,26 @@ def _asset_row(r: tuple) -> AssetRow:
         analyzed_at=int(r[7]) if r[7] is not None else None,
         analysis_state=r[8],
         analysis_error=r[9] if len(r) > 9 else None,
+    )
+
+
+def _project_row(r: tuple) -> ProjectRow:
+    import json as _json
+
+    blocked: list[int] = []
+    if r[6]:
+        try:
+            data = _json.loads(r[6])
+            if isinstance(data, list):
+                blocked = [int(x) for x in data]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            blocked = []
+    return ProjectRow(
+        id=int(r[0]),
+        external_id=r[1],
+        display_name=r[2],
+        first_seen=int(r[3]),
+        last_seen=int(r[4]),
+        pinned_pack_id=int(r[5]) if r[5] is not None else None,
+        blocked_packs=blocked,
     )

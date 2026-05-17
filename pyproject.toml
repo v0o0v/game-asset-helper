@@ -27,6 +27,8 @@ dependencies = [
   "open_clip_torch>=2.24",
   "torch>=2.2",
   "matplotlib>=3.8",
+  # M3: 검색 백엔드 + MCP stdio 서버
+  "mcp>=1.27,<2",
 ]
 
 [project.optional-dependencies]
@@ -46,9 +48,10 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra -m 'not clip_integration'"
+addopts = "-ra -m 'not clip_integration and not mcp_integration'"
 markers = [
   "clip_integration: 실제 CLIP 모델 다운로드(~600 MB) 필요. 기본 실행에서 제외 — `pytest -m clip_integration` 으로 옵트인.",
+  "mcp_integration: 실제 MCP stdio subprocess 기동 필요(`python -m gah --mcp`). 기본 실행에서 제외 — `pytest -m mcp_integration` 으로 옵트인.",
 ]
 filterwarnings = [
   "ignore::DeprecationWarning",

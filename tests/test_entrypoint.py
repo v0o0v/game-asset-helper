@@ -31,20 +31,29 @@ def test_version_flag_prints_version_and_exits_zero() -> None:
     assert __version__ in (result.stdout + result.stderr)
 
 
-def test_mcp_flag_returns_not_implemented_exit_code(tmp_path: Path) -> None:
-    result = _run(["--mcp", "--data-dir", str(tmp_path)])
-    assert result.returncode == 2
-    assert "not implemented" in (result.stdout + result.stderr).lower()
+def test_mcp_flag_calls_run_stdio(monkeypatch, tmp_path: Path) -> None:
+    """M3: --mcp 가 gah.mcp.server.run_stdio 를 호출해야 한다 (stub 제거 확인)."""
+    import gah.__main__ as main_mod
+
+    called = {"n": 0}
+
+    def _fake_run_stdio() -> None:
+        called["n"] += 1
+
+    monkeypatch.setattr("gah.mcp.server.run_stdio", _fake_run_stdio, raising=True)
+    monkeypatch.setattr("sys.argv", ["gah", "--mcp", "--data-dir", str(tmp_path)])
+    rc = main_mod.main()
+    assert rc == 0
+    assert called["n"] == 1
 
 
 def test_data_dir_override_used(tmp_path: Path) -> None:
     """--data-dir must win over GAH_DATA_DIR and create files in the given path."""
     other = tmp_path / "elsewhere"
     result = _run(
-        ["--data-dir", str(other), "--mcp"],   # --mcp exits fast (code 2) but should
-                                               #  still trigger paths.ensure_dirs first
+        ["--data-dir", str(other), "--version"],  # --version exits immediately
         env_extra={"GAH_DATA_DIR": str(tmp_path / "ignored")},
     )
-    assert result.returncode == 2
+    assert result.returncode == 0
     assert (other / "config.toml").exists()
     assert not (tmp_path / "ignored" / "config.toml").exists()

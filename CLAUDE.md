@@ -20,10 +20,10 @@
 |---|---|---|
 | M0 — 뼈대 | ✅ 완료 | 패키지 스캐폴딩, config/logging/single-instance, 트레이 셸, CLI |
 | M1 — 워처 + Pack Manager + DB | ✅ 완료 | watchdog 래퍼+디바운서, 매니페스트/벤더 휴리스틱, SQLite 4테이블, 부팅 풀스캔, GUI 팩/라이브러리 탭 |
-| M2 — 분석 파이프라인 + CLIP | ✅ 완료 | Pillow·numpy 기술 특성·librosa+soundfile·Ollama 클라이언트·`nomic-embed-text`·CLIP zero-shot·24축 ≈ 316 라벨 시드+`LabelRegistry`+라벨 관리 다이얼로그·분석 큐+ETA 상태바·M3 인계 stub |
+| M2 — 분석 파이프라인 + CLIP | ✅ 완료 | Pillow·numpy 기술 특성·librosa+soundfile·Ollama 클라이언트·`nomic-embed-text`·CLIP zero-shot·24축 ≈ 316 라벨 시드+`LabelRegistry`+라벨 관리 다이얼로그·분석 큐+ETA 상태바 |
 | M2.1 — 분석 큐 병렬화 패치 | ✅ 완료 | 동시성 1→3, Ollama semaphore(parallel=2), CLIP threading.Lock, SQLite write_lock+busy_timeout, GUI 250ms 디바운스 |
-| M3 — 검색 백엔드 + 통일성 + MCP (2주) | 다음 | FTS5+벡터+라벨 점수·MCP 도구 7~8개·GUI 최소 동작 |
-| M4 — 검색 UX 풍부화 (1.5주, 신설) | 대기 | 부울 라벨 쿼리·다축 필터·가중치 슬라이더·저장된 검색 |
+| M3 — 검색 백엔드 + 통일성 + MCP | ✅ 완료 | HybridSearcher 가중합 0.40/0.15/0.20/0.20/0.05, ConsistencyScorer §4.6 표, UsageTracker, MCP stdio 12 도구 (mcp 1.27), GUI 검색 박스, `docs/MCP_USAGE_GUIDE.md` 본격화 |
+| M4 — 검색 UX 풍부화 (1.5주) | 다음 | 자연어 라벨 부울 파서·다축 필터 칩·가중치 슬라이더·저장된 검색·suggest_packs samples 풍부화 |
 | M5 — 시트 분석 + 애니메이션 (1주) | 대기 | 격자 분할·`suggest_animation_frames` |
 | M6 — Unity Asset Store 임포트 (1주) | 대기 | `.unitypackage` 파서·캐시 스캐너 |
 | M7 — GUI 마감 + 패키징 (1주) | 대기 | 상세/설정/프로젝트 탭·Qt i18n·PyInstaller |
@@ -136,7 +136,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-`pytest -q`가 221 passed (+ 2 deselected) 로 떨어지면 준비 완료 (M0 18 + M1 49 + M2 134 + 추가 회귀 3 + M2.1 16 + 회귀 보존 1). M2.1 시점 검증 결과는 [`milestones/M2.1_verification.md`](./milestones/M2.1_verification.md).
+`pytest -q`가 333 passed (+ 4 deselected) 로 떨어지면 준비 완료 (M0~M2.1 합 221 + M3 110). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m gah --mcp` subprocess + JSON-RPC) 추가 검증 가능. M3 시점 검증 결과는 [`milestones/M3_verification.md`](./milestones/M3_verification.md).
 
 ## 7. 자주 쓰는 명령
 
@@ -164,33 +164,26 @@ python -m gah --tray
 python -m gah --version
 ```
 
-## 8. 다음 작업 (M3)
+## 8. 다음 작업 (M4)
 
-M3 — **검색 백엔드 + 통일성 스코어러 + MCP stdio** (예상 2주 분량).
+M4 — **검색 UX 풍부화** (예상 1.5주 분량, 메모리 `project_search_ux_milestone.md`).
 
-핵심 산출물 (자세한 건 M2 사이클을 본떠 `milestones/M3_plan.md`부터 작성):
+핵심 산출물 (자세한 건 M3 사이클을 본떠 `milestones/M4_plan.md`부터 작성):
 
-- `src/gah/core/search.py` — FTS5 BM25 + 벡터 코사인 + 라벨 점수 가중합
-- `src/gah/core/consistency.py` — 같은 팩/벤더 사용 이력 가중치(`DESIGN.md §4.6`)
-- `src/gah/core/usage_tracker.py` — 명시 `record_asset_use` + 암묵 top-1 추정
-- `src/gah/mcp/server.py` + `src/gah/mcp/tools.py` — MCP stdio 서버 + 도구 7~8개:
-  - `find_asset` (라벨 부울 필터 `labels_any`/`labels_all`/`labels_none` 포함, `matched_labels` 응답)
-  - `suggest_packs`, `list_packs`, `list_assets`, `get_asset`
-  - `record_asset_use`, `set_project_pin`, `request_rescan`, `report_feedback`
-  - **메타 도구 3개**: `list_label_axes`, `list_labels(with_description)`, `describe_label` (`docs/MCP_USAGE_GUIDE.md` 권고)
-- DB 마이그레이션: `projects`, `asset_usage`, `search_queries` 신설
-- `--mcp` CLI 플래그 — M2 의 "not implemented" 자리 채움
-- GUI 라이브러리 탭에 검색 박스 + 결과 그리드 (최소 동작; 풍부 UX 는 M4)
-- `docs/MCP_USAGE_GUIDE.md` stub 을 본격 가이드로 풀어쓰기 (실제 응답 JSON, signature 캐시 무효화)
+- `src/gah/core/label_query.py` — 자연어 라벨 부울 파서 (`"pixel art AND dark"` → `LabelFilter[]` 변환). M3 의 `SearchRequest.labels_*` 구조화 입력 위에 얹힌다.
+- GUI 라이브러리 탭 풍부 UX — 사이드 패널 라벨 칩 다중 선택, 5 채널 가중치 슬라이더, 결과 행에 `matched_labels` 칩 + 점수 시각화, "저장된 검색" 사이드바.
+- `suggest_packs` 응답의 `samples` 필드 풍부화 — 썸네일 경로 + `preview_blurb` + 사운드 미리듣기 메타.
+- 결과 다양성 부스터 — `find_asset` 에 `cross_pack_filter` 옵션 (MMR / round-robin / softmax 중 결정).
+- `report_feedback` 페널티 학습 — `search_queries` + `asset_usage` 의 negative 신호를 다음 검색 가중치에 반영.
 
-**M3 시작 방법**
+**M4 시작 방법**
 
-1. `milestones/M3_plan.md` 작성 (M2 plan을 템플릿 삼아)
-2. `milestones/M3_todo.md` 작성
-3. `tests/test_search.py`, `tests/test_consistency.py`, `tests/test_usage_tracker.py`, `tests/test_mcp_tools.py`, `tests/test_mcp_server_stdio.py`, `tests/test_store_m3.py` 등 실패 테스트부터 작성
-4. 구현 → 통과 → `milestones/M3_verification.md`
+1. `milestones/M4_plan.md` 작성 (M3 plan 을 템플릿 삼아)
+2. `milestones/M4_todo.md` 작성
+3. `tests/test_label_query.py`, `tests/test_library_search_ui_rich.py`, `tests/test_search_diversity.py`, `tests/test_feedback_penalty.py` 등 실패 테스트부터 작성
+4. 구현 → 통과 → `milestones/M4_verification.md`
 
-참고할 DESIGN 섹션: §4.3 / §4.5 / §4.6 / §4.7 / §5.1 (M3 신규 테이블 `projects`/`asset_usage`/`search_queries`) / §6 (MCP 도구 명세 전체) / §8.1 (검색 흐름 2단계 + 1단계) / §13 (Claude Code 워크플로 가이드).
+참고할 DESIGN 섹션: §4.8 (GUI 탭 구성), §6.5 (suggest_packs samples), §11 (마일스톤 로드맵). M3 의 `SearchRequest` 구조화 입력 + `HybridSearcher.hybrid()` 가 그대로 백엔드 — M4 는 그 위 UI/UX + 자연어 파서 + 다양성/페널티 알고리즘만 추가.
 
 ## 9. 알려진 이슈·주의사항
 

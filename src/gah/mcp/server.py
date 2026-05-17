@@ -1,0 +1,156 @@
+"""MCP stdio 서버 빌더 + 진입점.
+
+``--mcp`` 플래그가 ``run_stdio()`` 를 호출. 별 프로세스로 동작하며 GUI
+인스턴스와 같은 SQLite DB 를 공유한다. inter-process write 충돌은
+WAL + ``busy_timeout=5000`` (M2.1) 이 흡수.
+"""
+
+from __future__ import annotations
+
+import logging
+import sys
+from typing import Any
+
+from mcp.server.fastmcp import FastMCP
+
+from ..config import Config, default_app_paths, load_config
+from ..core.consistency import ConsistencyScorer
+from ..core.embedding import EmbeddingEncoder
+from ..core.labels import LabelRegistry
+from ..core.ollama_client import OllamaClient
+from ..core.search import HybridSearcher
+from ..core.store import Store
+from ..core.usage_tracker import UsageTracker
+from ..logging_setup import setup_logging
+from . import models as m
+from . import tools as t
+
+log = logging.getLogger(__name__)
+
+
+INSTRUCTIONS = """\
+GAH MCP server — find and adopt 2D sprites, sheets, and sounds for game projects.
+
+Recommended workflow (DESIGN §13.1):
+  1. Session start: call list_labels(with_description=true) once; cache by `signature`.
+  2. User request: call suggest_packs(query, project_id, kind) to let the user pick a pack.
+  3. Pick: call find_asset(query, project_id, force_pack_id=<picked>, count=N).
+  4. Adoption: after copying a file to the project, call record_asset_use(asset_id, project_id, query_id).
+  5. Rejection: call report_feedback(query_id, asset_id, reason).
+
+Always pass the same project_id throughout a session — consistency scoring depends on it.
+The `signature` of list_labels stays stable until users edit the vocabulary; refresh on change.
+"""
+
+
+def build_server(
+    *,
+    store: Store,
+    search: HybridSearcher,
+    usage: UsageTracker,
+    registry: LabelRegistry,
+    queue: Any | None,
+    config: Config,
+) -> FastMCP:
+    """12 도구를 등록한 FastMCP 인스턴스 반환."""
+    server = FastMCP("game-asset-helper", instructions=INSTRUCTIONS)
+    deps = t.ToolDeps(
+        store=store, search=search, usage=usage,
+        registry=registry, queue=queue, config=config,
+    )
+    register_all_tools(server, deps)
+    return server
+
+
+def register_all_tools(server: FastMCP, deps: t.ToolDeps) -> None:
+    @server.tool(description="자연어 + 라벨 부울 필터로 자산을 찾는다. 추천 근거(matched_labels + why) 포함.")
+    def find_asset(req: m.FindAssetRequest) -> m.FindAssetResult:
+        return t.tool_find_asset(deps, req)
+
+    @server.tool(description="asset_id 또는 path 로 단일 자산 메타를 조회.")
+    def get_asset(req: m.GetAssetRequest) -> m.GetAssetResult:
+        return t.tool_get_asset(deps, req)
+
+    @server.tool(description="라이브러리 전체 자산을 페이지네이션으로 나열 (디버깅/탐색).")
+    def list_assets(req: m.ListAssetsRequest) -> m.ListAssetsResult:
+        return t.tool_list_assets(deps, req)
+
+    @server.tool(description="등록된 팩 카탈로그 + 자산 수 + aggregate_meta 나열.")
+    def list_packs() -> m.ListPacksResult:
+        return t.tool_list_packs(deps)
+
+    @server.tool(description="자연어 쿼리에 어울리는 팩 후보를 정렬한다 (사용자에게 팩 선택권 제공).")
+    def suggest_packs(req: m.SuggestPacksRequest) -> m.SuggestPacksResult:
+        return t.tool_suggest_packs(deps, req)
+
+    @server.tool(description="자산 채택 이력을 기록한다 (통일성 가중치의 핵심 입력).")
+    def record_asset_use(req: m.RecordAssetUseRequest) -> m.RecordAssetUseResult:
+        return t.tool_record_asset_use(deps, req)
+
+    @server.tool(description="프로젝트에 특정 팩을 고정/차단한다.")
+    def set_project_pin(req: m.SetProjectPinRequest) -> dict:
+        return t.tool_set_project_pin(deps, req)
+
+    @server.tool(description="특정 팩/자산 또는 전체의 재분석을 트리거한다.")
+    def request_rescan(req: m.RequestRescanRequest) -> dict:
+        return t.tool_request_rescan(deps, req)
+
+    @server.tool(description="추천 결과에 대한 사용자 피드백을 기록한다 (페널티 학습 입력).")
+    def report_feedback(req: m.ReportFeedbackRequest) -> dict:
+        return t.tool_report_feedback(deps, req)
+
+    @server.tool(description="라벨 어휘의 24개 축 목록을 반환한다.")
+    def list_label_axes() -> m.ListLabelAxesResult:
+        return t.tool_list_label_axes(deps)
+
+    @server.tool(description="라벨 어휘 목록 + 카탈로그 signature 를 반환한다 (signature 가 같으면 캐시 재사용).")
+    def list_labels(req: m.ListLabelsRequest) -> m.ListLabelsResult:
+        return t.tool_list_labels(deps, req)
+
+    @server.tool(description="단일 라벨의 description + 샘플 자산 3개를 반환한다.")
+    def describe_label(req: m.DescribeLabelRequest) -> m.DescribeLabelResult:
+        return t.tool_describe_label(deps, req)
+
+
+def run_stdio() -> None:
+    """``python -m gah --mcp`` 진입점.
+
+    GUI 인스턴스와는 별 프로세스. 워처는 안 띄움. KeyboardInterrupt 는
+    graceful 종료 (예외 다시 던지지 않음).
+    """
+    paths = default_app_paths()
+    paths.ensure_dirs()
+    # logging_setup 은 file + stderr 핸들러를 모두 단다. stdio JSON-RPC 는
+    # stdout 만 쓰므로 stderr 출력은 클라이언트(Claude Code) 를 방해하지 않는다.
+    setup_logging(paths.log_path)
+    cfg = load_config(paths.config_path)
+
+    store = Store(paths.db_path)
+    store.initialize()
+    registry = LabelRegistry(store)
+    registry.bootstrap()
+
+    # MCP stdio 진입점은 검색 쿼리 임베딩만 필요 — 분석(이미지/오디오) 은
+    # GUI 인스턴스가 별 프로세스로 담당한다. OllamaClient 는 임베딩 모델로 초기화.
+    ollama = OllamaClient(
+        base_url=cfg.ollama_url, model=cfg.model_embed,
+        timeout_seconds=cfg.analysis_timeout_seconds,
+        max_retries=cfg.analysis_max_retries,
+        parallel=cfg.ollama_parallel,
+    )
+    embedder = EmbeddingEncoder(ollama, model=cfg.model_embed)
+    consistency = ConsistencyScorer(store, cfg)
+    usage = UsageTracker(store, cfg)
+    search = HybridSearcher(store, embedder, consistency, registry, cfg)
+
+    server = build_server(
+        store=store, search=search, usage=usage,
+        registry=registry, queue=None, config=cfg,
+    )
+    log.info("MCP stdio server starting; tools=12 instructions_len=%d", len(INSTRUCTIONS))
+    try:
+        server.run(transport="stdio")
+    except KeyboardInterrupt:
+        log.info("MCP stdio server interrupted; shutting down gracefully")
+    finally:
+        store.close()

@@ -50,6 +50,15 @@ class EmbeddingEncoder:
             )
         return arr.tobytes(), int(arr.size)
 
+    def decode_vector(self, blob: bytes, dim: int) -> np.ndarray:
+        """Round-trip ``encode_text`` 의 blob 을 numpy 로 풀기.
+
+        M3 HybridSearcher 가 검색 쿼리 임베딩을 ``self.embedder.decode_vector``
+        로 호출한다 — fake/real 인터페이스 갭을 막기 위해 같은 시그니처를
+        클래스 메서드로 노출. 모듈 함수 ``decode_vector`` 와 동일 동작.
+        """
+        return decode_vector(blob, dim)
+
 
 def decode_vector(blob: bytes, dim: int) -> np.ndarray:
     arr = np.frombuffer(blob, dtype=np.float32)

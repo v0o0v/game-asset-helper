@@ -1,17 +1,20 @@
-"""Library tab — read-only table of all indexed assets.
+"""Library tab — flat table of all indexed assets + M3 search box.
 
-M2 surfaces the two new columns the analyzer fills in: ``라벨`` (top-3
-labels joined inline) and ``설명`` (Gemma's one-line description in the
-call language).
+M2 surfaces ``라벨`` (top-3 labels) and ``설명``.  M3 adds a debounced
+search input on top: typing fires ``HybridSearcher.hybrid()`` after a
+250 ms quiet period (M2.1 pattern) and replaces the grid rows with the
+ranked results.  Clearing the input restores the default library view.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QCoreApplication, Qt
+from PySide6.QtCore import QCoreApplication, Qt, QTimer
 from PySide6.QtWidgets import (
     QHeaderView,
+    QLineEdit,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -19,10 +22,15 @@ from PySide6.QtWidgets import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ..core.search import HybridSearcher
     from ..core.store import Store
 
 
+log = logging.getLogger(__name__)
+
+
 _DEFAULT_LIMIT = 1000
+_SEARCH_DEBOUNCE_MS = 250
 
 
 def _tr(text: str) -> str:
@@ -35,9 +43,22 @@ class LibraryView(QWidget):
     def __init__(self, store: "Store", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._store = store
+        self._searcher: "HybridSearcher | None" = None
+        self._in_search_mode: bool = False
+        # debounce timer (single-shot) — M2.1 _flush_progress 패턴
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(_SEARCH_DEBOUNCE_MS)
+        self._search_timer.timeout.connect(self._run_search)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+
+        # M3: 검색 박스
+        self.search_input = QLineEdit(self)
+        self.search_input.setPlaceholderText(_tr("자연어 검색…"))
+        self.search_input.textChanged.connect(self._on_search_text_changed)
+        layout.addWidget(self.search_input)
 
         headers = (
             _tr("경로"),
@@ -46,6 +67,7 @@ class LibraryView(QWidget):
             _tr("분석 상태"),
             _tr("라벨"),
             _tr("설명"),
+            _tr("점수"),
         )
         self.table = QTableWidget(0, len(headers), self)
         self.table.setHorizontalHeaderLabels(headers)
@@ -58,7 +80,68 @@ class LibraryView(QWidget):
 
         layout.addWidget(self.table)
 
+    # -- M3 search wiring --------------------------------------------
+
+    def set_searcher(self, searcher: "HybridSearcher") -> None:
+        """``app.py`` 가 부팅 시 1회 호출 — HybridSearcher 주입."""
+        self._searcher = searcher
+
+    @property
+    def is_in_search_mode(self) -> bool:
+        return self._in_search_mode
+
+    def _on_search_text_changed(self, _text: str) -> None:
+        # 빈 입력은 즉시 기본 모드로 복귀 (디바운스 없이).
+        if not self.search_input.text().strip():
+            self._search_timer.stop()
+            if self._in_search_mode:
+                self._in_search_mode = False
+                self.refresh()
+            return
+        self._search_timer.start()
+
+    def _run_search(self) -> None:
+        if self._searcher is None:
+            return
+        query = self.search_input.text().strip()
+        if not query:
+            return
+        from ..core.search import SearchRequest
+
+        try:
+            results = self._searcher.hybrid(SearchRequest(query=query, count=20))
+        except Exception:  # noqa: BLE001 — UI 안에서 검색 실패가 트레이를 죽이면 안 됨
+            # 단, 로그에는 traceback 을 박는다 — silent 으로 삼키면 사용자가
+            # "결과가 안 보인다"는 증상만 보고 원인을 추적할 수 없음.
+            log.exception("library search failed for query=%r", query)
+            return
+        self._show_search_results(results.results)
+
+    def _show_search_results(self, rows) -> None:
+        self._in_search_mode = True
+        self.table.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            matched = " · ".join(
+                f"{m['axis']}={m['label']}" for m in (row.matched_labels or [])[:3]
+            )
+            cells = (
+                row.path,
+                "",  # kind — search result row 는 fast path 라 비움 (M4 풍부화)
+                "",
+                "",
+                matched,
+                row.why,
+                f"{row.score:.3f}",
+            )
+            for c, text in enumerate(cells):
+                item = QTableWidgetItem(text)
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                self.table.setItem(r, c, item)
+
     def refresh(self) -> None:
+        # 검색 모드 중일 때는 외부 refresh 호출 무시 (사용자 입력 우선).
+        if self._in_search_mode:
+            return
         rows = self._store.list_assets(limit=_DEFAULT_LIMIT, offset=0)
         # M2: 라벨/설명을 배치 조회로 채운다 (N+1 회피).
         labels_by_asset, description_by_asset = self._collect_extras(rows)
@@ -74,6 +157,7 @@ class LibraryView(QWidget):
                 asset.analysis_state,
                 labels_text,
                 desc_text,
+                "",  # M3 점수 컬럼 — 기본 모드에선 비어 있음
             )
             for c, text in enumerate(cells):
                 item = QTableWidgetItem(text)

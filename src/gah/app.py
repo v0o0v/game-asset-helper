@@ -23,11 +23,14 @@ from .core.analysis_queue import AnalysisQueue
 from .core.analyzer.sound import SoundAnalyzer
 from .core.analyzer.sprite import SpriteAnalyzer
 from .core.clip_labeler import ClipLabeler, OpenClipBackend
+from .core.consistency import ConsistencyScorer
 from .core.embedding import EmbeddingEncoder
 from .core.labels import LabelRegistry
 from .core.ollama_client import OllamaClient
 from .core.scanner import reconcile_library
+from .core.search import HybridSearcher
 from .core.store import Store
+from .core.usage_tracker import UsageTracker
 from .core.watcher import LibraryWatcher
 
 log = logging.getLogger(__name__)
@@ -109,10 +112,16 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     queue.start()
     queue.drain_pending()
 
+    # ── M3: 검색 백엔드 ────────────────────────────────────────────
+    consistency = ConsistencyScorer(store, config)
+    usage = UsageTracker(store, config)
+    searcher = HybridSearcher(store, embedder, consistency, registry, config)
+
     # ── GUI 연결 ────────────────────────────────────────────────────
     main_window = MainWindow(store)
     main_window.set_library_root(library_root)
     main_window.set_label_registry(registry)
+    main_window.library_view.set_searcher(searcher)
     main_window.refresh()
 
     # 워처 이벤트는 GUI 스레드로 마샬링되어 _on_pack_changed 가 인테이크를 마치고
@@ -146,6 +155,8 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     qapp._gah_main_window = main_window  # type: ignore[attr-defined]
     qapp._gah_queue = queue  # type: ignore[attr-defined]
     qapp._gah_registry = registry  # type: ignore[attr-defined]
+    qapp._gah_searcher = searcher  # type: ignore[attr-defined]
+    qapp._gah_usage = usage  # type: ignore[attr-defined]
 
     log.info("GAH tray ready (data_dir=%s, library=%s)", paths.data_dir, library_root)
     rc = qapp.exec()

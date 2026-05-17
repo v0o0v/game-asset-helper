@@ -37,7 +37,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--mcp",
         action="store_true",
-        help="MCP 서버 모드 (M3에서 활성화 예정)",
+        help="MCP stdio 서버 모드 — Claude Code 가 child process 로 spawn",
     )
     parser.add_argument(
         "--data-dir",
@@ -57,14 +57,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    # --version 도 data-dir 우선순위(--data-dir > GAH_DATA_DIR > platformdirs)
+    # 를 트리거하고 config 를 보장한다 (M3 회귀: 이전엔 --mcp 빠른 exit 으로 검증).
+    paths = default_app_paths(args.data_dir)
+    paths.ensure_dirs()
+    config = load_config(paths.config_path)
+
     if args.version:
         print(f"game-asset-helper {__version__}")
         return EXIT_OK
-
-    paths = default_app_paths(args.data_dir)
-    paths.ensure_dirs()
-
-    config = load_config(paths.config_path)
 
     level = getattr(logging, str(args.log_level).upper(), logging.INFO)
     setup_logging(paths.log_path, level=level)
@@ -72,9 +73,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     log.info("GAH starting (version=%s, data_dir=%s)", __version__, paths.data_dir)
 
     if args.mcp:
-        log.warning("--mcp is not implemented yet (planned for M3)")
-        print("MCP mode is not implemented yet (planned for M3).", file=sys.stderr)
-        return EXIT_NOT_IMPLEMENTED
+        # MCP stdio 진입 — 단독 프로세스. GUI 인스턴스가 떠 있어도 OK
+        # (SQLite WAL + busy_timeout=5000 + write_lock 이 동시 write 흡수).
+        # single_instance 락은 안 잡음 — stdio 서버는 GUI 와 무관한 별 프로세스.
+        from .mcp.server import run_stdio
+
+        run_stdio()
+        return EXIT_OK
 
     # Default mode: tray
     try:

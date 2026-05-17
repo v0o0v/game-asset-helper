@@ -152,3 +152,17 @@ def _truncate_tokens(text: str, budget: int) -> str:
     if len(tokens) <= budget:
         return text
     return " ".join(tokens[:budget])
+
+
+def build_query_text(query: str, kind: str | None = None) -> str:
+    """M3 검색 쿼리를 임베딩용 짧은 텍스트로 빌드.
+
+    파일명·라벨 prefix 없이 자연어만 — 자산 임베딩의 `for_embed` 와 같은
+    벡터 공간에서 비교 가능하도록 형식을 맞춘다.
+    """
+    parts: list[str] = []
+    if query:
+        parts.append(query.strip())
+    if kind:
+        parts.append(kind)
+    return _truncate_tokens(" ".join(parts), _EMBED_TOKEN_BUDGET)
