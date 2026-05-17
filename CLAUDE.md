@@ -136,7 +136,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-`pytest -q`가 331 passed (+ 4 deselected) 로 떨어지면 준비 완료 (M0~M2.1 합 221 + M3 110). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m gah --mcp` subprocess + JSON-RPC) 추가 검증 가능. M3 시점 검증 결과는 [`milestones/M3_verification.md`](./milestones/M3_verification.md).
+`pytest -q`가 333 passed (+ 4 deselected) 로 떨어지면 준비 완료 (M0~M2.1 합 221 + M3 110). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m gah --mcp` subprocess + JSON-RPC) 추가 검증 가능. M3 시점 검증 결과는 [`milestones/M3_verification.md`](./milestones/M3_verification.md).
 
 ## 7. 자주 쓰는 명령
 

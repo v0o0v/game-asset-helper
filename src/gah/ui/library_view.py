@@ -8,6 +8,7 @@ ranked results.  Clearing the input restores the default library view.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QCoreApplication, Qt, QTimer
@@ -23,6 +24,9 @@ from PySide6.QtWidgets import (
 if TYPE_CHECKING:  # pragma: no cover
     from ..core.search import HybridSearcher
     from ..core.store import Store
+
+
+log = logging.getLogger(__name__)
 
 
 _DEFAULT_LIMIT = 1000
@@ -107,6 +111,9 @@ class LibraryView(QWidget):
         try:
             results = self._searcher.hybrid(SearchRequest(query=query, count=20))
         except Exception:  # noqa: BLE001 — UI 안에서 검색 실패가 트레이를 죽이면 안 됨
+            # 단, 로그에는 traceback 을 박는다 — silent 으로 삼키면 사용자가
+            # "결과가 안 보인다"는 증상만 보고 원인을 추적할 수 없음.
+            log.exception("library search failed for query=%r", query)
             return
         self._show_search_results(results.results)
 

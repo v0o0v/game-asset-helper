@@ -8,11 +8,11 @@
 
 ## 1. 한 줄 요약
 
-설계(`DESIGN.md`) 위에 M0(뼈대) → M1(워처 + 팩 매니저 + SQLite 4테이블 + GUI 팩/라이브러리 탭) → M2(분석 파이프라인 + CLIP 라벨러 + 24축 316 시드 + 라벨 관리 다이얼로그 + 분석 큐/ETA 상태바) → M2.1(분석 큐 동시성 1 → 3 + Ollama semaphore + CLIP lock + SQLite write_lock + GUI 250ms 디바운스) → **M3**(HybridSearcher 가중합 0.40·sem + 0.15·kw + 0.20·label + 0.20·cons + 0.05·rec + MCP stdio 12 도구 + ConsistencyScorer + UsageTracker + GUI 검색 박스 + `docs/MCP_USAGE_GUIDE.md` 본격화) 까지 자동 331 테스트 + 2 mcp_integration 통과. 다음은 M4 (자연어 라벨 부울 파서 + 다축 필터 칩 + 가중치 슬라이더 + 저장된 검색) 를 같은 TDD 사이클로 시작한다.
+설계(`DESIGN.md`) 위에 M0(뼈대) → M1(워처 + 팩 매니저 + SQLite 4테이블 + GUI 팩/라이브러리 탭) → M2(분석 파이프라인 + CLIP 라벨러 + 24축 316 시드 + 라벨 관리 다이얼로그 + 분석 큐/ETA 상태바) → M2.1(분석 큐 동시성 1 → 3 + Ollama semaphore + CLIP lock + SQLite write_lock + GUI 250ms 디바운스) → **M3**(HybridSearcher 가중합 0.40·sem + 0.15·kw + 0.20·label + 0.20·cons + 0.05·rec + MCP stdio 12 도구 + ConsistencyScorer + UsageTracker + GUI 검색 박스 + `docs/MCP_USAGE_GUIDE.md` 본격화 + 사용자 GUI 검증 중 발견된 `EmbeddingEncoder.decode_vector` 메서드 갭 fix + 회귀 가드 2건) 까지 자동 333 테스트 + 2 mcp_integration 통과. 다음은 M4 (자연어 라벨 부울 파서 + 다축 필터 칩 + 가중치 슬라이더 + 저장된 검색) 를 같은 TDD 사이클로 시작한다.
 
 ## 2. 검증된 사실 (M3 시점)
 
-자동 — `pytest -q` 결과 **331/331 통과** (27s, Windows 10 / Python 3.12, `clip_integration` 2 + `mcp_integration` 2 = 4 옵트인 deselected). M2.1 의 221 + M3 의 110 신규.
+자동 — `pytest -q` 결과 **333/333 통과** (27s, Windows 10 / Python 3.12, `clip_integration` 2 + `mcp_integration` 2 = 4 옵트인 deselected). M2.1 의 221 + M3 의 112 신규 (110 케이스 + fix 회귀 가드 2).
 
 `pytest -m mcp_integration -v` — 실제 `python -m gah --mcp` subprocess + JSON-RPC `initialize`/`tools/list` 핸드셰이크 **2/2 통과** — 12 도구 모두 정상 응답.
 
@@ -25,9 +25,9 @@ M2 회귀+신규:  134 passed  (M2 plan §5.2 표 그대로)
 M1 추가 회귀:    3 passed
 M2.1 신규:      16 passed
 M2.1 회귀 보존:  +1 passed
-M3 신규:       110 passed  (store_m3 21 + consistency 12 + usage_tracker 8 + search 20 + mcp_models 10 + mcp_tools 22 + mcp_server_stdio 6 + library_search_ui 5 + config_m3 6)
+M3 신규:       112 passed  (store_m3 21 + consistency 12 + usage_tracker 8 + search 20+1 + mcp_models 10 + mcp_tools 22 + mcp_server_stdio 6 + library_search_ui 5 + config_m3 6 + embedding 회귀 가드 +1)
 ─────────────────────────────────────────────
-합계 331 passed (active) + 4 deselected (clip_integration 2 + mcp_integration 2)
+합계 333 passed (active) + 4 deselected (clip_integration 2 + mcp_integration 2)
 ```
 
 M3 수동 검증 단계는 [`milestones/M3_verification.md`](./milestones/M3_verification.md) §4. M2.1 의 수동 검증 단계도 그대로 유효 ([`milestones/M2.1_verification.md`](./milestones/M2.1_verification.md) §3).
@@ -84,7 +84,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-→ `331 passed, 4 deselected` 확인. 그러면 M0~M3 기준점이 유지되고 있다는 뜻.
+→ `333 passed, 4 deselected` 확인. 그러면 M0~M3 기준점이 유지되고 있다는 뜻.
 
 venv 가 없는 새 PC 라면 [`CLAUDE.md §6`](./CLAUDE.md) 의 셋업 절차 그대로.
 

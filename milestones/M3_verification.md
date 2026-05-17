@@ -4,13 +4,15 @@
 
 M2/M2.1 의 라벨·임베딩·FTS·통일성 입력 위에 **검색 백엔드 + MCP stdio 서버 + GUI 검색 박스** 추가. 본 마일스톤의 의도와 작업 단위는 [`M3_plan.md`](./M3_plan.md), TDD 체크리스트는 [`M3_todo.md`](./M3_todo.md).
 
-## 1. 자동 검증 결과: ✅ 331/331 통과 + 2/2 mcp_integration
+## 1. 자동 검증 결과: ✅ 333/333 통과 + 2/2 mcp_integration
 
-`pytest -q` 전체 실행 — M0/M1/M2/M2.1 회귀 221 + M3 신규 110 = **331 active** (`clip_integration` 2 + `mcp_integration` 2 = 4 deselected).
+`pytest -q` 전체 실행 — M0/M1/M2/M2.1 회귀 221 + M3 신규 112 = **333 active** (`clip_integration` 2 + `mcp_integration` 2 = 4 deselected).
 
 ```
-========================= 331 passed, 4 deselected in 26.65s =========================
+========================= 333 passed, 4 deselected in 26.38s =========================
 ```
+
+> **회귀 가드 2 건 추가** (§3.7 의 사용자 측 GUI 검증 중 발견된 인터페이스 갭 fix 와 함께 도입) — `test_decode_vector_is_callable_as_instance_method` + `test_hybrid_works_with_real_embedding_encoder`. M3 신규는 110 → 112.
 
 `pytest -m mcp_integration -v` — 실 subprocess + JSON-RPC 핸드셰이크:
 
@@ -127,6 +129,40 @@ for r in res.results:
     )
     assert r.score == pytest.approx(total, abs=1e-4)  # PASS
 ```
+
+## 3.6 사용자 GUI 검증 중 발견된 인터페이스 갭 (fix 완료)
+
+사용자가 §4.2 의 GUI 검색 박스 시각 확인 중 "점수 컬럼에 숫자가 안 나타난다" 보고. systematic-debugging 으로 추적:
+
+**Phase 1 정보 수집**:
+- 사용자 DB: 자산 3 (1 ok + 2 partial), 임베딩 3, dim 768 일관, FTS 3.
+- `gah.log` 에 `/v1/embeddings 200 OK` 호출 5회 — 사용자가 입력 후 250 ms 디바운스를 거쳐 5번 검색 시도.
+- 그런데 `search_queries` 행 수 = **0** — `insert_search_query` (HybridSearcher.hybrid 의 마지막 단계) 도달 못 함.
+
+**Phase 2 원인 확정**:
+
+[src/gah/core/search.py](../src/gah/core/search.py) 의 `HybridSearcher.hybrid()` 는 검색 쿼리 임베딩을 다음으로 디코드:
+
+```python
+query_blob, dim = self.embedder.encode_text(...)
+query_vec = self.embedder.decode_vector(query_blob, dim)
+```
+
+그러나 [src/gah/core/embedding.py](../src/gah/core/embedding.py) 의 `EmbeddingEncoder` 클래스에 **`decode_vector` 인스턴스 메서드가 없었다** — 모듈 함수 `decode_vector(blob, dim)` 만 존재.
+
+자동 테스트가 못 잡은 이유: 테스트 픽스처 `fake_embedder` (conftest.py 의 `_FakeEmbedder` 클래스) 가 `decode_vector` 를 인스턴스 메서드로 구현 → fake/real 인터페이스 갭이 픽스처 안에 숨었다. M3 의 `test_search.py` 20 케이스 + `test_mcp_tools.py` 22 케이스 모두 `fake_embedder` 사용 → 사용자 환경의 진짜 `EmbeddingEncoder` 에서만 `AttributeError` 발생.
+
+`library_view._run_search` 의 `try/except Exception: return` 가 그 예외를 silent 으로 삼키면서 사용자에게는 "그리드가 안 변함" 으로만 보였다.
+
+**Phase 3 수정 3 건**:
+
+1. **Root** — `EmbeddingEncoder.decode_vector` 인스턴스 메서드 추가 (모듈 함수 위임).
+2. **Silent fail 방지** — `library_view._run_search` 의 `try/except` 에 `log.exception(...)` 추가. 앞으로 같은 부류 에러는 `gah.log` 에 traceback 으로 박힌다.
+3. **회귀 가드 2 케이스**:
+   - `tests/test_embedding.py::test_decode_vector_is_callable_as_instance_method` — fake 와 real 의 인터페이스 동등성을 단위 단언.
+   - `tests/test_search.py::test_hybrid_works_with_real_embedding_encoder` — 진짜 `EmbeddingEncoder` + 가짜 Ollama client 조합으로 hybrid 끝까지. 메서드 갭이 다시 생기면 즉시 fail.
+
+**Phase 4 검증**: 사용자가 트레이 재시작 후 검색 박스에 자연어 입력 → 점수 컬럼에 0.0~1.0 사이 숫자 정상 표시 확인 (2026-05-17). 자동 회귀 `pytest -q` 333/333 통과.
 
 ## 4. 사용자 측 수동 검증 항목
 

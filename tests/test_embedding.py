@@ -59,3 +59,15 @@ def test_encode_text_propagates_ollama_error() -> None:
     enc = EmbeddingEncoder(_ErrOllama())  # type: ignore[arg-type]
     with pytest.raises(OllamaError):
         enc.encode_text("oops")
+
+
+def test_decode_vector_is_callable_as_instance_method() -> None:
+    """M3 회귀 가드 — HybridSearcher 가 ``self.embedder.decode_vector`` 를
+    인스턴스 메서드로 호출한다. fake 픽스처와 실 EmbeddingEncoder 의
+    인터페이스가 일치해야 silent fail 이 안 난다.
+    """
+    fake = _FakeOllama([0.1, 0.2, 0.3, 0.4])
+    enc = EmbeddingEncoder(fake)  # type: ignore[arg-type]
+    blob, dim = enc.encode_text("hello")
+    arr = enc.decode_vector(blob, dim)
+    assert arr.tolist() == pytest.approx([0.1, 0.2, 0.3, 0.4])

@@ -252,3 +252,34 @@ def test_recent_asset_gets_higher_recency_score(searcher, populated_store):
     if res.results:
         for r in res.results:
             assert 0.0 <= r.score_breakdown["recency"] <= 1.0
+
+
+def test_hybrid_works_with_real_embedding_encoder(populated_store):
+    """M3 회귀 가드 — fake_embedder 가 모든 메서드를 제공해 자동 테스트가
+    통과해도, 실 EmbeddingEncoder 인스턴스로 호출했을 때 ``decode_vector``
+    같은 메서드 갭이 있으면 silent fail. 진짜 EmbeddingEncoder + 가짜
+    Ollama client 조합으로 한 번 끝까지 돌려야 인터페이스 일치를 보장.
+    """
+    from gah.config import Config
+    from gah.core.consistency import ConsistencyScorer
+    from gah.core.embedding import EmbeddingEncoder
+    from gah.core.labels import LabelRegistry
+    from gah.core.search import HybridSearcher, SearchRequest
+
+    store, _ = populated_store
+
+    class _FakeOllamaClient:
+        def embed(self, text, *, model=None):  # noqa: ANN001
+            return [0.001 * ((i + len(text)) % 100) for i in range(768)]
+
+    embedder = EmbeddingEncoder(_FakeOllamaClient(), model="nomic-embed-text")
+    cfg = Config()
+    registry = LabelRegistry(store)
+    registry.bootstrap()
+    consistency = ConsistencyScorer(store, cfg)
+    sr = HybridSearcher(store, embedder, consistency, registry, cfg)
+
+    res = sr.hybrid(SearchRequest(query="hero pixel art", count=3))
+    # populated_store 가 자산 6 개 — 빈 응답이면 안 됨 (검색이 끝까지 도달).
+    assert len(res.results) > 0
+    assert res.query_id > 0
