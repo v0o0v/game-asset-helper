@@ -56,6 +56,25 @@ def test_api_search_invalid_diversity_returns_422(client, deps_fixture):
     assert r.status_code == 422
 
 
+def test_api_search_rows_include_kind(populated_client):
+    """검색 결과 rows 가 kind 필드 (sprite/sound) 를 포함해야 한다 — 카드 분기용.
+
+    M6 회귀 — ResultRow.kind 누락으로 모든 카드가 generic 아이콘 (📦) 으로
+    표시되던 버그 가드.
+    """
+    r = populated_client.post(
+        "/api/search", json={"query": "character pixel art", "count": 10},
+    )
+    assert r.status_code == 200
+    rows = r.json()["rows"]
+    assert rows, "populated_store 검색 결과가 비어 있으면 안 됨"
+    for row in rows:
+        assert "kind" in row, f"row 에 kind 필드 누락: {row}"
+        assert row["kind"] in ("sprite", "sound", "spritesheet"), (
+            f"예상치 못한 kind: {row['kind']}"
+        )
+
+
 # ── /ui/search-results (Task 2.2) ─────────────────────────────────────
 
 

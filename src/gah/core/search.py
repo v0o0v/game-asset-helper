@@ -68,6 +68,7 @@ class ResultRow:
     matched_labels: list[dict]
     why: str
     meta: dict
+    kind: str = ""  # M6 — 카드 분기 (sprite/sound/spritesheet). 기본 "" = 폴백 generic
 
 
 @dataclass(frozen=True)
@@ -471,6 +472,7 @@ class HybridSearcher:
                 matched_labels=matched,
                 why=why,
                 meta=asset_meta[a].get("kind_meta", {}),
+                kind=asset_meta[a].get("kind", ""),
             ))
 
         qid = self._log_query(project_row, req,
