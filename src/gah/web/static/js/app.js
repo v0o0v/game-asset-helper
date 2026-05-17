@@ -12,6 +12,38 @@
  */
 
 /**
+ * SSE labels_signature_changed 이벤트 핸들러.
+ * 라벨 어휘가 변경됐을 때 토스트 알림을 잠깐 노출한다.
+ *
+ * @param {CustomEvent} evt
+ */
+window.onLabelsChanged = function (evt) {
+  var toast = document.getElementById("labels-toast");
+  if (!toast) return;
+  toast.textContent = "라벨 어휘가 변경됐습니다 — 새로 고침 권장";
+  toast.style.display = "block";
+  // 4초 후 자동 숨김
+  setTimeout(function () {
+    toast.style.display = "none";
+  }, 4000);
+};
+
+/**
+ * 모달 ESC 키 dismiss.
+ *
+ * #asset-detail-modal 컨테이너 안의 내용을 지워 모달을 닫는다.
+ * pick-card 그룹 등 다른 요소에는 영향을 주지 않는다.
+ */
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") {
+    var modal = document.getElementById("asset-detail-modal");
+    if (modal && modal.innerHTML.trim() !== "") {
+      modal.innerHTML = "";
+    }
+  }
+});
+
+/**
  * SSE user_pick_request 이벤트 핸들러.
  * htmx 의 hx-on::sse-message 에서 호출 — event.detail 형태의 HTMX CustomEvent.
  *

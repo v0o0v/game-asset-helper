@@ -72,7 +72,13 @@
          hx-on::sse-message="onPickRequest(event)"></div>
     <div sse-swap="user_pick_resolved"
          hx-on::sse-message="onPickResolved(event)"></div>
+    <div sse-swap="labels_signature_changed"
+         hx-on::sse-message="onLabelsChanged(event)"></div>
   </div>
+
+  {# 라벨 변경 토스트 컨테이너 #}
+  <div id="labels-toast" class="labels-toast" style="display:none;"
+       aria-live="polite"></div>
 
   {# app.js — SSE 이벤트 핸들러 (onPickRequest / onPickResolved) #}
   <script src="/static/js/app.js" defer></script>
