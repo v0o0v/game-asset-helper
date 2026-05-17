@@ -1,4 +1,4 @@
-/* M5 — 라이브러리 페이지 + 결과 + 사이드 패널 + 모바일 반응형. */
+/* M5 — 라이브러리 페이지 + 결과 + 사이드 패널 + B 탭 필터 + 모바일 반응형. */
 
 * { box-sizing: border-box; }
 html, body {
@@ -307,6 +307,82 @@ html, body {
 
 .card-size-s .card-list-thumb { width: 32px; height: 32px; }
 .card-size-l .card-list-thumb { width: 56px; height: 56px; }
+
+/* === B 탭 — 매칭 모드 + 라벨 검색 + 종류 탭 === */
+.side-panel-heading {
+  margin: 0 0 12px;
+  font-size: 0.95em;
+  font-weight: 600;
+}
+
+.match-mode {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 0 0 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.match-mode-legend {
+  font-size: 0.8em;
+  opacity: 0.7;
+  padding: 0 4px;
+}
+.match-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.label-filter-wrap {
+  margin-bottom: 12px;
+}
+.label-filter-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.9em;
+}
+
+/* === 종류 탭 (B 탭 sub-tab) === */
+.kind-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.kind-tabs button {
+  flex: 1;
+  padding: 7px 4px;
+  background: var(--card-bg);
+  color: var(--fg);
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.82em;
+  font-weight: 500;
+  transition: background 0.1s;
+}
+.kind-tabs button:last-child { border-right: none; }
+.kind-tabs button.active {
+  background: var(--accent);
+  color: white;
+}
+.kind-tabs button:hover:not(.active) { background: var(--chip-bg); }
+
+/* === 칩 — 라벨 검색 매칭 강조 === */
+.chip.matched {
+  box-shadow: 0 0 0 2px var(--chip-matched);
+  background: var(--chip-matched);
+}
 
 /* === 모달 === */
 .modal-overlay {
