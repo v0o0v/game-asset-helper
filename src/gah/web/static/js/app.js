@@ -1,0 +1,71 @@
+/**
+ * M5 Phase 4B — SSE 클라이언트 핸들러.
+ *
+ * htmx-sse 익스텐션이 /sse/notifications 로부터 이벤트를 수신하면
+ * base.html 의 sse-swap 바인딩이 아래 함수를 호출한다.
+ *
+ * user_pick_request  → Alpine pickQueue 에 추가 + #pick-cards 에 카드 삽입.
+ * user_pick_resolved → Alpine pickQueue 에서 제거 (DOM 정리는 채택/거부 버튼의
+ *                      hx-swap="outerHTML" 이 자동으로 처리).
+ *
+ * htmx-sse 는 연결 끊김 시 자동 재연결을 시도하므로 별도 reconnect 로직 불필요.
+ */
+
+/**
+ * SSE user_pick_request 이벤트 핸들러.
+ * htmx 의 hx-on::sse-message 에서 호출 — event.detail 형태의 HTMX CustomEvent.
+ *
+ * @param {CustomEvent} evt - htmx-sse 가 전달하는 이벤트 (evt.detail.data = SSE data 문자열)
+ */
+window.onPickRequest = function (evt) {
+  var data;
+  try {
+    // htmx-sse 는 SSE 데이터 문자열을 evt.detail.data 에 넣는다.
+    data = JSON.parse(evt.detail ? evt.detail.data : evt.data);
+  } catch (e) {
+    console.warn("[GAH] onPickRequest: JSON 파싱 실패", e);
+    return;
+  }
+
+  // Alpine store 업데이트 (Alpine 초기화 이후에만 안전)
+  if (typeof Alpine !== "undefined" && Alpine.store) {
+    Alpine.store("pickQueue").items.unshift(data);
+    Alpine.store("notifications").pickCount =
+      Alpine.store("pickQueue").items.length;
+  }
+
+  // #pick-cards 컨테이너에 카드 fragment 삽입
+  var rid = data.request_id;
+  if (rid) {
+    htmx.ajax("GET", "/ui/pick-card/" + rid, {
+      target: "#pick-cards",
+      swap: "afterbegin",
+    });
+  }
+};
+
+/**
+ * SSE user_pick_resolved 이벤트 핸들러.
+ * 채택/거부 버튼의 hx-swap="outerHTML" 이 이미 DOM 을 교체하므로
+ * 여기서는 Alpine store 만 정리한다.
+ *
+ * @param {CustomEvent} evt
+ */
+window.onPickResolved = function (evt) {
+  var data;
+  try {
+    data = JSON.parse(evt.detail ? evt.detail.data : evt.data);
+  } catch (e) {
+    console.warn("[GAH] onPickResolved: JSON 파싱 실패", e);
+    return;
+  }
+
+  if (typeof Alpine !== "undefined" && Alpine.store) {
+    var rid = data.request_id;
+    Alpine.store("pickQueue").items = Alpine.store("pickQueue").items.filter(
+      function (x) { return x.request_id !== rid; }
+    );
+    Alpine.store("notifications").pickCount =
+      Alpine.store("pickQueue").items.length;
+  }
+};

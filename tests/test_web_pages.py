@@ -282,3 +282,41 @@ def test_side_tab_content_has_x_show(client):
     """탭 컨테이너가 x-show 로 activeTab 을 확인한다."""
     r = client.get("/library")
     assert "activeTab" in r.text
+
+
+# ── Phase 4B: SSE 클라이언트 + pick-cards 컨테이너 + app.js ─────────────────
+
+
+def test_library_page_includes_sse_subscriber(client):
+    """library 페이지에 sse-connect="/sse/notifications" 가 포함된다."""
+    r = client.get("/library")
+    assert r.status_code == 200
+    assert 'sse-connect="/sse/notifications"' in r.text
+
+
+def test_library_page_includes_pick_cards_container(client):
+    """library 페이지에 id="pick-cards" 컨테이너가 포함된다."""
+    r = client.get("/library")
+    assert r.status_code == 200
+    assert 'id="pick-cards"' in r.text
+
+
+def test_library_page_includes_app_js(client):
+    """library 페이지에 app.js 스크립트 태그가 포함된다."""
+    r = client.get("/library")
+    assert r.status_code == 200
+    assert "app.js" in r.text
+
+
+def test_app_js_static_file_exists():
+    """src/gah/web/static/js/app.js 파일이 존재한다."""
+    from pathlib import Path
+    p = Path(__file__).parent.parent / "src/gah/web/static/js/app.js"
+    assert p.exists(), f"{p} 파일이 없음"
+
+
+def test_library_page_sse_swap_user_pick_request(client):
+    """sse-swap="user_pick_request" 가 library 페이지에 존재한다."""
+    r = client.get("/library")
+    assert r.status_code == 200
+    assert 'user_pick_request' in r.text

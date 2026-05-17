@@ -80,6 +80,11 @@
     </aside>
   </div>
 
+  {# M5 Phase 4B — Claude pick 요청 카드 컨테이너.
+     SSE user_pick_request 수신 시 htmx.ajax 로 /ui/pick-card/{rid} 를
+     afterbegin 으로 삽입한다. 빈 상태에서는 DOM 에 존재하지만 숨겨지지 않는다. #}
+  <div id="pick-cards"></div>
+
   {# 자산 상세 모달 — Task 2.10 #}
   <div id="asset-detail-modal" class="modal-container"></div>
 </div>
