@@ -68,7 +68,6 @@ def make_tray_icon(
     qapp: "QApplication",
     *,
     on_open_main: Optional[Callable[[], None]] = None,
-    on_open_labels: Optional[Callable[[], None]] = None,
 ) -> "QSystemTrayIcon":
     """Build a tray icon and return it.
 
@@ -81,9 +80,9 @@ def make_tray_icon(
         the tray icon.  ``None`` hides the menu entry and disables the
         double-click handler, which is convenient for tests that don't
         have a window to raise.
-    on_open_labels : callable, optional
-        Invoked when the user picks "라벨 관리…".  ``None`` hides the
-        menu entry.
+
+    M5: ``on_open_labels`` 매개변수 제거. 라벨 관리는 웹 페이지
+    ``/labels/admin`` 으로 이전.
 
     Imports of PySide6 are deferred to function scope so that simply
     importing ``gah.tray`` (e.g. from the test suite) doesn't drag in
@@ -107,13 +106,6 @@ def make_tray_icon(
         open_action = QAction(_tr("메인 창 열기"), menu)
         open_action.triggered.connect(on_open_main)
         menu.addAction(open_action)
-
-    if on_open_labels is not None:
-        labels_action = QAction(_tr("라벨 관리…"), menu)
-        labels_action.triggered.connect(on_open_labels)
-        menu.addAction(labels_action)
-
-    if on_open_main is not None or on_open_labels is not None:
         menu.addSeparator()
 
     quit_action = QAction(_tr("종료"), menu)
@@ -151,3 +143,29 @@ def update_tray_tooltip(
             done=completed, total=total, eta=eta,
         )
     )
+
+
+def notify_user_pick_request(
+    tray: "QSystemTrayIcon", count: int,
+) -> None:
+    """Claude 요청 카운트 변경 시 트레이 툴팁 갱신 + property 기록.
+
+    ``count > 0`` 시 "Game Asset Helper — Claude 요청 N건" 툴팁.
+    ``count == 0`` 시 디폴트 툴팁 복원. ``_pick_count`` property 가 정수로
+    기록됨 (테스트 + 디버그용).
+
+    Qt 시그널은 본 함수 호출자가 main thread 마샬링 책임 (Phase 4 에서
+    QObject signal bridge 추가). 본 함수 자체는 GUI 호출이라 main thread
+    에서만 호출되어야 한다.
+    """
+    from PySide6.QtCore import QCoreApplication
+
+    def _tr(text: str) -> str:
+        return QCoreApplication.translate("Tray", text)
+
+    if count > 0:
+        tray.setToolTip(_tr("Game Asset Helper — Claude 요청 {n}건").format(n=count))
+        tray.setProperty("_pick_count", count)
+    else:
+        tray.setToolTip(_tr("Game Asset Helper"))
+        tray.setProperty("_pick_count", 0)
