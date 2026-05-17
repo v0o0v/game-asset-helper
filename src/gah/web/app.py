@@ -100,6 +100,7 @@ def build_app(deps: WebDeps) -> FastAPI:
     app.include_router(packs.router)
     app.include_router(labels_admin.router)
     app.include_router(picks.router)
+    app.include_router(picks.router_ui)  # /ui/pick-card/{rid} HTML fragment
     app.include_router(sse.router)
     app.include_router(pages.router)  # HTML 페이지 라우트 (/, /library)
 

@@ -1,13 +1,15 @@
-"""M5 Phase 4A — Claude request_user_pick 라우터.
+"""M5 Phase 4A/4B — Claude request_user_pick 라우터.
 
 Task 4.1: POST /internal/user-pick — MCP loopback long-poll 진입점.
 Task 4.2: POST /api/user-pick/{rid} — 사용자 응답 (채택).
           POST /api/user-pick/{rid}/cancel — 사용자 거부.
+Task 4.4: GET  /ui/pick-card/{rid}  — _pick_card.html fragment 렌더.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -18,6 +20,9 @@ from ..sse_bus import broadcast
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["picks"])  # /internal/user-pick 은 prefix 없음
+
+# /ui/* prefix 를 쓰는 UI fragment 라우터
+router_ui = APIRouter(prefix="/ui", tags=["picks-ui"])
 
 
 # ─── Pydantic 모델 ────────────────────────────────────────────────────────────
@@ -161,3 +166,67 @@ def api_user_pick_cancel(rid: str, request: Request) -> dict:
     })
     log.info("user-pick cancelled: rid=%s", rid)
     return {"ok": True}
+
+
+# ─── Task 4.4 — /ui/pick-card/{rid} HTML fragment ────────────────────────────
+
+
+@router_ui.get("/pick-card/{rid}")
+def ui_pick_card(rid: str, request: Request):
+    """pending pick 의 후보 에셋을 _pick_card.html fragment 로 렌더.
+
+    - 200: pick-card-group HTML
+    - 404: rid 없음
+    """
+    deps = request.app.state.deps
+    snap = {p["request_id"]: p for p in deps.pending_picks.snapshot()}
+    if rid not in snap:
+        raise HTTPException(status_code=404)
+
+    pending = snap[rid]
+
+    # 후보 에셋 메타 수집 — Store.get_asset_by_id + Pack 이름 join
+    candidates = []
+    for asset_id in pending["candidates"]:
+        asset_row = deps.store.get_asset_by_id(asset_id)
+        if asset_row is None:
+            log.warning("pick-card: asset_id=%s 없음 (rid=%s)", asset_id, rid)
+            continue
+        pack_row = deps.store.get_pack_by_id(asset_row.pack_id)
+        pack_name = pack_row.display_name or pack_row.name if pack_row else ""
+
+        # sprite 크기 — sprite_meta 에서 조회
+        width: int | None = None
+        height: int | None = None
+        if asset_row.kind == "sprite":
+            sm = deps.store.conn.execute(
+                "SELECT width, height FROM sprite_meta WHERE asset_id = ?",
+                (asset_id,),
+            ).fetchone()
+            if sm:
+                width, height = sm[0], sm[1]
+
+        size_kb: int | None = (
+            asset_row.file_size // 1024 if asset_row.file_size else None
+        )
+
+        candidates.append({
+            "asset_id": asset_id,
+            "name": Path(asset_row.path).stem,
+            "kind": asset_row.kind,
+            "pack_name": pack_name,
+            "width": width,
+            "height": height,
+            "size_kb": size_kb,
+        })
+
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request=request,
+        name="_pick_card.html",
+        context={
+            "rid": rid,
+            "reason": pending["reason"],
+            "candidates": candidates,
+        },
+    )
