@@ -1,0 +1,5 @@
+{# M5 — 사운드 인라인 오디오 플레이어 fragment.
+   ▶ 버튼 클릭 → HTMX hx-get → .audio-slot 에 innerHTML swap. #}
+<audio controls autoplay preload="auto"
+       src="/api/audio/{{ asset_id }}"
+       style="width: 100%; margin-top: 6px;"></audio>
