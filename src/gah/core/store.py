@@ -901,6 +901,67 @@ class Store:
             for r in self.conn.execute(sql, params).fetchall()
         ]
 
+    def get_label_by_id(self, label_id: int) -> Optional[LabelRow]:
+        """label_id 로 라벨 조회. 없으면 None."""
+        row = self.conn.execute(
+            "SELECT id, axis, label, description, source, enabled FROM labels WHERE id = ?",
+            (label_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return LabelRow(
+            id=int(row[0]),
+            axis=row[1],
+            label=row[2],
+            description=row[3],
+            source=row[4],
+            enabled=bool(row[5]),
+        )
+
+    def update_label(
+        self,
+        label_id: int,
+        *,
+        description: str | None = None,
+        enabled: bool | None = None,
+    ) -> None:
+        """라벨 description/enabled 을 개별 또는 함께 갱신한다."""
+        import time as _time
+
+        now = int(_time.time())
+        parts: list[str] = ["updated_at = ?"]
+        params: list = [now]
+        if description is not None:
+            parts.append("description = ?")
+            params.append(description)
+        if enabled is not None:
+            parts.append("enabled = ?")
+            params.append(1 if enabled else 0)
+        params.append(label_id)
+        with self.write_lock:
+            self.conn.execute(
+                f"UPDATE labels SET {', '.join(parts)} WHERE id = ?",
+                params,
+            )
+
+    def delete_label(self, label_id: int) -> None:
+        """라벨 행 삭제. 호출 전 count_asset_labels_for_label_id 로 사용 중 여부 확인."""
+        with self.write_lock:
+            self.conn.execute("DELETE FROM labels WHERE id = ?", (label_id,))
+
+    def count_asset_labels_for_label_id(self, label_id: int) -> int:
+        """asset_labels 에서 해당 label_id 가 대응하는 (axis, label) 을 참조하는 행 수.
+
+        asset_labels 는 label_id FK 가 없고 (axis, label) 문자열로 join 해야 한다.
+        """
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM asset_labels al"
+            " JOIN labels l ON al.axis = l.axis AND al.label = l.label"
+            " WHERE l.id = ?",
+            (label_id,),
+        ).fetchone()
+        return int(row[0]) if row else 0
+
     # -- M3: projects -----------------------------------------------------
 
     def upsert_project(
