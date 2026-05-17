@@ -12,7 +12,8 @@ import logging
 import time
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -105,5 +106,41 @@ def build_app(deps: WebDeps) -> FastAPI:
     app.include_router(picks.router_ui)  # /ui/pick-card/{rid} HTML fragment
     app.include_router(sse.router)
     app.include_router(pages.router)  # HTML 페이지 라우트 (/, /library)
+
+    # ── 전역 에러 핸들러 ──────────────────────────────────────────────
+    # /api/* 경로는 JSON 응답 유지; 그 외 경로는 친절한 HTML 에러 페이지 반환.
+
+    def _error_response(
+        request: Request,
+        status_code: int,
+        message: str,
+    ) -> HTMLResponse:
+        """HTMX 여부에 따라 fragment 또는 전체 페이지 에러 템플릿 반환."""
+        is_htmx = request.headers.get("HX-Request") == "true"
+        tpl_name = "error_fragment.html" if is_htmx else "error.html"
+        return templates.TemplateResponse(
+            request=request,
+            name=tpl_name,
+            context={"status_code": status_code, "message": message, "page": "error"},
+            status_code=status_code,
+        )
+
+    @app.exception_handler(404)
+    async def not_found_handler(request: Request, exc: HTTPException) -> HTMLResponse | JSONResponse:
+        if request.url.path.startswith("/api/"):
+            return JSONResponse(
+                status_code=404,
+                content={"detail": exc.detail if exc.detail else "Not Found"},
+            )
+        return _error_response(request, 404, "페이지를 찾을 수 없습니다")
+
+    @app.exception_handler(500)
+    async def server_error_handler(request: Request, exc: Exception) -> HTMLResponse | JSONResponse:
+        if request.url.path.startswith("/api/"):
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal Server Error"},
+            )
+        return _error_response(request, 500, "서버 내부 오류가 발생했습니다")
 
     return app
