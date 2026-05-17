@@ -297,11 +297,15 @@ def test_side_tab_content_has_x_show(client):
 # ── Phase 4B: SSE 클라이언트 + pick-cards 컨테이너 + app.js ─────────────────
 
 
-def test_library_page_includes_sse_subscriber(client):
-    """library 페이지에 sse-connect="/sse/notifications" 가 포함된다."""
+def test_library_page_subscribes_to_sse_via_app_js(client):
+    """app.js 가 /sse/notifications 를 native EventSource 로 구독.
+
+    Phase 6 fix: htmx-sse 의존성 제거 (event 이름 mismatch 로 동작 안 함).
+    이제 app.js 의 IIFE 가 EventSource 직접 등록 + 이벤트 listener 3개 부착.
+    """
     r = client.get("/library")
     assert r.status_code == 200
-    assert 'sse-connect="/sse/notifications"' in r.text
+    assert "app.js" in r.text  # 클라이언트가 SSE 등록을 처리
 
 
 def test_library_page_includes_pick_cards_container(client):
@@ -325,11 +329,18 @@ def test_app_js_static_file_exists():
     assert p.exists(), f"{p} 파일이 없음"
 
 
-def test_library_page_sse_swap_user_pick_request(client):
-    """sse-swap="user_pick_request" 가 library 페이지에 존재한다."""
-    r = client.get("/library")
-    assert r.status_code == 200
-    assert 'user_pick_request' in r.text
+def test_app_js_registers_user_pick_request_listener():
+    """app.js 가 user_pick_request SSE 이벤트 listener 를 등록한다.
+
+    Phase 6 fix: htmx-sse 의 sse-swap 대신 native EventSource.addEventListener
+    로 직접 등록. app.js 안에 "user_pick_request" 이벤트 이름이 포함되어야 한다.
+    """
+    from pathlib import Path
+    app_js = Path(__file__).parent.parent / "src/gah/web/static/js/app.js"
+    content = app_js.read_text(encoding="utf-8")
+    assert "user_pick_request" in content
+    assert "addEventListener" in content
+    assert "/sse/notifications" in content
 
 
 def test_library_page_loads_htmx_json_enc_extension(client):

@@ -1,14 +1,17 @@
 /**
- * M5 Phase 4B — SSE 클라이언트 핸들러.
+ * M5 — SSE 클라이언트 핸들러.
  *
- * htmx-sse 익스텐션이 /sse/notifications 로부터 이벤트를 수신하면
- * base.html 의 sse-swap 바인딩이 아래 함수를 호출한다.
+ * Phase 6 fix: htmx-sse extension 의 sse-swap + hx-on::sse-message 매칭이
+ * HTML attribute lowercase 강제 (hx-on::sse-message) 와 htmx-sse 가 fire
+ * 하는 htmx:sseMessage (camelCase) 사이 mismatch 로 동작 안 함.
+ * → native EventSource 직접 등록으로 교체 (htmx-sse 의존성 우회).
  *
  * user_pick_request  → Alpine pickQueue 에 추가 + #pick-cards 에 카드 삽입.
  * user_pick_resolved → Alpine pickQueue 에서 제거 (DOM 정리는 채택/거부 버튼의
  *                      hx-swap="outerHTML" 이 자동으로 처리).
+ * labels_signature_changed → 우측 하단 토스트 4초.
  *
- * htmx-sse 는 연결 끊김 시 자동 재연결을 시도하므로 별도 reconnect 로직 불필요.
+ * EventSource 는 연결 끊김 시 브라우저가 자동 재연결 시도.
  */
 
 /**
@@ -101,3 +104,29 @@ window.onPickResolved = function (evt) {
       Alpine.store("pickQueue").items.length;
   }
 };
+
+/**
+ * Native EventSource 직접 등록 — htmx-sse 우회.
+ *
+ * DOMContentLoaded 시점에 한 번 등록. 페이지 진입마다 새 EventSource 인스턴스
+ * 생성 (브라우저가 SPA 가 아니라 traditional MPA 라 페이지마다 새로 로드됨).
+ */
+(function registerSseListeners() {
+  if (typeof EventSource === "undefined") {
+    console.warn("[GAH] EventSource 미지원 브라우저 — SSE 비활성");
+    return;
+  }
+  function _attach() {
+    var es = new EventSource("/sse/notifications");
+    es.addEventListener("user_pick_request", window.onPickRequest);
+    es.addEventListener("user_pick_resolved", window.onPickResolved);
+    es.addEventListener("labels_signature_changed", window.onLabelsChanged);
+    // window 에 보관해 디버깅 + 명시적 close 가능
+    window._gahSse = es;
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", _attach);
+  } else {
+    _attach();
+  }
+})();

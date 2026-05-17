@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="/static/css/themes.css">
   <link rel="stylesheet" href="/static/css/main.css">
   <script src="/static/vendor/htmx.min.js" defer></script>
-  <script src="/static/vendor/htmx-sse.min.js" defer></script>
   <script src="/static/vendor/htmx-json-enc.js" defer></script>
   <script src="/static/vendor/alpine.min.js" defer></script>
   <script>
@@ -64,23 +63,13 @@
     <small>{{ _("Game Asset Helper") }} · M5 web GUI</small>
   </footer>
 
-  {# M5 Phase 4B — SSE 구독 (전역, 모든 페이지). #}
-  {# htmx-sse 가 /sse/notifications 를 구독하고 이벤트명별 핸들러를 호출한다. #}
-  {# 연결 끊김 시 htmx-sse 가 자동 재연결을 처리한다. #}
-  <div hx-ext="sse" sse-connect="/sse/notifications">
-    <div sse-swap="user_pick_request"
-         hx-on::sse-message="onPickRequest(event)"></div>
-    <div sse-swap="user_pick_resolved"
-         hx-on::sse-message="onPickResolved(event)"></div>
-    <div sse-swap="labels_signature_changed"
-         hx-on::sse-message="onLabelsChanged(event)"></div>
-  </div>
-
-  {# 라벨 변경 토스트 컨테이너 #}
+  {# 라벨 변경 토스트 컨테이너 — app.js 의 onLabelsChanged 가 채움. #}
   <div id="labels-toast" class="labels-toast" style="display:none;"
        aria-live="polite"></div>
 
-  {# app.js — SSE 이벤트 핸들러 (onPickRequest / onPickResolved) #}
+  {# M5 — SSE 클라이언트. app.js 가 /sse/notifications 를 native EventSource 로
+     직접 구독 + 이벤트명별 핸들러 (onPickRequest/onPickResolved/onLabelsChanged)
+     등록. Phase 4B 의 htmx-sse 의존성은 Phase 6 에서 우회 (event 이름 mismatch). #}
   <script src="/static/js/app.js" defer></script>
 </body>
 </html>
