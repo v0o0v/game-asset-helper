@@ -419,6 +419,58 @@ html, body {
   box-shadow: 0 0 0 2px var(--chip-matched);
 }
 
+/* === B 탭 다축 필터 (Task 3.8) === */
+.multi-filters {
+  margin-bottom: 12px;
+}
+.filter-group {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+.filter-group summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.88em;
+  font-weight: 600;
+  user-select: none;
+  background: var(--card-bg);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.filter-group summary::-webkit-details-marker { display: none; }
+.filter-group summary::before {
+  content: "▶";
+  font-size: 0.7em;
+  opacity: 0.6;
+  transition: transform 0.15s;
+}
+.filter-group[open] summary::before { transform: rotate(90deg); }
+.filter-group-body {
+  padding: 6px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.filter-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.filter-label input { cursor: pointer; }
+.filter-empty {
+  margin: 0;
+  font-size: 0.82em;
+  opacity: 0.5;
+}
+
 /* === 모달 === */
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;

@@ -34,6 +34,57 @@ def _classify_axis(axis_id: str) -> str:
 # ── 엔드포인트 ──────────────────────────────────────────────────────────
 
 
+@router.get("/filters/packs")
+def api_filters_packs(request: Request) -> dict:
+    """팩 카탈로그 + 벤더/라이선스 distinct 값 반환.
+
+    응답 형태::
+
+        {
+          "packs": [
+            {
+              "id": 1,
+              "name": "pack_a",
+              "display_name": "Pack A",
+              "vendor": "kenney",
+              "license": "CC0",
+              "enabled": true,
+              "asset_count": 42,
+            },
+            ...
+          ],
+          "vendors": ["craftpix", "kenney"],
+          "licenses": ["CC0", "MIT"],
+        }
+
+    ``vendors`` / ``licenses`` 는 packs 에서 추출한 distinct 정렬 목록.
+    빈 카탈로그 → ``packs: []``, ``vendors: []``, ``licenses: []``.
+    """
+    deps = request.app.state.deps
+    packs = deps.store.list_packs(include_disabled=True)
+    items = []
+    for p in packs:
+        items.append(
+            {
+                "id": p.id,
+                "name": p.name,
+                "display_name": p.display_name or p.name,
+                "vendor": p.vendor or "",
+                "license": p.license or "",
+                "enabled": bool(p.enabled),
+                "asset_count": deps.store.count_assets_in_pack(p.id),
+            }
+        )
+    # vendor / license distinct 값
+    vendors = sorted({i["vendor"] for i in items if i["vendor"]})
+    licenses = sorted({i["license"] for i in items if i["license"]})
+    return {
+        "packs": items,
+        "vendors": vendors,
+        "licenses": licenses,
+    }
+
+
 @router.get("/filters/labels")
 def get_filters_labels(request: Request) -> dict:
     """라벨 카탈로그를 sprite / sheet / sound 버킷으로 분류해 반환한다.
