@@ -24,7 +24,7 @@
 | M2.1 — 분석 큐 병렬화 패치 | ✅ 완료 | 동시성 1→3, Ollama semaphore(parallel=2), CLIP threading.Lock, SQLite write_lock+busy_timeout, GUI 250ms 디바운스 |
 | M3 — 검색 백엔드 + 통일성 + MCP | ✅ 완료 | HybridSearcher 가중합 0.40/0.15/0.20/0.20/0.05, ConsistencyScorer §4.6 표, UsageTracker, MCP stdio 12 도구 (mcp 1.27), GUI 검색 박스, `docs/MCP_USAGE_GUIDE.md` 본격화 |
 | M4 — 검색 UX 풍부화 | ✅ 완료 (main 머지됨, [PR #5](https://github.com/v0o0v/game-asset-helper/pull/5)) | label_query 파서 AND/OR/NOT + axis:label + bare 자동매칭, HybridSearcher 6채널 0.35/0.10/0.20/0.20/0.05/0.10 feedback, diversity none/mmr/round_robin, saved_searches 4 신규 MCP 도구 (12→16), feedback_records signed weight 페널티 학습, suggest_packs samples 풍부화. Qt UI 위젯 4개는 M5 가 폐기 예정 |
-| **M5 — 웹 GUI 전환 + 라이브러리 리디자인 + Claude pick 인터랙션** (~5.5주) | **🔄 진행 중** (Phase 0~5 완료, **약 91%**, `feat/m5-web-gui` 브랜치 main 위 70+ commit) | **완료**: Phase 0~2 (인프라/페이지/검색/결과/카드/상세 모달/사운드 — `506 passed` baseline) + **Phase 3 (B/C/D 사이드 패널 18 task — ⚙ 토글 + 슬라이드 transition + 리사이즈 핸들 (240~640) + B 탭 (매칭 모드 AND/OR/NOT + 라벨 검색 + 종류 탭 + axis 칩 FlowLayout + 다축 필터 4 드롭다운 + selectedLabels → SearchRequest 매핑) + C 탭 (그리드/리스트/카드 크기/정렬 양방향 + 카드 메타 4 토글) + D 탭 (프리셋 3 + 슬라이더 6 + Config 즉시 갱신 + 저장된 검색 CRUD + 통일성 요약 + 모달) + 768px 반응형). Store 헬퍼 2 + endpoint 7 신규. populated_deps fixture 6 파일 → conftest 통합.** + **Phase 4 (Claude `request_user_pick` MCP 17번째 도구 + SSE push + 브라우저 보라색 pick 카드 + htmx-json-enc vendoring + TrayBridge QObject 시그널 브리지 + 자동 `record_asset_use(source="claude_pick")`) — 백엔드: `/internal/user-pick` long-poll + `/api/user-pick/{rid}` + `/sse/notifications`. MCP: `tool_request_user_pick` + httpx loopback. 프론트: `_pick_card.html` + Alpine pickQueue store + app.js + 헤더 배지. 트레이: `TrayBridge(QObject)` uvicorn→Qt 시그널.** + **Phase 5 (Pack 웹 페이지 + 라벨 admin 웹 페이지 + Qt UI 8 파일 + 폐기 테스트 7 파일 삭제) — `/packs` 카드 그리드 + HTMX enable/disable 토글. `/labels/admin` 24 axis 탭 + 라벨 CRUD (HTML fragment) + JSON import/export + SSE `labels_signature_changed`. `src/gah/ui/` 전체 삭제 완료.** **783 passed + 1 skipped**. **다음**: Phase 6 (마감 + 검증). spec: [`docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md`](./docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md), plan: [`milestones/M5_plan.md`](./milestones/M5_plan.md) |
+| **M5 — 웹 GUI 전환 + 라이브러리 리디자인 + Claude pick 인터랙션** (~5.5주) | **✅ 완료** (`feat/m5-web-gui` 브랜치, main 머지 대기) | 웹 GUI 전환 완료 + 라이브러리/팩/라벨 리디자인 + Claude pick + 17 MCP 도구 + Qt UI 폐기. Phase 0~6 완료 — **796 passed + 1 skipped**. spec: [`docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md`](./docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md), plan: [`milestones/M5_plan.md`](./milestones/M5_plan.md) |
 | M6 — 시트 분석 + 애니메이션 (1주) | 대기 | 격자 분할·Aseprite/TexturePacker JSON·`suggest_animation_frames` |
 | M7 — Unity Asset Store 임포트 (1주) | 대기 | `.unitypackage` 파서·캐시 스캐너 |
 | M8 — 패키징 + i18n (1주) | 대기 | PyInstaller/Tauri 빌드, gettext / Jinja i18n |
@@ -102,7 +102,8 @@ game-asset-helper/
 │       │   ├── pack_manager.py   # 팩 디렉터리 인테이크
 │       │   ├── scanner.py        # 부팅 풀스캔 화해
 │       │   └── watcher.py        # watchdog 어댑터 + PackDebouncer
-│       └── ui/               # M1 Qt GUI (M5 Phase 5C 에서 삭제 — 웹 UI 가 대체)
+│       ├── web/              # M5 FastAPI 웹 서버 (app/server/routers/templates/static)
+│       └── ui/               # M5 Phase 5C 에서 완전 삭제됨 (src/gah/ui/ 디렉터리 없음)
 └── tests/
     ├── conftest.py
     ├── test_config.py / test_logging.py / test_single_instance.py / test_entrypoint.py / test_imports.py  # M0
@@ -134,7 +135,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-`pytest -q`가 **783 passed + 1 skipped + 4 deselected** 로 떨어지면 준비 완료 (M0~M4 의 452 baseline + M5 Phase 0~5 의 +331 신규 — Qt UI 폐기 테스트 7 파일 삭제로 skipped 8 → 1). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m gah --mcp` subprocess + JSON-RPC, **17 도구** 응답) 추가 검증 가능. M4 시점 검증 결과는 [`milestones/M4_verification.md`](./milestones/M4_verification.md). **M4 + M5 spec 은 [PR #5](https://github.com/v0o0v/game-asset-helper/pull/5) 로 main 머지됨**. **M5 작업 브랜치는 `feat/m5-web-gui`** (main 위 70+ commit, Phase 0~5 완료, Phase 6 진행 예정).
+`pytest -q`가 **796 passed + 1 skipped + 4 deselected** 로 떨어지면 준비 완료 (M0~M4 의 452 baseline + M5 Phase 0~6 의 +344 신규 — Qt UI 폐기 테스트 7 파일 삭제로 skipped 8 → 1). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m gah --mcp` subprocess + JSON-RPC, **17 도구** 응답) 추가 검증 가능. M4 시점 검증 결과는 [`milestones/M4_verification.md`](./milestones/M4_verification.md). M5 최종 검증 결과는 [`milestones/M5_verification.md`](./milestones/M5_verification.md). **M4 + M5 spec 은 [PR #5](https://github.com/v0o0v/game-asset-helper/pull/5) 로 main 머지됨**. **M5 작업 브랜치는 `feat/m5-web-gui`** (main 위 75+ commit, Phase 0~6 완료, main 머지 대기).
 
 ## 7. 자주 쓰는 명령
 
@@ -162,28 +163,24 @@ python -m gah --tray
 python -m gah --version
 ```
 
-## 8. 다음 작업 (M5 Phase 6)
+## 8. 다음 작업 (M6 — 시트 분석 + 애니메이션)
 
-**M5 — 웹 GUI 전환 + 라이브러리 리디자인 + Claude pick 인터랙션** 이 **🔄 진행 중** (Phase 0~5 완료, 약 91%). 다음 phase 는 **Phase 6 (마감 + 검증)** — [`milestones/M5_plan.md`](./milestones/M5_plan.md) §4.6, ~0.5주.
+M5 가 **✅ 완료**됐다 (Phase 0~6, 796 passed, `feat/m5-web-gui` 브랜치 main 머지 대기). 다음 마일스톤은 **M6 — 시트 분석 + 애니메이션** (~1주).
 
-### 8.1 현재 상태 (Phase 0~5 완료)
+### 8.1 현재 상태 (M5 완료)
 
-- 브랜치 `feat/m5-web-gui` — main 위 **70 commit** (미머지).
-- 783 passed + 1 skipped + 4 deselected. 회귀 0.
-- 완료된 인프라:
-  - **Phase 0~2** — FastAPI/uvicorn/Jinja2/sse-starlette 의존성 + Config 7 신규 필드 + UsageSource enum + HTMX/Alpine vendoring + WebServer 별 스레드 + 포트 폴백 + SSE bus + 트레이 → 브라우저 + 라이브러리 페이지 + 검색/결과/카드/모달/사운드 (`506 passed`)
-  - **Phase 3A** — 사이드 패널 ⚙ 토글 200ms 슬라이드 transition + `resizeHandle()` Alpine 컴포넌트 (240~640 클램프) + B/C/D 탭 헤더 + 3 partial 스캐폴딩 + sticky 정정
-  - **Phase 3B** — B 탭 매칭 모드 (AND/OR/NOT 라디오 + form hidden input) + 라벨 검색 input + `.chip.matched` (box-shadow 단독) + 종류 탭 (sprite/sheet/sound) + `/api/filters/labels` (axis prefix 분류) + axis 칩 `chip-flow` FlowLayout + `toggleLabel()` + 다축 필터 4 `<details>` (팩 다중/벤더/라이선스/상태) + `/api/filters/packs` (vendors/licenses distinct + asset_count) + `_do_search` 가 labels list[int] → `Store.list_labels_raw` 룩업 → LabelFilter + match_mode → `labels_all/any/none` 분배 + `pack_ids` Python 후처리 필터 + form-data JSON parse + library.html hidden input 3개 (`match_mode`, `labels`, `pack_ids` JSON.stringify)
-  - **Phase 3C** — C 탭 표시 옵션 (그리드/리스트, S/M/L, sort — 양방향 `$store.search.*` + 결과 툴바와 자동 동기) + 카드 메타 4 체크박스 (라벨/팩/점수/크기 — 즉시 카드 `x-show` 반영, 와이드 카드만 지원)
-  - **Phase 3D** — 프리셋 3 (균형/통일성/참신성 — `PRESETS` dict + `POST /api/preset/{name}` + `_apply_weights_to_config` + Config mutate + activePreset 표시) + 슬라이더 6 (`<details>` 펼침 + `<input type="range" min="0" max="100">` + `WeightsBody` Pydantic + `POST /api/weights` + `syncWeights()` 자동 정규화) + 저장된 검색 CRUD (`saved_searches` 라우터 4 endpoint + `savedSearches()` Alpine + 복원 7 필드) + 통일성/페널티 요약 (`Store.project_usage_summary` 활용 + `/api/usage/summary` + `/ui/usage/detail` + `_modal_usage.html`) + 768px 반응형 (`position: fixed` + `transform: translateX` + resize 리스너 자동 닫힘)
-  - **Phase 3 cleanup** — `Store.get_pack_by_id` + `Store.get_saved_search_by_id` 헬퍼 + endpoint 3 곳 raw SQL → 헬퍼 교체 + dead resize-init 블록 제거 + `_do_search` docstring (pack_ids 한계) + `populated_deps`/`populated_client` fixture 6 파일 → `tests/conftest.py` 통합
-  - **Phase 4A** — `/internal/user-pick` long-poll + `/api/user-pick/{rid}` (수락/거부) + `/sse/notifications` (sse-starlette) — 4 commit
-  - **Phase 4B** — `_pick_card.html` partial + `GET /ui/pick-card/{rid}` + htmx-sse SSE 클라이언트 + Alpine `pickQueue` store + `app.js` SSE 핸들러 + 헤더 배지 CSS (보라) + `htmx-json-enc.js` vendoring (채택 버튼 422 회피) — 5 commit
-  - **Phase 4C** — `RequestUserPickRequest`/`Result` Pydantic 모델 + `tool_request_user_pick` (httpx loopback + 자동 `record_asset_use(source="claude_pick")`) + 17 도구 등록 + `mcp_integration` 17 도구 카운트 갱신 + cleanup (httpx.TransportError 통합 + source=manual pin 테스트 + 408 메시지 동적) — 5 commit
-  - **Phase 4D** — `TrayBridge(QObject)` Qt 시그널 브리지 (uvicorn worker thread → Qt main thread → 트레이 툴팁/속성 갱신) + `MCP_USAGE_GUIDE` 17번째 도구 + Claude 의사결정 흐름 갱신 — 2 commit
-  - **Phase 5A** — `/packs` 페이지 + `/api/packs` CRUD 라우터 + `list_packs_with_stats` Store 메서드 (no N+1) + 카드 그리드 템플릿 + HTMX `PATCH /api/packs/{id}` enable/disable 토글 (HTML fragment 반환) — 3 commit
-  - **Phase 5B** — `/labels/admin` 페이지 + `/api/labels` CRUD 라우터 (POST/PATCH/DELETE — HTML row fragment 반환) + JSON import (multipart upload) + JSON export download + SSE `labels_signature_changed` + Store 신규 메서드 4개 (`get_label_by_id`, `update_label`, `delete_label`, `count_asset_labels_for_label_id`) + 24 axis 탭 템플릿 — 5 commit (fix 2 포함)
-  - **Phase 5C** — Qt UI `src/gah/ui/` 전체 삭제 (8 파일) + 폐기 테스트 7 파일 삭제 + `test_imports.py` cleanup (4 stale Qt 모듈 항목 제거) — 1 commit
+- 브랜치 `feat/m5-web-gui` — main 위 **75+ commit** (main 머지 대기).
+- **796 passed + 1 skipped + 4 deselected**. 회귀 0.
+- M5 완료된 인프라 요약:
+  - **Phase 0~2** — FastAPI/uvicorn/Jinja2/sse-starlette + Config 7 신규 필드 + HTMX/Alpine vendoring + WebServer + SSE bus + 라이브러리 페이지 (`506 passed`)
+  - **Phase 3** — B/C/D 사이드 패널 18 task (매칭 모드/라벨 검색/axis 칩/다축 필터/표시 옵션/프리셋/슬라이더/저장된 검색/통일성 요약/반응형) (`692 passed`)
+  - **Phase 4** — `request_user_pick` 17번째 MCP 도구 + SSE pick 카드 + TrayBridge + httpx loopback (`746 passed`)
+  - **Phase 5** — `/packs` 카드 그리드 + `/labels/admin` 24 axis CRUD + Qt UI 8 파일 삭제 (`783 passed`)
+  - **Phase 6A** — 404/500 에러 페이지 + `M5_verification.md` (`796 passed`)
+  - **Phase 6B** — 문서 마감 (이 커밋)
+- Qt UI `src/gah/ui/` 디렉터리 완전 삭제 완료 (Phase 5C).
+- 웹 UI 페이지: `/library`, `/packs`, `/labels/admin`.
+- MCP 17 도구 (`request_user_pick` Phase 4C 에서 추가).
 
 ### 8.2 다음 세션 진입 시 첫 작업
 
@@ -197,51 +194,34 @@ python -m gah --version
    ```powershell
    git status
    ```
-   → `On branch feat/m5-web-gui` + 70+ commits ahead of main + clean.
+   → `On branch feat/m5-web-gui` + 75+ commits ahead of main + clean. (또는 main 머지 후라면 `main` 브랜치에서 clean)
 
 2. **회귀 검증**:
    ```powershell
    pytest -q
    ```
-   → `783 passed, 1 skipped, 4 deselected`.
+   → `796 passed, 1 skipped, 4 deselected`.
 
-3. **선택 — 시각 검증**: `python -m gah --tray` 후 브라우저에서 `/library` + `/packs` + `/labels/admin` 동작 확인. 수동 검증 항목 상세 = [`HANDOFF.md`](./HANDOFF.md) §9.7.
+3. **선택 A — M5 브랜치 main 머지**: PR 생성 후 main 에 머지. (`feat/m5-web-gui` → `main`)
 
-4. **Phase 6 시작** — plan §4.6 의 task 진행. 핵심: 다크모드 토글 + 에러 페이지 (404/500) + `WEB_UI_GUIDE.md` + `M5_verification.md`.
+4. **선택 B — M6 시작**: [`milestones/M5_plan.md`](./milestones/M5_plan.md) 이 M6 의 spec/plan/todo 작성부터 시작. 핵심:
+   - 스프라이트 시트 격자 자동 분할 (Pillow grid crop)
+   - Aseprite/TexturePacker JSON 파서
+   - `suggest_animation_frames` MCP 도구 (17 → 18)
+   - 와이드 카드 `🎞 N frames` 배지 (M5 카드 컴포넌트 옵셔널 메타)
 
-5. **Phase 6 시작 전 follow-up (옵션)**:
-   - `_card_list.html` 에 `cardMeta` `x-show` 바인딩 추가 (현재 와이드 카드만 지원)
-   - 자산 상세 모달 [채택]/[거부] 버튼이 호출하는 `POST /api/record-use` + `POST /api/feedback` endpoint — Phase 4 의 자동 `record_asset_use` 인프라 활용
-   - 모달 ESC 키 dismiss + 카드 keyboard accessibility — Phase 6 마감 흡수
+상세 진행 상태 + 알려진 한계는 [`HANDOFF.md`](./HANDOFF.md).
 
-상세 진행 상태 + 알려진 한계는 [`HANDOFF.md`](./HANDOFF.md) §5 + §9.
+### 8.3 마일스톤 재정렬 (M5 완료)
 
-### 8.3 진행 패턴 (M5 동안 유지)
-
-본 마일스톤은 `superpowers:subagent-driven-development` 스킬 패턴으로 진행 중:
-- **implementer subagent (sonnet)** — phase 의 logical sub-unit 단위로 task 묶음 dispatch
-- **spec compliance reviewer (sonnet or haiku)** — 구현이 spec 과 일치하는지 코드 직접 읽고 검증
-- **code quality reviewer (sonnet or haiku)** — 깨끗한 코드 + 테스트 품질 평가
-- review 가 NEEDS_FIXES 면 fix subagent (sonnet) 로 재처리 후 재검토
-
-각 sub-phase 끝마다 회귀 (`pytest -q`) + 한국어 commit. 한 phase 가 끝나면 HANDOFF + CLAUDE.md 갱신 후 사용자 인계.
-
-### 8.4 신규 의존성 (Phase 0 에서 추가 완료)
-
-`fastapi>=0.110`, `uvicorn[standard]>=0.27`, `jinja2>=3.1`, `python-multipart>=0.0.9`, `sse-starlette>=2`. 정적 JS (HTMX 1.9.12 + Alpine 3.13.10) 는 `src/gah/web/static/vendor/` 에 vendoring.
-
-(spec §7 의 `websockets>=12` 는 SSE 결정 [plan §3.2] 후 `sse-starlette>=2` 로 대체. uvicorn[standard] 가 websockets 를 transitive 로 가져오므로 별도 추가 불필요.)
-
-### 8.5 마일스톤 재정렬 (변경 없음)
-
-| 신규 # | 이름 | 일정 | 상태 |
+| # | 이름 | 일정 | 상태 |
 |---:|---|---:|---|
-| M5 | 웹 GUI 전환 + 리디자인 + Claude pick | 5.5주 | 🔄 진행 중 (~91%) |
-| M6 | 시트 분석 + 애니메이션 | 1주 | 대기 |
+| M5 | 웹 GUI 전환 + 리디자인 + Claude pick | 5.5주 | ✅ 완료 |
+| **M6** | **시트 분석 + 애니메이션** | **1주** | **대기** |
 | M7 | Unity Asset Store 임포트 | 1주 | 대기 |
 | M8 | 패키징 + i18n | 1주 | 대기 |
 
-참고 DESIGN: §3 (아키텍처 — M5 가 §4.8 갱신 예정), §4.5 (MCP — Phase 4C 에서 17 도구 완료), §11 (로드맵).
+참고 DESIGN: §3 (아키텍처 — M5 갱신 완료), §4.5 (MCP — 17 도구), §4.8 (트레이 + 웹 UI), §11 (로드맵).
 
 ## 9. 알려진 이슈·주의사항
 
