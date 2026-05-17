@@ -12,19 +12,19 @@
     <label class="match-mode-option">
       <input type="radio" name="match_mode" value="all"
              x-model="$store.search.matchMode"
-             @change="htmx.trigger('form.search-bar', 'submit')" />
+             @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
       {{ _("AND") }}
     </label>
     <label class="match-mode-option">
       <input type="radio" name="match_mode" value="any"
              x-model="$store.search.matchMode"
-             @change="htmx.trigger('form.search-bar', 'submit')" />
+             @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
       {{ _("OR") }}
     </label>
     <label class="match-mode-option">
       <input type="radio" name="match_mode" value="none"
              x-model="$store.search.matchMode"
-             @change="htmx.trigger('form.search-bar', 'submit')" />
+             @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
       {{ _("NOT") }}
     </label>
   </fieldset>

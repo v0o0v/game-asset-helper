@@ -3,7 +3,9 @@
      data-asset-id="{{ row.asset_id }}"
      hx-get="/ui/asset-detail/{{ row.asset_id }}"
      hx-target="#asset-detail-modal"
-     hx-trigger="click">
+     hx-trigger="click, keydown[key==='Enter']"
+     role="button"
+     tabindex="0">
   <div class="card-list-thumb">
     {% if row.kind == "sprite" %}
       <img src="/api/thumbnail/{{ row.asset_id }}"
@@ -16,14 +18,16 @@
   </div>
   <div class="card-list-body">
     <span class="name">{{ row.name }}</span>
-    <span class="pack">{{ row.pack_name or "" }}</span>
-    <span class="labels">
+    <span class="pack" x-show="$store.search.cardMeta.pack">{{ row.pack_name or "" }}</span>
+    <span class="labels" x-show="$store.search.cardMeta.labels">
       {% if row.matched_labels %}{{ (row.matched_labels[:5] | map(attribute='label') | list) | join(", ") }}{% endif %}
     </span>
     <span class="meta">
-      {% if row.kind == "sprite" and row.width and row.height %}{{ row.width }}&times;{{ row.height }} &middot; {% endif %}
-      {% if row.size_kb %}{{ row.size_kb }}KB{% endif %}
+      {% if row.kind == "sprite" and row.width and row.height %}{{ row.width }}&times;{{ row.height }}{% endif %}
+      <span x-show="$store.search.cardMeta.size">
+        {% if row.size_kb %} &middot; {{ row.size_kb }}KB{% endif %}
+      </span>
     </span>
-    <span class="score">{{ "%.2f"|format(row.score or 0) }}</span>
+    <span class="score" x-show="$store.search.cardMeta.score">{{ "%.2f"|format(row.score or 0) }}</span>
   </div>
 </div>

@@ -4,7 +4,9 @@
      data-asset-id="{{ row.asset_id }}"
      hx-get="/ui/asset-detail/{{ row.asset_id }}"
      hx-target="#asset-detail-modal"
-     hx-trigger="click">
+     hx-trigger="click, keydown[key==='Enter']"
+     role="button"
+     tabindex="0">
   <div class="card-thumb">
     {% if row.kind == "sprite" %}
       <img src="/api/thumbnail/{{ row.asset_id }}"
