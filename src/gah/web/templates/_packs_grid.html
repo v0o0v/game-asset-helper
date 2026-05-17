@@ -1,0 +1,13 @@
+{# M5 Phase 5A — 팩 그리드 fragment.
+   /ui/packs (HTML fragment) 에서 반환.
+   packs: list[dict] — list_packs_with_stats() 반환.
+#}
+<div class="pack-grid">
+  {% if packs %}
+    {% for pack in packs %}
+      {% include "_pack_card.html" %}
+    {% endfor %}
+  {% else %}
+    <p class="pack-empty">{{ _("등록된 팩이 없습니다.") }}</p>
+  {% endif %}
+</div>

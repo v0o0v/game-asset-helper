@@ -98,6 +98,7 @@ def build_app(deps: WebDeps) -> FastAPI:
     app.include_router(saved_searches.router)
     app.include_router(feedback.router)
     app.include_router(packs.router)
+    app.include_router(packs.router_ui)
     app.include_router(labels_admin.router)
     app.include_router(picks.router)
     app.include_router(picks.router_ui)  # /ui/pick-card/{rid} HTML fragment

@@ -933,3 +933,86 @@ html, body {
   .pick-header { gap: 6px; }
   .pick-header .reason { min-width: 100%; order: 3; white-space: normal; }
 }
+
+/* === Phase 5A — 팩 관리 페이지 === */
+.packs-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.packs-header { margin-bottom: 24px; }
+.packs-title { margin: 0 0 8px; font-size: 1.5em; }
+.packs-subtitle { margin: 0; opacity: 0.7; font-size: 0.95em; }
+
+.pack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.pack-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: opacity 0.2s ease;
+}
+.pack-card.disabled {
+  opacity: 0.5;
+}
+
+.pack-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pack-card-name {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.pack-card-meta {
+  font-size: 0.85em;
+  opacity: 0.75;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.pack-sep { opacity: 0.4; }
+
+.pack-card-stats {
+  font-size: 0.85em;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pack-asset-count { font-weight: 500; }
+.pack-kinds { opacity: 0.75; font-family: monospace; font-size: 0.9em; }
+
+.pack-toggle-btn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  color: var(--fg);
+  font-size: 0.8em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pack-toggle-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.pack-toggle-btn.btn-activate { border-color: var(--success); color: var(--success); }
+.pack-toggle-btn.btn-activate:hover { background: var(--success); color: #fff; }
+
+.pack-empty {
+  opacity: 0.6;
+  font-size: 0.95em;
+  padding: 16px 0;
+}

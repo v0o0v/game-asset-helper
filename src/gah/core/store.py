@@ -482,6 +482,81 @@ class Store:
         sql += " ORDER BY name"
         return [_pack_row(r) for r in self.conn.execute(sql).fetchall()]
 
+    def list_packs_with_stats(
+        self, *, include_disabled: bool = True
+    ) -> list[dict]:
+        """팩 목록 + 에셋 통계 (asset_count, kind_counts) 를 한 번에 반환.
+
+        두 쿼리 방식: 팩 메타 + asset_count 를 첫 쿼리로, kind 분포를 두 번째
+        쿼리로 얻어 Python 에서 병합한다.
+
+        반환 형태::
+
+            [
+              {
+                "id": 1, "name": "kenney_demo", "display_name": ...,
+                "vendor": ..., "license": ..., "enabled": True,
+                "asset_count": 15,
+                "kind_counts": {"sprite": 12, "sound": 3},
+              },
+              ...
+            ]
+        """
+        # 1) 팩 메타 + asset_count
+        where = "" if include_disabled else " WHERE p.enabled = 1"
+        rows = self.conn.execute(
+            "SELECT p.id, p.name, p.display_name, p.vendor, p.source_url,"
+            "       p.license, p.description, p.enabled, p.added_at, p.scanned_at,"
+            "       COUNT(a.id) AS asset_count"
+            " FROM packs p"
+            " LEFT JOIN assets a ON a.pack_id = p.id"
+            f"{where}"
+            " GROUP BY p.id"
+            " ORDER BY p.name"
+        ).fetchall()
+
+        packs: list[dict] = []
+        pack_ids: list[int] = []
+        for r in rows:
+            pack_ids.append(int(r[0]))
+            packs.append(
+                {
+                    "id": int(r[0]),
+                    "name": r[1],
+                    "display_name": r[2],
+                    "vendor": r[3],
+                    "source_url": r[4],
+                    "license": r[5],
+                    "description": r[6],
+                    "enabled": bool(r[7]),
+                    "added_at": int(r[8]),
+                    "scanned_at": int(r[9]) if r[9] is not None else None,
+                    "asset_count": int(r[10]),
+                    "kind_counts": {},
+                }
+            )
+
+        if not pack_ids:
+            return packs
+
+        # 2) kind 분포
+        placeholders = ",".join("?" * len(pack_ids))
+        kind_rows = self.conn.execute(
+            f"SELECT pack_id, kind, COUNT(*) FROM assets"
+            f" WHERE pack_id IN ({placeholders})"
+            f" GROUP BY pack_id, kind",
+            pack_ids,
+        ).fetchall()
+
+        # pack_id → dict 인덱스
+        id_to_idx = {p["id"]: i for i, p in enumerate(packs)}
+        for pack_id, kind, cnt in kind_rows:
+            idx = id_to_idx.get(int(pack_id))
+            if idx is not None:
+                packs[idx]["kind_counts"][kind] = int(cnt)
+
+        return packs
+
     def update_pack_aggregate(self, pack_id: int, aggregate_json: str) -> None:
         with self.write_lock:
             self.conn.execute(

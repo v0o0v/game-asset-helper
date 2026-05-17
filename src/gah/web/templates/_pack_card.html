@@ -1,0 +1,38 @@
+{# M5 Phase 5A — 팩 카드 partial.
+   PATCH /api/packs/{id} 응답으로도 직접 반환 (outerHTML swap).
+   pack: dict — list_packs_with_stats() 반환 항목.
+#}
+<div class="pack-card{% if not pack.enabled %} disabled{% endif %}"
+     data-pack-id="{{ pack.id }}"
+     data-pack-name="{{ pack.name }}"
+     data-enabled="{{ 'true' if pack.enabled else 'false' }}">
+  <div class="pack-card-header">
+    <h3 class="pack-card-name">{{ pack.display_name or pack.name }}</h3>
+    <button class="pack-toggle-btn{% if not pack.enabled %} btn-activate{% else %} btn-deactivate{% endif %}"
+            hx-patch="/api/packs/{{ pack.id }}"
+            hx-ext="json-enc"
+            hx-vals='{"enabled": {{ "false" if pack.enabled else "true" }}}'
+            hx-target="closest .pack-card"
+            hx-swap="outerHTML">
+      {% if pack.enabled %}{{ _("비활성") }}{% else %}{{ _("활성") }}{% endif %}
+    </button>
+  </div>
+  <div class="pack-card-meta">
+    <span class="pack-vendor">{{ pack.vendor or _("알 수 없음") }}</span>
+    {% if pack.license %}
+      <span class="pack-sep">&middot;</span>
+      <span class="pack-license">{{ pack.license }}</span>
+    {% endif %}
+  </div>
+  <div class="pack-card-stats">
+    <span class="pack-asset-count">{{ pack.asset_count }}{{ _("개") }}</span>
+    {% if pack.kind_counts %}
+      <span class="pack-sep">&middot;</span>
+      <span class="pack-kinds">
+        {%- for kind, n in pack.kind_counts.items() -%}
+          {{ kind }}:{{ n }}{% if not loop.last %} {% endif %}
+        {%- endfor -%}
+      </span>
+    {% endif %}
+  </div>
+</div>
