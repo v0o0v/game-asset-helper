@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from ..deps import WebDeps
 from ..pending import MaxPendingExceeded, UserCancelledError
 from ..sse_bus import broadcast
 
@@ -23,6 +24,21 @@ router = APIRouter(tags=["picks"])  # /internal/user-pick 은 prefix 없음
 
 # /ui/* prefix 를 쓰는 UI fragment 라우터
 router_ui = APIRouter(prefix="/ui", tags=["picks-ui"])
+
+
+# ─── 트레이 브리지 헬퍼 ──────────────────────────────────────────────────────
+
+
+def _notify_tray_pick_count(deps: WebDeps) -> None:
+    """현재 pending 카운트를 tray bridge 로 emit. bridge 가 None 이면 no-op.
+
+    uvicorn worker thread 에서 호출되어도 TrayBridge 의 AutoConnection 이
+    main thread 로 마샬링하므로 thread-safe 하다.
+    """
+    if deps.tray_bridge is None:
+        return
+    count = len(deps.pending_picks.snapshot())
+    deps.tray_bridge.pickCountChanged.emit(count)
 
 
 # ─── Pydantic 모델 ────────────────────────────────────────────────────────────
@@ -68,6 +84,9 @@ async def internal_user_pick(req: InternalPickRequest, request: Request) -> dict
             detail={"code": "503_too_many_pending"},
         )
 
+    # 등록 직후 카운트 변경 알림
+    _notify_tray_pick_count(deps)
+
     # 브라우저에 pick 요청 이벤트 push
     broadcast("user_pick_request", {
         "request_id": pending.request_id,
@@ -83,8 +102,6 @@ async def internal_user_pick(req: InternalPickRequest, request: Request) -> dict
 
     try:
         result = await asyncio.wait_for(pending.future, timeout=req.timeout_seconds)
-        # TODO (Phase 4C): _auto_record_asset_use(deps, result, req.project_id)
-        # TODO (Phase 4D): _notify_tray_pick_count(deps)
         return result
 
     except asyncio.TimeoutError:
@@ -117,6 +134,10 @@ async def internal_user_pick(req: InternalPickRequest, request: Request) -> dict
             detail={"code": "499_user_cancelled"},
         )
 
+    finally:
+        # 결과 경로(200/408/499) 모두에서 카운트 재알림
+        _notify_tray_pick_count(deps)
+
 
 # ─── Task 4.2 — 사용자 응답/거부 ────────────────────────────────────────────
 
@@ -144,6 +165,7 @@ def api_user_pick(rid: str, body: UserPickBody, request: Request) -> dict:
         "request_id": rid,
         "picked_asset_id": body.picked_asset_id,
     })
+    _notify_tray_pick_count(deps)
     log.info("user-pick resolved: rid=%s asset_id=%s", rid, body.picked_asset_id)
     return {"ok": True}
 
@@ -164,6 +186,7 @@ def api_user_pick_cancel(rid: str, request: Request) -> dict:
         "request_id": rid,
         "cancelled": True,
     })
+    _notify_tray_pick_count(deps)
     log.info("user-pick cancelled: rid=%s", rid)
     return {"ok": True}
 

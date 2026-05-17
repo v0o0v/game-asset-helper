@@ -49,10 +49,11 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     from PySide6.QtWidgets import QApplication
     import webbrowser
 
-    from .tray import make_tray_icon, update_tray_tooltip
+    from .tray import make_tray_icon, notify_user_pick_request, update_tray_tooltip
     from .web.deps import WebDeps
     from .web.pending import PendingPickQueue
     from .web.sse_bus import broadcast as sse_broadcast
+    from .web.tray_bridge import TrayBridge
 
     qapp = QApplication.instance() or QApplication(list(argv or sys.argv))
     qapp.setQuitOnLastWindowClosed(False)
@@ -122,9 +123,14 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
 
     # ── M5: 웹 서버 ────────────────────────────────────────────────
     pending = PendingPickQueue(max_pending=config.claude_pick_max_pending)
+
+    # Phase 4D: TrayBridge — uvicorn worker thread → Qt main thread 마샬링
+    bridge = TrayBridge()
+
     deps = WebDeps(
         store=store, search=searcher, usage=usage, registry=registry,
         queue=queue, config=config, paths=paths, pending_picks=pending,
+        tray_bridge=bridge,
     )
     web = WebServer(deps)
     web.start()
@@ -149,6 +155,8 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     queue.progressChanged.connect(
         lambda snap: sse_broadcast("analysis_progress", _snap_to_dict(snap))
     )
+    # Phase 4D: bridge → tray 툴팁 갱신 (AutoConnection → main thread 마샬링)
+    bridge.pickCountChanged.connect(lambda n: notify_user_pick_request(tray, n))
 
     # ── 브라우저 자동 진입 ─────────────────────────────────────────
     if config.web_open_browser_on_start:
