@@ -29,3 +29,6 @@ Thumbs.db
 tests/fixtures/*.png
 tests/fixtures/*.wav
 !tests/fixtures/.gitkeep
+
+# Superpowers brainstorming visual companion (local mockups + server state)
+.superpowers/
