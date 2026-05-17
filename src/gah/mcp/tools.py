@@ -42,6 +42,8 @@ from .models import (
     RecordAssetUseResult,
     ReportFeedbackRequest,
     RequestRescanRequest,
+    RequestUserPickRequest,
+    RequestUserPickResult,
     RunSavedSearchRequest,
     SaveSearchRequest,
     SaveSearchResult,
@@ -361,6 +363,7 @@ def tool_record_asset_use(
         project = deps.store.upsert_project(req.project_id)
         usage_id = deps.usage.record_explicit(
             project.id, req.asset_id, query_id=req.query_id, context=req.context,
+            source=req.source,
         )
     return RecordAssetUseResult(ok=True, usage_id=int(usage_id))
 
@@ -610,3 +613,74 @@ def tool_run_saved_search(
     with deps.store.write_lock:
         deps.store.update_saved_search_last_used(row.id)
     return tool_find_asset(deps, find_req)
+
+
+# ── M5 Phase 4C: request_user_pick ───────────────────────────────────
+
+
+def tool_request_user_pick(
+    deps: ToolDeps, req: RequestUserPickRequest
+) -> RequestUserPickResult:
+    """후보 자산 중 사용자가 직접 선택하도록 GAH 웹 UI 에 long-poll 요청.
+
+    흐름:
+    1. `data_dir/web.port` 에서 실제 포트 읽기.
+    2. `POST /internal/user-pick` 로 httpx 동기 요청 (timeout = req.timeout_seconds + 10).
+    3. 200 → RequestUserPickResult 반환 + _auto_record_asset_use.
+    4. 408/499/503 → McpToolError.
+    5. ConnectError → 503_no_ui_available.
+    """
+    import httpx as _httpx
+
+    from ..web.url import read_web_port
+
+    if deps.paths is None:
+        raise McpToolError("503_no_ui_available", "MCP server 가 AppPaths 없이 시작됨.")
+
+    port = read_web_port(deps.paths.data_dir)
+    if port is None:
+        raise McpToolError(
+            "503_no_ui_available",
+            "GAH 웹 UI 가 떠 있지 않습니다. 트레이 모드로 GAH 를 실행해주세요.",
+        )
+
+    url = f"http://{deps.config.web_host}:{port}/internal/user-pick"
+    try:
+        with _httpx.Client(timeout=req.timeout_seconds + 10) as c:
+            r = c.post(url, json=req.model_dump(exclude_none=False))
+    except _httpx.ConnectError:
+        raise McpToolError("503_no_ui_available", "GAH 웹 UI 연결 실패.")
+
+    if r.status_code == 200:
+        result = RequestUserPickResult(**r.json())
+        _auto_record_asset_use(deps, req, result)
+        return result
+    if r.status_code == 408:
+        raise McpToolError("408_timeout", "사용자가 5분 안에 응답하지 않았습니다.")
+    if r.status_code == 499:
+        raise McpToolError("499_user_cancelled", "사용자가 거부했습니다.")
+    if r.status_code == 503:
+        raise McpToolError("503_too_many_pending", "Pending 요청이 너무 많습니다 (max=20).")
+    raise McpToolError(f"{r.status_code}_unknown", r.text)
+
+
+def _auto_record_asset_use(
+    deps: ToolDeps,
+    req: RequestUserPickRequest,
+    result: RequestUserPickResult,
+) -> None:
+    """request_user_pick 의 picked asset 을 source='claude_pick' 로 자동 기록."""
+    if req.project_id is None:
+        log.info("request_user_pick: project_id 없음 → record_asset_use 스킵")
+        return
+    try:
+        record_req = RecordAssetUseRequest(
+            asset_id=result.picked_asset_id,
+            project_id=req.project_id,
+            query_id=None,
+            context=req.reason,
+            source="claude_pick",
+        )
+        tool_record_asset_use(deps, record_req)
+    except Exception as e:
+        log.warning("자동 record_asset_use 실패: %s", e)
