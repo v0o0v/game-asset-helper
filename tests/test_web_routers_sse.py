@@ -108,15 +108,12 @@ async def test_sse_bus_unsubscribe_removes_subscriber(deps_fixture):
 
 
 @pytest.mark.asyncio
-async def test_sse_endpoint_broadcasts_via_bus(deps_fixture):
-    """SSE 라우터가 broadcast 이벤트를 연결된 subscriber 에게 전달한다.
+async def test_sse_bus_broadcast_from_thread(deps_fixture):
+    """별도 스레드에서 broadcast 한 이벤트가 subscriber 큐에 도달한다.
 
-    TestClient 로 /sse/notifications 를 열고, 별도 스레드에서 broadcast 를 발화한 뒤
-    sse_bus.subscribe() 를 통해 이벤트가 실제로 버스에 올라왔는지 확인한다.
-    이 테스트는 HTTP 스트리밍 파싱 없이 버스 레벨로만 검증한다.
+    버스 레벨 동작만 검증: subscribe → 스레드에서 broadcast → 큐에서 수신 확인.
+    HTTP 스트리밍 파싱은 하지 않는다.
     """
-    app = build_app(deps_fixture)
-
     # 직접 구독해서 broadcast 가 발생했는지 확인
     q = _sse_bus.subscribe()
     try:

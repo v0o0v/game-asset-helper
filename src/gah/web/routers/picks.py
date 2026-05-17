@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..pending import MaxPendingExceeded, UserCancelledError
+from ..sse_bus import broadcast
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +64,6 @@ async def internal_user_pick(req: InternalPickRequest, request: Request) -> dict
         )
 
     # 브라우저에 pick 요청 이벤트 push
-    from ..sse_bus import broadcast
     broadcast("user_pick_request", {
         "request_id": pending.request_id,
         "candidates": req.candidates,
@@ -135,7 +135,6 @@ def api_user_pick(rid: str, body: UserPickBody, request: Request) -> dict:
             detail={"code": "409_already_resolved"},
         )
 
-    from ..sse_bus import broadcast
     broadcast("user_pick_resolved", {
         "request_id": rid,
         "picked_asset_id": body.picked_asset_id,
@@ -156,7 +155,6 @@ def api_user_pick_cancel(rid: str, request: Request) -> dict:
     if not ok:
         raise HTTPException(status_code=404)
 
-    from ..sse_bus import broadcast
     broadcast("user_pick_resolved", {
         "request_id": rid,
         "cancelled": True,

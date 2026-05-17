@@ -6,10 +6,8 @@ Task 4.2: /api/user-pick/{rid} (사용자 응답) + /cancel (사용자 거부)
 from __future__ import annotations
 
 import asyncio
-import json
 
 import pytest
-import pytest_asyncio
 import httpx
 from httpx import ASGITransport
 
@@ -31,7 +29,6 @@ def _app(deps_fixture):
 async def test_internal_user_pick_resolved(deps_fixture):
     """별도 asyncio task 가 0.1초 뒤 resolve → 200 + 올바른 결과 dict."""
     app = _app(deps_fixture)
-    response_holder: dict = {}
 
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         async def _resolver():
