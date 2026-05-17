@@ -31,15 +31,28 @@ log = logging.getLogger(__name__)
 INSTRUCTIONS = """\
 GAH MCP server — find and adopt 2D sprites, sheets, and sounds for game projects.
 
-Recommended workflow (DESIGN §13.1):
+Recommended workflow (DESIGN §13.1 + M4 update):
   1. Session start: call list_labels(with_description=true) once; cache by `signature`.
-  2. User request: call suggest_packs(query, project_id, kind) to let the user pick a pack.
-  3. Pick: call find_asset(query, project_id, force_pack_id=<picked>, count=N).
+  2. User request: call suggest_packs(query, project_id, kind). Use the
+     `samples[].thumbnail_path` (sprite) and `preview_blurb` to show previews.
+  3. Pick: call find_asset(query, project_id, label_query="axis:label AND ...",
+     diversity="mmr", force_pack_id=<picked>, count=N).
   4. Adoption: after copying a file to the project, call record_asset_use(asset_id, project_id, query_id).
-  5. Rejection: call report_feedback(query_id, asset_id, reason).
+  5. Rejection: call report_feedback(query_id, asset_id, reason="negative") —
+     penalizes the asset/pack in subsequent searches for this project.
+  6. Save reusable queries: save_search(project_id, name, ...) + later
+     run_saved_search(project_id, name).
 
-Always pass the same project_id throughout a session — consistency scoring depends on it.
-The `signature` of list_labels stays stable until users edit the vocabulary; refresh on change.
+label_query grammar (M4): `axis:label`, `AND`/`OR`/`NOT` (uppercase only),
+`(...)` grouping; bare labels auto-resolve via the registry. Pure AND or
+pure OR only — mixed `(a AND b) OR c` raises 400_invalid_input.
+
+diversity: "none" (default) / "mmr" (λ trade-off, 0.7 recommended) /
+"round_robin".
+
+Always pass the same project_id throughout a session — consistency and
+feedback penalty both depend on it.  The `signature` of list_labels stays
+stable until users edit the vocabulary; refresh on change.
 """
 
 
@@ -51,12 +64,13 @@ def build_server(
     registry: LabelRegistry,
     queue: Any | None,
     config: Config,
+    paths: Any | None = None,
 ) -> FastMCP:
-    """12 도구를 등록한 FastMCP 인스턴스 반환."""
+    """16 도구를 등록한 FastMCP 인스턴스 반환 (M3 12 + M4 saved_searches 4)."""
     server = FastMCP("game-asset-helper", instructions=INSTRUCTIONS)
     deps = t.ToolDeps(
         store=store, search=search, usage=usage,
-        registry=registry, queue=queue, config=config,
+        registry=registry, queue=queue, config=config, paths=paths,
     )
     register_all_tools(server, deps)
     return server
@@ -111,6 +125,23 @@ def register_all_tools(server: FastMCP, deps: t.ToolDeps) -> None:
     def describe_label(req: m.DescribeLabelRequest) -> m.DescribeLabelResult:
         return t.tool_describe_label(deps, req)
 
+    # M4: saved_searches 4 신규 도구
+    @server.tool(description="검색 요청을 이름 붙여 저장한다 (project_id 별 unique name).")
+    def save_search(req: m.SaveSearchRequest) -> m.SaveSearchResult:
+        return t.tool_save_search(deps, req)
+
+    @server.tool(description="저장된 검색 목록 (project_id 별, 최근 사용순).")
+    def list_saved_searches(project_id: str | None = None) -> m.ListSavedSearchesResult:
+        return t.tool_list_saved_searches(deps, project_id)
+
+    @server.tool(description="저장된 검색을 삭제한다.")
+    def delete_saved_search(req: m.DeleteSavedSearchRequest) -> dict:
+        return t.tool_delete_saved_search(deps, req)
+
+    @server.tool(description="저장된 검색을 실행해 find_asset 결과를 반환한다 (overrides 로 일부 필드 덮어쓰기 가능).")
+    def run_saved_search(req: m.RunSavedSearchRequest) -> m.FindAssetResult:
+        return t.tool_run_saved_search(deps, req)
+
 
 def run_stdio() -> None:
     """``python -m gah --mcp`` 진입점.
@@ -145,9 +176,9 @@ def run_stdio() -> None:
 
     server = build_server(
         store=store, search=search, usage=usage,
-        registry=registry, queue=None, config=cfg,
+        registry=registry, queue=None, config=cfg, paths=paths,
     )
-    log.info("MCP stdio server starting; tools=12 instructions_len=%d", len(INSTRUCTIONS))
+    log.info("MCP stdio server starting; tools=16 instructions_len=%d", len(INSTRUCTIONS))
     try:
         server.run(transport="stdio")
     except KeyboardInterrupt:

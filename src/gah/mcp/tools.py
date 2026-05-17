@@ -11,13 +11,20 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from ..config import Config
+from ..config import AppPaths, Config, default_app_paths
+from ..core.label_query import (
+    AmbiguousLabel,
+    UnsupportedExpression,
+    parse_label_query,
+)
 from ..core.labels import LabelRegistry
 from ..core.search import HybridSearcher, LabelFilter, SearchRequest
 from ..core.store import Store
+from ..core.suggest_packs import enrich_sample
 from ..core.usage_tracker import UsageTracker
 from .models import (
     AxisLabel,
+    DeleteSavedSearchRequest,
     DescribeLabelRequest,
     DescribeLabelResult,
     FindAssetRequest,
@@ -30,10 +37,14 @@ from .models import (
     ListLabelsRequest,
     ListLabelsResult,
     ListPacksResult,
+    ListSavedSearchesResult,
     RecordAssetUseRequest,
     RecordAssetUseResult,
     ReportFeedbackRequest,
     RequestRescanRequest,
+    RunSavedSearchRequest,
+    SaveSearchRequest,
+    SaveSearchResult,
     SetProjectPinRequest,
     SuggestPacksRequest,
     SuggestPacksResult,
@@ -53,6 +64,8 @@ class ToolDeps:
     registry: LabelRegistry
     queue: Any | None       # AnalysisQueue 또는 None (--mcp 단독 실행 시)
     config: Config
+    # M4: suggest_packs 의 썸네일 캐시 디렉터리 (None → default_app_paths 폴백).
+    paths: AppPaths | None = None
 
 
 class McpToolError(Exception):
@@ -79,6 +92,18 @@ def tool_find_asset(deps: ToolDeps, req: FindAssetRequest) -> FindAssetResult:
     else:
         filters_dict = dict(filters or {})
 
+    # M4: label_query 파싱 (있다면) — 구조화 labels_* 와 병합 후 search 에 전달.
+    if req.label_query:
+        try:
+            parse_label_query(req.label_query, deps.registry)
+        except AmbiguousLabel as e:
+            raise McpToolError(
+                "400_invalid_input",
+                f"라벨 '{e.label}' 모호 — 가능한 axis: {', '.join(e.candidates)}",
+            ) from e
+        except UnsupportedExpression as e:
+            raise McpToolError("400_invalid_input", str(e)) from e
+
     sreq = SearchRequest(
         query=req.query,
         kind=req.kind,
@@ -93,6 +118,10 @@ def tool_find_asset(deps: ToolDeps, req: FindAssetRequest) -> FindAssetResult:
         labels_all=_ax(req.labels_all),
         labels_any=_ax(req.labels_any),
         labels_none=_ax(req.labels_none),
+        label_query=req.label_query,
+        diversity=req.diversity,
+        diversity_lambda=req.diversity_lambda,
+        weight_feedback_override=req.weight_feedback_override,
     )
     results = deps.search.hybrid(sreq)
     return FindAssetResult(
@@ -271,10 +300,20 @@ def tool_suggest_packs(deps: ToolDeps, req: SuggestPacksRequest) -> SuggestPacks
         )
         samples = []
         if req.include_samples:
+            cache_dir = (
+                deps.paths.cache_dir / "thumbnails" if deps.paths is not None
+                else default_app_paths().cache_dir / "thumbnails"
+            )
             for r in sorted(items, key=lambda x: x.score, reverse=True)[:3]:
-                samples.append({
-                    "asset_id": r.asset_id, "path": r.path, "score": r.score,
-                })
+                asset_row = deps.store.get_asset_by_id(r.asset_id)
+                if asset_row is None:
+                    continue
+                sample = enrich_sample(
+                    asset_row, deps.store, cache_dir,
+                    include_thumbnails=req.include_thumbnails,
+                )
+                sample["score"] = r.score
+                samples.append(sample)
         packs_out.append({
             "pack_id": pack_id,
             "name": pack_row[0],
@@ -384,10 +423,35 @@ def tool_request_rescan(deps: ToolDeps, req: RequestRescanRequest) -> dict:
 
 
 def tool_report_feedback(deps: ToolDeps, req: ReportFeedbackRequest) -> dict:
-    # v1: 로그만 + search_queries 검색 가능. 페널티 학습은 M4.
+    """M4 페널티 학습 — Config.feedback_*_weight 로 signed weight 변환 후
+    feedback_records 에 누적.
+
+    project_id 없는 query (global) 는 페널티 학습 비활성 — log + skipped=True.
+    """
+    weight_map = {
+        "negative": deps.config.feedback_negative_weight,
+        "positive": deps.config.feedback_positive_weight,
+        "irrelevant": deps.config.feedback_irrelevant_weight,
+    }
+    weight = float(weight_map[req.reason])
+    # query_id → project_id 매핑.
+    row = deps.store.conn.execute(
+        "SELECT project_id FROM search_queries WHERE id = ?", (int(req.query_id),),
+    ).fetchone()
+    if row is None:
+        raise McpToolError("404_not_found", f"query_id={req.query_id} 없음")
+    project_id = int(row[0]) if row[0] is not None else None
+    if project_id is None:
+        log.info("feedback skipped (global query, no project): %s", req)
+        return {"ok": True, "skipped": True}
+    with deps.store.write_lock:
+        deps.store.insert_feedback_record(
+            project_id=project_id, asset_id=int(req.asset_id),
+            query_id=int(req.query_id), reason=req.reason, weight=weight,
+        )
     log.info(
-        "feedback: query_id=%s asset_id=%s reason=%s",
-        req.query_id, req.asset_id, req.reason,
+        "feedback recorded: project=%s asset=%s reason=%s weight=%s",
+        project_id, req.asset_id, req.reason, weight,
     )
     return {"ok": True}
 
@@ -444,3 +508,105 @@ def tool_describe_label(
         axis=req.axis, label=req.label, description=description,
         sample_assets=samples,
     )
+
+
+# ── M4: saved_searches 4 신규 도구 ───────────────────────────────────
+
+
+def _resolve_project_id(deps: ToolDeps, external_id: str | None) -> int | None:
+    if external_id is None:
+        return None
+    return deps.store.upsert_project(external_id).id
+
+
+def tool_save_search(
+    deps: ToolDeps, req: SaveSearchRequest
+) -> SaveSearchResult:
+    """SearchRequest payload 를 JSON 으로 직렬화해 saved_searches 에 저장.
+
+    중복 (project_id, name) → IntegrityError → `400_invalid_input` 매핑.
+    """
+    import json as _json
+    import sqlite3 as _sq
+
+    payload: dict[str, Any] = {
+        "query": req.query,
+        "label_query": req.label_query,
+        "kind": req.kind,
+        "labels_all": [{"axis": x.axis, "label": x.label} for x in req.labels_all],
+        "labels_any": [{"axis": x.axis, "label": x.label} for x in req.labels_any],
+        "labels_none": [{"axis": x.axis, "label": x.label} for x in req.labels_none],
+        "diversity": req.diversity,
+        "diversity_lambda": req.diversity_lambda,
+        "count": req.count,
+        "_schema_version": 1,
+    }
+    filters = req.filters
+    if hasattr(filters, "model_dump"):
+        payload["filters"] = filters.model_dump(exclude_none=True)
+    elif filters:
+        payload["filters"] = dict(filters)
+    pid = _resolve_project_id(deps, req.project_id)
+    try:
+        with deps.store.write_lock:
+            sid = deps.store.save_search(pid, req.name, _json.dumps(payload))
+    except _sq.IntegrityError as e:
+        raise McpToolError(
+            "400_invalid_input",
+            f"저장된 검색 이름 '{req.name}' 중복 (project={req.project_id})",
+        ) from e
+    return SaveSearchResult(ok=True, saved_search_id=sid)
+
+
+def tool_list_saved_searches(
+    deps: ToolDeps, project_id: str | None,
+) -> ListSavedSearchesResult:
+    pid = _resolve_project_id(deps, project_id)
+    rows = deps.store.list_saved_searches(pid)
+    return ListSavedSearchesResult(
+        saved_searches=[
+            {
+                "id": r.id, "name": r.name, "query_json": r.query_json,
+                "created_at": r.created_at, "last_used_at": r.last_used_at,
+            }
+            for r in rows
+        ],
+    )
+
+
+def tool_delete_saved_search(
+    deps: ToolDeps, req: DeleteSavedSearchRequest,
+) -> dict:
+    pid = _resolve_project_id(deps, req.project_id)
+    with deps.store.write_lock:
+        ok = deps.store.delete_saved_search(pid, req.name)
+    if not ok:
+        raise McpToolError(
+            "404_not_found",
+            f"저장된 검색 '{req.name}' 없음 (project={req.project_id})",
+        )
+    return {"ok": True}
+
+
+def tool_run_saved_search(
+    deps: ToolDeps, req: RunSavedSearchRequest,
+) -> FindAssetResult:
+    """저장된 query_json 을 로드 → FindAssetRequest 재구성 → tool_find_asset 위임."""
+    import json as _json
+
+    pid = _resolve_project_id(deps, req.project_id)
+    row = deps.store.get_saved_search(pid, req.name)
+    if row is None:
+        raise McpToolError(
+            "404_not_found",
+            f"저장된 검색 '{req.name}' 없음 (project={req.project_id})",
+        )
+    payload = _json.loads(row.query_json)
+    # _schema_version 등 메타는 무시.
+    payload.pop("_schema_version", None)
+    payload.update(req.overrides or {})
+    payload.setdefault("query", "")
+    find_req = FindAssetRequest(project_id=req.project_id, **payload)
+    with deps.store.write_lock:
+        deps.store.update_saved_search_last_used(row.id)
+    return tool_find_asset(deps, find_req)

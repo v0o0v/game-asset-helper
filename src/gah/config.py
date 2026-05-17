@@ -114,13 +114,15 @@ class Config:
     audio_max_seconds: int = 30
     audio_chunk_strategy: str = "smart"  # "smart" | "first" | "rms_peak"
     # M3 fields — 검색 가중합 + 통일성 임계 + MCP 옵션
-    # 가중치 5 채널 합 = 1.00 (semantic 40% + keyword 15% + label 20% + cons 20% + recency 5%).
-    # label_match=0 케이스(자유 쿼리) 에서도 다른 채널 재정규화 없음 — 의도적으로 max 0.80.
-    weight_semantic: float = 0.40
-    weight_keyword: float = 0.15
+    # M4 가 가중치를 5채널 → 6채널로 확장 + 기본값 재배분 (semantic 0.40→0.35,
+    # keyword 0.15→0.10, feedback 0.10 신규). 합 1.00 유지.
+    # label_match=0 케이스(자유 쿼리) 에서도 다른 채널 재정규화 없음 — 의도적으로 max 0.90.
+    weight_semantic: float = 0.35
+    weight_keyword: float = 0.10
     weight_label_match: float = 0.20
     weight_consistency: float = 0.20
     weight_recency: float = 0.05
+    weight_feedback: float = 0.10                  # M4 신규
     # 통일성 "굳음" 판정 임계: distinct pack ≤ max AND uses ≥ min.
     consistency_locked_max_packs: int = 2
     consistency_locked_min_uses: int = 5
@@ -132,6 +134,22 @@ class Config:
     mcp_search_default_count: int = 5
     # recency 채널의 지수 감쇠 윈도우 (초). 30일.
     recency_window_seconds: int = 2_592_000
+    # M4 fields — 다양성 + 페널티 학습
+    # 결과 다양성 알고리즘 default. "none" (M3 호환) / "mmr" / "round_robin".
+    diversity_default: str = "none"
+    # mmr 의 score↔다양성 trade-off (0.0 = 다양성만, 1.0 = score만). 0.7 권장.
+    diversity_mmr_lambda: float = 0.7
+    # report_feedback reason 별 signed weight. 검색 시 윈도우 내 합산 후
+    # weight_feedback 적용해 채널 점수로 변환.
+    feedback_negative_weight: float = -0.5
+    feedback_positive_weight: float = 0.3
+    feedback_irrelevant_weight: float = -0.3
+    # pack-level penalty: 같은 팩에 negative 자산이 임계 이상이면 팩 전체에
+    # 추가 페널티를 부여 — 자산 단위와 별개.
+    feedback_pack_threshold: int = 3
+    feedback_pack_penalty: float = -0.1
+    # 페널티 윈도우 (초). 윈도우 밖 행은 검색 가중치에 반영 안 함. 30일.
+    feedback_window_seconds: int = 2_592_000
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "Config":

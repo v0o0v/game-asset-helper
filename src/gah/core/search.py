@@ -47,6 +47,14 @@ class SearchRequest:
     labels_all: list[LabelFilter] = field(default_factory=list)
     labels_any: list[LabelFilter] = field(default_factory=list)
     labels_none: list[LabelFilter] = field(default_factory=list)
+    # M4: 자연어 라벨 부울 (옵션) — `label_query.parse_label_query` 가 분해.
+    label_query: str | None = None
+    # M4: 결과 다양성 — "none" (M3 호환) / "mmr" / "round_robin".
+    diversity: str = "none"
+    # M4: mmr 의 score↔다양성 trade-off (None → Config.diversity_mmr_lambda).
+    diversity_lambda: float | None = None
+    # M4: feedback 채널 per-call 가중치 override.
+    weight_feedback_override: float | None = None
 
 
 @dataclass(frozen=True)
@@ -166,6 +174,59 @@ def _cosine_scores(query_vec: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     return np.clip(raw, 0.0, 1.0).astype("<f4")
 
 
+def _apply_diversity(
+    ranked: list[tuple[int, float, int]],
+    method: str,
+    lambda_: float,
+    count: int,
+) -> list[int]:
+    """M4: 다양성 보정.
+
+    `ranked` 는 score DESC 정렬된 `[(asset_id, score, pack_id), ...]`.
+    반환은 `count` 개 asset_id 리스트 (순위 적용 후).
+
+    - ``mmr``      — `mmr_i = λ·score_i - (1-λ)·max_sim_to_picked`,
+                     `sim = 1.0 if same_pack else 0.0`
+    - ``round_robin`` — 팩별 큐 → 라운드 교대 (팩 순서는 top score 내림차순)
+    - ``none``     — pure top-N
+    """
+    if method == "round_robin":
+        by_pack: dict[int, list[tuple[int, float]]] = {}
+        for aid, s, pid in ranked:
+            by_pack.setdefault(pid, []).append((aid, s))
+        pack_order = sorted(
+            by_pack.keys(),
+            key=lambda p: by_pack[p][0][1], reverse=True,
+        )
+        picked: list[int] = []
+        while len(picked) < count and any(by_pack[p] for p in pack_order):
+            for p in pack_order:
+                if not by_pack[p]:
+                    continue
+                picked.append(by_pack[p].pop(0)[0])
+                if len(picked) >= count:
+                    break
+        return picked
+    if method == "mmr":
+        picked_pairs: list[tuple[int, int]] = []   # (asset_id, pack_id)
+        remaining = list(ranked)
+        while remaining and len(picked_pairs) < count:
+            best_idx, best_mmr = -1, float("-inf")
+            for idx, (aid, s, pid) in enumerate(remaining):
+                if picked_pairs:
+                    max_sim = 1.0 if any(pp == pid for _, pp in picked_pairs) else 0.0
+                else:
+                    max_sim = 0.0
+                mmr = lambda_ * s - (1.0 - lambda_) * max_sim
+                if mmr > best_mmr:
+                    best_mmr, best_idx = mmr, idx
+            aid, _, pid = remaining.pop(best_idx)
+            picked_pairs.append((aid, pid))
+        return [aid for aid, _ in picked_pairs]
+    # "none" 또는 알 수 없는 값 → pure top-N.
+    return [aid for aid, _, _ in ranked[:count]]
+
+
 # ── HybridSearcher ───────────────────────────────────────────────────
 
 
@@ -199,9 +260,27 @@ class HybridSearcher:
             pinned_pack_id = project_row.pinned_pack_id
             blocked_packs |= set(project_row.blocked_packs)
 
-        # 2) 후보 추출 — FTS + semantic 합집합
+        # 2) M4: label_query 파싱 (있다면) — labels_* 와 병합 + free_text 합치기
+        merged_all = list(req.labels_all)
+        merged_any = list(req.labels_any)
+        merged_none = list(req.labels_none)
+        effective_query = req.query
+        if req.label_query:
+            from .label_query import parse_label_query
+
+            parsed = parse_label_query(req.label_query, self.registry)
+            for f in parsed.labels_all:
+                merged_all.append(LabelFilter(axis=f.axis, label=f.label))
+            for f in parsed.labels_any:
+                merged_any.append(LabelFilter(axis=f.axis, label=f.label))
+            for f in parsed.labels_none:
+                merged_none.append(LabelFilter(axis=f.axis, label=f.label))
+            if parsed.free_text:
+                effective_query = (req.query + " " + parsed.free_text).strip()
+
+        # 3) 후보 추출 — FTS + semantic 합집합
         fts_hits = self.store.fts_search(
-            req.query, kind=req.kind, pack_id=req.force_pack_id,
+            effective_query, kind=req.kind, pack_id=req.force_pack_id,
             exclude_pack_ids=list(blocked_packs), k=200,
         )
         fts_ids = [aid for aid, _ in fts_hits]
@@ -212,7 +291,9 @@ class HybridSearcher:
             return SearchResults(query_id=self._log_query(project_row, req, []),
                                  results=[])
 
-        query_blob, dim = self.embedder.encode_text(build_query_text(req.query, req.kind))
+        query_blob, dim = self.embedder.encode_text(
+            build_query_text(effective_query, req.kind),
+        )
         query_vec = self.embedder.decode_vector(query_blob, dim)
         cosine_all = _cosine_scores(query_vec, all_matrix)
 
@@ -235,11 +316,11 @@ class HybridSearcher:
             candidate_ids = {a for a in candidate_ids
                              if asset_meta[a]["pack_id"] not in blocked_packs}
 
-        # 4) 라벨 필터
+        # 4) 라벨 필터 (M4: merged_* 사용 — label_query 가 추가한 라벨 포함)
         labels_by_aid = self.store.asset_labels_for(list(candidate_ids))
-        if req.labels_all or req.labels_any or req.labels_none:
+        if merged_all or merged_any or merged_none:
             candidate_ids &= _labels_match_filter(
-                labels_by_aid, req.labels_all, req.labels_any, req.labels_none,
+                labels_by_aid, merged_all, merged_any, merged_none,
             )
 
         # filters (duration / loopable / tags)
@@ -250,7 +331,7 @@ class HybridSearcher:
             return SearchResults(query_id=self._log_query(project_row, req, []),
                                  results=[])
 
-        # 5) 채널 점수 산출
+        # 5) 채널 점수 산출 (M4: 6채널 — feedback 추가)
         ordered = list(candidate_ids)
         id_to_idx = {aid: i for i, aid in enumerate(all_ids)}
         sem_raw = {a: float(cosine_all[id_to_idx[a]]) for a in ordered if a in id_to_idx}
@@ -271,7 +352,7 @@ class HybridSearcher:
 
         label_match = {
             a: _label_match_score(labels_by_aid.get(a, []),
-                                  req.labels_all, req.labels_any, req.labels_none)
+                                  merged_all, merged_any, merged_none)
             for a in ordered
         }
 
@@ -279,6 +360,13 @@ class HybridSearcher:
             ordered, window_seconds=int(self.config.recency_window_seconds),
         )
         recency = {a: float(recency_raw.get(a, 0.0)) for a in ordered}
+
+        # M4: feedback 채널 — project 있는 경우만 의미 있음 (없으면 0).
+        feedback_raw: dict[int, float] = {a: 0.0 for a in ordered}
+        if project_row is not None:
+            feedback_raw = self._feedback_bonus(
+                project_row.id, ordered, asset_meta,
+            )
 
         # consistency
         consistency_results: dict[int, ConsistencyResult] = {}
@@ -299,7 +387,7 @@ class HybridSearcher:
                     pack=pack_row,
                 )
 
-        # 6) 가중합
+        # 6) 가중합 (M4: 6채널)
         w_sem = float(self.config.weight_semantic)
         w_kw = float(self.config.weight_keyword)
         w_label = (
@@ -313,6 +401,11 @@ class HybridSearcher:
             else float(self.config.weight_consistency)
         )
         w_rec = float(self.config.weight_recency)
+        w_fb = (
+            float(req.weight_feedback_override)
+            if req.weight_feedback_override is not None
+            else float(self.config.weight_feedback)
+        )
 
         final: dict[int, float] = {}
         breakdown: dict[int, dict[str, float]] = {}
@@ -322,11 +415,12 @@ class HybridSearcher:
             s_label = label_match.get(a, 0.0) * w_label
             s_cons = consistency_results[a].score * w_cons
             s_rec = recency.get(a, 0.0) * w_rec
+            s_fb = feedback_raw.get(a, 0.0) * w_fb
             # prefer_pack_id 보너스 +0.3 (스코프 안에서만)
             bonus = 0.0
             if req.prefer_pack_id is not None and asset_meta[a]["pack_id"] == req.prefer_pack_id:
                 bonus = 0.3
-            total = s_sem + s_kw + s_label + s_cons + s_rec + bonus
+            total = s_sem + s_kw + s_label + s_cons + s_rec + s_fb + bonus
             final[a] = total
             breakdown[a] = {
                 "semantic": s_sem,
@@ -334,6 +428,7 @@ class HybridSearcher:
                 "label_match": s_label,
                 "consistency": s_cons,
                 "recency": s_rec,
+                "feedback": s_fb,        # M4: 항상 노출 (값 0 가능)
             }
             if bonus:
                 breakdown[a]["prefer_bonus"] = bonus
@@ -344,12 +439,27 @@ class HybridSearcher:
                 if asset_meta[a]["pack_id"] == pinned_pack_id:
                     final[a] = max(final[a], 1.0)
 
-        # 7) 정렬 + top-N + 응답 빌드
-        sorted_ids = sorted(ordered, key=lambda a: final[a], reverse=True)[:req.count]
+        # 7) 정렬 + 다양성 보정 (M4) + top-N
+        ranked = sorted(
+            [(a, final[a], asset_meta[a]["pack_id"]) for a in ordered],
+            key=lambda t: t[1], reverse=True,
+        )
+        if req.diversity != "none" and req.count < len(ranked):
+            lambda_ = (
+                float(req.diversity_lambda)
+                if req.diversity_lambda is not None
+                else float(self.config.diversity_mmr_lambda)
+            )
+            sorted_ids = _apply_diversity(ranked, req.diversity, lambda_, req.count)
+        else:
+            sorted_ids = [aid for aid, _, _ in ranked[:req.count]]
+
+        # 8) 응답 빌드
         result_rows: list[ResultRow] = []
         for a in sorted_ids:
             cresult = consistency_results[a]
-            matched = self._matched_labels(labels_by_aid.get(a, []), req)
+            matched = self._matched_labels(labels_by_aid.get(a, []),
+                                            merged_all, merged_any, merged_none)
             why = self._build_why(cresult, matched, asset_meta[a], summary)
             result_rows.append(ResultRow(
                 asset_id=a,
@@ -420,9 +530,13 @@ class HybridSearcher:
         return out
 
     def _matched_labels(
-        self, asset_labels: list[LabelScore], req: SearchRequest
+        self,
+        asset_labels: list[LabelScore],
+        labels_all: list[LabelFilter] | None = None,
+        labels_any: list[LabelFilter] | None = None,
+        labels_none: list[LabelFilter] | None = None,
     ) -> list[dict]:
-        all_filters = list(req.labels_all) + list(req.labels_any)
+        all_filters = list(labels_all or []) + list(labels_any or [])
         if not all_filters:
             # 명시 필터 없으면 상위 3개 라벨을 근거로 노출
             top = sorted(asset_labels, key=lambda l: l.score, reverse=True)[:3]
@@ -432,6 +546,35 @@ class HybridSearcher:
         matched = [l for l in asset_labels if (l.axis, l.label) in requested]
         return [{"axis": l.axis, "label": l.label, "source": l.source,
                  "score": l.score} for l in matched]
+
+    # ─── M4: feedback bonus ───────────────────────────────────────────
+
+    def _feedback_bonus(
+        self, project_id: int, ordered: list[int],
+        asset_meta: dict[int, dict],
+    ) -> dict[int, float]:
+        """asset-level + pack-level signed weight 합산 → {asset_id: bonus in [-1, +1]}."""
+        window = int(self.config.feedback_window_seconds)
+        asset_level = self.store.feedback_records_for_project(
+            project_id, asset_ids=ordered, within_seconds=window,
+        )
+        pack_ids = list({asset_meta[a]["pack_id"] for a in ordered})
+        pack_neg_count = self.store.pack_feedback_count(
+            project_id, pack_ids=pack_ids, within_seconds=window,
+        )
+        out: dict[int, float] = {}
+        for a in ordered:
+            bonus = asset_level.get(a, 0.0)
+            pid = asset_meta[a]["pack_id"]
+            if pack_neg_count.get(pid, 0) >= int(self.config.feedback_pack_threshold):
+                bonus += float(self.config.feedback_pack_penalty)
+            # 클램프 [-1, +1]
+            if bonus > 1.0:
+                bonus = 1.0
+            elif bonus < -1.0:
+                bonus = -1.0
+            out[a] = bonus
+        return out
 
     def _build_why(
         self,

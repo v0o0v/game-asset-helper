@@ -44,6 +44,7 @@ class LibraryView(QWidget):
         super().__init__(parent)
         self._store = store
         self._searcher: "HybridSearcher | None" = None
+        self._config = None
         self._in_search_mode: bool = False
         # debounce timer (single-shot) — M2.1 _flush_progress 패턴
         self._search_timer = QTimer(self)
@@ -85,6 +86,18 @@ class LibraryView(QWidget):
     def set_searcher(self, searcher: "HybridSearcher") -> None:
         """``app.py`` 가 부팅 시 1회 호출 — HybridSearcher 주입."""
         self._searcher = searcher
+
+    def set_config(self, config) -> None:
+        """M4: ``app.py`` 가 부팅 시 1회 호출 — Config 주입.
+
+        SearchSidePanel 의 슬라이더 양방향 바인딩 및 현재 검색 저장 기능이
+        같은 인스턴스를 참조하기 위해 필요.
+        """
+        self._config = config
+
+    def set_label_registry(self, registry) -> None:
+        """M4: ``app.py`` 가 부팅 시 1회 호출 — LabelRegistry 주입."""
+        self._registry = registry
 
     @property
     def is_in_search_mode(self) -> bool:

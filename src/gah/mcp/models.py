@@ -52,6 +52,11 @@ class FindAssetRequest(_BaseModel):
     labels_all: list[AxisLabel] = Field(default_factory=list)
     labels_any: list[AxisLabel] = Field(default_factory=list)
     labels_none: list[AxisLabel] = Field(default_factory=list)
+    # M4 신규 — 자연어 라벨 부울 / 다양성 / 피드백 가중 override
+    label_query: str | None = None
+    diversity: Literal["none", "mmr", "round_robin"] = "none"
+    diversity_lambda: float | None = Field(default=None, ge=0.0, le=1.0)
+    weight_feedback_override: float | None = None
 
 
 class FindAssetResult(_BaseModel):
@@ -176,7 +181,8 @@ class RequestRescanRequest(_BaseModel):
 class ReportFeedbackRequest(_BaseModel):
     query_id: int
     asset_id: int
-    reason: str
+    # M4: reason 화이트리스트 — Config 의 signed weight 와 1:1 매핑.
+    reason: Literal["negative", "positive", "irrelevant"]
 
 
 # ── label vocabulary 메타 ────────────────────────────────────────────
@@ -207,3 +213,41 @@ class DescribeLabelResult(_BaseModel):
     label: str
     description: str | None = None
     sample_assets: list[dict[str, Any]] = Field(default_factory=list)
+
+
+# ── M4: saved_searches 4 도구 ────────────────────────────────────────
+
+
+class SaveSearchRequest(_BaseModel):
+    project_id: str | None = None
+    name: str = Field(min_length=1, max_length=100)
+    query: str = ""
+    label_query: str | None = None
+    kind: _AssetKind | None = None
+    labels_all: list[AxisLabel] = Field(default_factory=list)
+    labels_any: list[AxisLabel] = Field(default_factory=list)
+    labels_none: list[AxisLabel] = Field(default_factory=list)
+    filters: Filters | dict[str, Any] = Field(default_factory=dict)
+    diversity: Literal["none", "mmr", "round_robin"] = "none"
+    diversity_lambda: float | None = None
+    count: int = 5
+
+
+class SaveSearchResult(_BaseModel):
+    ok: bool
+    saved_search_id: int
+
+
+class ListSavedSearchesResult(_BaseModel):
+    saved_searches: list[dict[str, Any]]
+
+
+class DeleteSavedSearchRequest(_BaseModel):
+    project_id: str | None = None
+    name: str
+
+
+class RunSavedSearchRequest(_BaseModel):
+    project_id: str | None = None
+    name: str
+    overrides: dict[str, Any] = Field(default_factory=dict)

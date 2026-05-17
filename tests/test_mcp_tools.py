@@ -226,7 +226,8 @@ def test_report_feedback_logs_and_returns_ok(mcp_tool_deps, populated_store):
     p = store.upsert_project("proj_fb")
     qid = store.insert_search_query(p.id, "hero", [(ids["hero"], 0.9)])
     res = tool_report_feedback(deps, ReportFeedbackRequest(
-        query_id=qid, asset_id=ids["hero"], reason="not_what_i_wanted",
+        # M4: reason 은 Literal['negative','positive','irrelevant'] — 자유 문자열 금지.
+        query_id=qid, asset_id=ids["hero"], reason="negative",
     ))
     assert res["ok"] is True
 

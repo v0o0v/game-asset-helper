@@ -131,6 +131,18 @@ class ProjectUsageSummary:
     dominant_palette: list[str]
 
 
+@dataclass(frozen=True)
+class SavedSearchRow:
+    """M4: 저장된 검색.  ``query_json`` 은 SearchRequest 직렬화 (project_id 제외)."""
+
+    id: int
+    project_id: int | None
+    name: str
+    query_json: str
+    created_at: int
+    last_used_at: int | None
+
+
 # ── schemas ──────────────────────────────────────────────────────────
 
 
@@ -291,6 +303,35 @@ CREATE INDEX IF NOT EXISTS idx_search_queries_project ON search_queries(project_
 """
 
 
+_M4_SCHEMA = """
+CREATE TABLE IF NOT EXISTS saved_searches (
+  id              INTEGER PRIMARY KEY,
+  project_id      INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  name            TEXT NOT NULL,
+  query_json      TEXT NOT NULL,
+  created_at      INTEGER NOT NULL,
+  last_used_at    INTEGER,
+  UNIQUE(project_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_saved_searches_project
+  ON saved_searches(project_id, last_used_at);
+
+CREATE TABLE IF NOT EXISTS feedback_records (
+  id              INTEGER PRIMARY KEY,
+  project_id      INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  asset_id        INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+  query_id        INTEGER REFERENCES search_queries(id) ON DELETE SET NULL,
+  reason          TEXT NOT NULL,
+  weight          REAL NOT NULL,
+  created_at      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_project_asset
+  ON feedback_records(project_id, asset_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_feedback_project_pack_asset
+  ON feedback_records(project_id, asset_id);
+"""
+
+
 # ── Store ────────────────────────────────────────────────────────────
 
 
@@ -326,10 +367,11 @@ class Store:
     # -- lifecycle ----------------------------------------------------
 
     def initialize(self) -> None:
-        """Create M1 + M2 + M3 tables.  Safe to call repeatedly."""
+        """Create M1 + M2 + M3 + M4 tables.  Safe to call repeatedly."""
         self.conn.executescript(_M1_SCHEMA)
         self.conn.executescript(_M2_SCHEMA)
         self.conn.executescript(_M3_SCHEMA)
+        self.conn.executescript(_M4_SCHEMA)
 
     def close(self) -> None:
         try:
@@ -1091,6 +1133,174 @@ class Store:
             ).fetchall()
         return {str(k): int(c) for k, c in rows}
 
+    # -- M4: saved_searches -----------------------------------------------
+
+    def save_search(
+        self, project_id: int | None, name: str, query_json: str,
+    ) -> int:
+        """저장된 검색 행을 INSERT.
+
+        ``UNIQUE(project_id, name)`` 충돌 시 ``sqlite3.IntegrityError`` 가
+        그대로 raise 된다 — caller (MCP tool) 가 ``400_invalid_input`` 으로
+        매핑.
+        """
+        import time as _time
+
+        now = int(_time.time())
+        with self.write_lock:
+            self.conn.execute(
+                "INSERT INTO saved_searches "
+                "(project_id, name, query_json, created_at) VALUES (?,?,?,?)",
+                (project_id, name, query_json, now),
+            )
+            return int(self.conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+    def delete_saved_search(self, project_id: int | None, name: str) -> bool:
+        """저장된 검색 삭제.  삭제 행 수 ≥ 1 이면 True."""
+        with self.write_lock:
+            if project_id is None:
+                cur = self.conn.execute(
+                    "DELETE FROM saved_searches WHERE project_id IS NULL AND name = ?",
+                    (name,),
+                )
+            else:
+                cur = self.conn.execute(
+                    "DELETE FROM saved_searches WHERE project_id = ? AND name = ?",
+                    (project_id, name),
+                )
+            return (cur.rowcount or 0) > 0
+
+    def update_saved_search_last_used(self, saved_search_id: int) -> None:
+        import time as _time
+
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE saved_searches SET last_used_at = ? WHERE id = ?",
+                (int(_time.time()), int(saved_search_id)),
+            )
+
+    def list_saved_searches(self, project_id: int | None) -> list[SavedSearchRow]:
+        """``last_used_at DESC NULLS LAST, created_at DESC`` 순."""
+        if project_id is None:
+            rows = self.conn.execute(
+                "SELECT id, project_id, name, query_json, created_at, last_used_at "
+                "FROM saved_searches WHERE project_id IS NULL "
+                "ORDER BY last_used_at IS NULL, last_used_at DESC, created_at DESC"
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                "SELECT id, project_id, name, query_json, created_at, last_used_at "
+                "FROM saved_searches WHERE project_id = ? "
+                "ORDER BY last_used_at IS NULL, last_used_at DESC, created_at DESC",
+                (int(project_id),),
+            ).fetchall()
+        return [_saved_search_row(r) for r in rows]
+
+    def get_saved_search(
+        self, project_id: int | None, name: str,
+    ) -> SavedSearchRow | None:
+        if project_id is None:
+            row = self.conn.execute(
+                "SELECT id, project_id, name, query_json, created_at, last_used_at "
+                "FROM saved_searches WHERE project_id IS NULL AND name = ?",
+                (name,),
+            ).fetchone()
+        else:
+            row = self.conn.execute(
+                "SELECT id, project_id, name, query_json, created_at, last_used_at "
+                "FROM saved_searches WHERE project_id = ? AND name = ?",
+                (int(project_id), name),
+            ).fetchone()
+        if row is None:
+            return None
+        return _saved_search_row(row)
+
+    # -- M4: feedback_records --------------------------------------------
+
+    def insert_feedback_record(
+        self,
+        project_id: int,
+        asset_id: int,
+        query_id: int | None,
+        reason: str,
+        weight: float,
+    ) -> int:
+        """페널티 학습용 signed weight 행 INSERT."""
+        import time as _time
+
+        with self.write_lock:
+            self.conn.execute(
+                "INSERT INTO feedback_records "
+                "(project_id, asset_id, query_id, reason, weight, created_at) "
+                "VALUES (?,?,?,?,?,?)",
+                (
+                    int(project_id), int(asset_id),
+                    int(query_id) if query_id is not None else None,
+                    reason, float(weight), int(_time.time()),
+                ),
+            )
+            return int(self.conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+    def feedback_records_for_project(
+        self,
+        project_id: int,
+        asset_ids: list[int] | None,
+        *,
+        within_seconds: int,
+    ) -> dict[int, float]:
+        """`{asset_id: sum(weight)}` 윈도우 내 행만 합산.
+
+        ``asset_ids=None`` 이면 모든 asset 의 합을 돌려준다.
+        """
+        import time as _time
+
+        cutoff = int(_time.time()) - int(within_seconds)
+        if asset_ids is None:
+            rows = self.conn.execute(
+                "SELECT asset_id, SUM(weight) FROM feedback_records "
+                "WHERE project_id = ? AND created_at >= ? "
+                "GROUP BY asset_id",
+                (int(project_id), cutoff),
+            ).fetchall()
+        else:
+            if not asset_ids:
+                return {}
+            placeholders = ",".join("?" * len(asset_ids))
+            params: list = [int(project_id), cutoff, *[int(x) for x in asset_ids]]
+            rows = self.conn.execute(
+                f"SELECT asset_id, SUM(weight) FROM feedback_records "
+                f"WHERE project_id = ? AND created_at >= ? "
+                f"AND asset_id IN ({placeholders}) GROUP BY asset_id",
+                params,
+            ).fetchall()
+        return {int(aid): float(s or 0.0) for aid, s in rows}
+
+    def pack_feedback_count(
+        self,
+        project_id: int,
+        pack_ids: list[int],
+        *,
+        within_seconds: int,
+    ) -> dict[int, int]:
+        """`{pack_id: 음수 가중치 행 카운트}` — pack-level penalty 임계 입력."""
+        import time as _time
+
+        if not pack_ids:
+            return {}
+        cutoff = int(_time.time()) - int(within_seconds)
+        placeholders = ",".join("?" * len(pack_ids))
+        # asset → pack 매핑은 assets 테이블 JOIN 으로.
+        params: list = [int(project_id), cutoff, *[int(x) for x in pack_ids]]
+        rows = self.conn.execute(
+            f"SELECT a.pack_id, COUNT(*) "
+            f"FROM feedback_records f JOIN assets a ON a.id = f.asset_id "
+            f"WHERE f.project_id = ? AND f.created_at >= ? AND f.weight < 0 "
+            f"AND a.pack_id IN ({placeholders}) "
+            f"GROUP BY a.pack_id",
+            params,
+        ).fetchall()
+        return {int(pid): int(c) for pid, c in rows}
+
 
 # ── helpers ──────────────────────────────────────────────────────────
 
@@ -1163,4 +1373,15 @@ def _project_row(r: tuple) -> ProjectRow:
         last_seen=int(r[4]),
         pinned_pack_id=int(r[5]) if r[5] is not None else None,
         blocked_packs=blocked,
+    )
+
+
+def _saved_search_row(r: tuple) -> SavedSearchRow:
+    return SavedSearchRow(
+        id=int(r[0]),
+        project_id=int(r[1]) if r[1] is not None else None,
+        name=str(r[2]),
+        query_json=str(r[3]),
+        created_at=int(r[4]),
+        last_used_at=int(r[5]) if r[5] is not None else None,
     )

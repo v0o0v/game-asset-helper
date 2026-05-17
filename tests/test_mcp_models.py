@@ -79,7 +79,10 @@ def test_report_feedback_request_required_fields():
 
     with pytest.raises(ValidationError):
         ReportFeedbackRequest()  # type: ignore[call-arg]
-    ReportFeedbackRequest(query_id=1, asset_id=2, reason="not_what_i_wanted")
+    # M4: reason 은 Literal['negative','positive','irrelevant'] — 자유 문자열 금지.
+    ReportFeedbackRequest(query_id=1, asset_id=2, reason="negative")
+    with pytest.raises(ValidationError):
+        ReportFeedbackRequest(query_id=1, asset_id=2, reason="not_what_i_wanted")
 
 
 def test_list_labels_result_signature_is_hex_string():
