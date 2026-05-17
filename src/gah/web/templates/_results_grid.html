@@ -1,0 +1,30 @@
+{# M5 — 결과 영역 fragment.
+   $store.search.viewMode (grid|list) 에 따라 카드 partial 선택.
+   서버 렌더 시점엔 viewMode 를 모르므로 Alpine x-if 로 클라이언트가 분기. #}
+<div class="results-meta">
+  <span class="total-count">{{ total }} 자산</span>
+</div>
+<div class="results-cards" :class="'view-mode-' + $store.search.viewMode">
+  <template x-if="$store.search.viewMode === 'grid' || !$store.search.viewMode">
+    <div class="grid-container">
+      {% for row in rows %}
+        {% include "_card_wide.html" %}
+      {% endfor %}
+    </div>
+  </template>
+  <template x-if="$store.search.viewMode === 'list'">
+    <div class="list-container">
+      {% for row in rows %}
+        {% include "_card_list.html" %}
+      {% endfor %}
+    </div>
+  </template>
+</div>
+{% if next_offset is not none %}
+  <button class="load-more"
+          hx-post="/ui/search-results"
+          hx-target="#results"
+          hx-swap="beforeend"
+          hx-include="form.search-bar"
+          hx-vals='{"offset": {{ next_offset }}}'>더 보기</button>
+{% endif %}

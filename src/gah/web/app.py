@@ -89,9 +89,10 @@ def build_app(deps: WebDeps) -> FastAPI:
     setup_jinja_i18n(templates.env)
     app.state.templates = templates
 
-    # 9 라우터 등록
+    # 9 라우터 등록 (library 는 /api + /ui 두 라우터)
     app.include_router(health.router)
     app.include_router(library.router)
+    app.include_router(library.router_ui)
     app.include_router(filters.router)
     app.include_router(saved_searches.router)
     app.include_router(feedback.router)
