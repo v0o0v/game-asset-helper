@@ -40,7 +40,8 @@ def _register_pick(deps, asset_ids: list[int], reason: str | None = None):
     # fake future (done 상태) 로 채운다.
     loop = asyncio.new_event_loop()
     fut = loop.create_future()
-    loop.call_soon(fut.cancel)  # 즉시 cancel 상태 (UI 라우트는 참조 안 함)
+    fut.cancel()  # 즉시 cancel 상태 (UI 라우트는 참조 안 함)
+    loop.close()  # 미사용 루프 즉시 닫아 ResourceWarning 방지
     p = PendingPick(
         request_id=rid,
         candidates=list(asset_ids),
