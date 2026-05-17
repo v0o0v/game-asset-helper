@@ -327,3 +327,37 @@ def test_library_page_loads_htmx_json_enc_extension(client):
     r = client.get("/library")
     assert r.status_code == 200
     assert "htmx-json-enc.js" in r.text
+
+
+# ── Task 5.6: /packs HTML 페이지 ────────────────────────────────────────
+
+
+def test_page_packs_returns_200(populated_client):
+    """GET /packs → 200 HTML."""
+    r = populated_client.get("/packs")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+
+
+def test_page_packs_renders_pack_names(populated_client):
+    """GET /packs HTML 에 pack_a, pack_b 이름이 모두 나온다."""
+    r = populated_client.get("/packs")
+    assert r.status_code == 200
+    assert "pack_a" in r.text
+    assert "pack_b" in r.text
+
+
+def test_page_packs_has_correct_nav_active(populated_client):
+    """팩 페이지는 nav 에서 '팩' 링크가 active 클래스를 갖는다."""
+    r = populated_client.get("/packs")
+    assert r.status_code == 200
+    # nav 에 active 클래스가 있어야 함
+    assert "active" in r.text
+
+
+def test_page_packs_includes_toggle_button(populated_client):
+    """팩 카드에 활성/비활성 토글 버튼이 있다."""
+    r = populated_client.get("/packs")
+    assert r.status_code == 200
+    # hx-patch 가 toggle 버튼에 달려 있어야 함
+    assert "hx-patch" in r.text

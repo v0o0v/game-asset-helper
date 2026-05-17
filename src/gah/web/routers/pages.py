@@ -28,4 +28,22 @@ def page_library(request: Request) -> HTMLResponse:
     )
 
 
-# /packs, /labels/admin 은 Phase 5 가 채움
+@router.get("/packs", response_class=HTMLResponse)
+def page_packs(request: Request) -> HTMLResponse:
+    """팩 페이지 — 팩 카드 그리드 + enable/disable 토글.
+
+    packs 를 인라인으로 렌더해 초기 로드 시 추가 왕복을 없앤다.
+    """
+    from .packs import _list_packs_dicts  # 순환 import 방지용 지연 import
+
+    templates = request.app.state.templates
+    deps = request.app.state.deps
+    packs = _list_packs_dicts(deps.store)
+    return templates.TemplateResponse(
+        request=request,
+        name="packs.html",
+        context={"packs": packs, "page": "packs"},
+    )
+
+
+# /labels/admin 은 Phase 5B 가 채움
