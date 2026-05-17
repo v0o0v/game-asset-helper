@@ -285,6 +285,101 @@ async def ui_search_results(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request=request, name="_results_grid.html", context=ctx)
 
 
+# ── /ui/asset-detail/{asset_id} GET ──────────────────────────────────
+
+
+@router_ui.get("/asset-detail/{asset_id}", response_class=HTMLResponse)
+def ui_asset_detail(asset_id: int, request: Request) -> HTMLResponse:
+    """자산 상세 모달 HTML fragment.
+
+    카드 클릭 → HTMX hx-get → #asset-detail-modal 에 swap.
+    """
+    deps = request.app.state.deps
+    asset = deps.store.get_asset_by_id(asset_id)
+    if asset is None:
+        raise HTTPException(status_code=404, detail="asset not found")
+
+    # pack_name 조회 — pack_id 로 직접 SELECT
+    pack_row = deps.store.conn.execute(
+        "SELECT name, display_name FROM packs WHERE id = ?",
+        (asset.pack_id,),
+    ).fetchone()
+    pack_name = ""
+    if pack_row:
+        pack_name = pack_row[1] or pack_row[0]
+
+    # 해상도·파일크기 메타 조회
+    width: int | None = None
+    height: int | None = None
+    size_kb: int | None = asset.file_size // 1024 if asset.file_size else None
+    if asset.kind == "sprite":
+        sm = deps.store.conn.execute(
+            "SELECT width, height FROM sprite_meta WHERE asset_id = ?",
+            (asset_id,),
+        ).fetchone()
+        if sm:
+            width, height = sm[0], sm[1]
+
+    # 라벨 조회
+    label_map = deps.store.asset_labels_for([asset_id])
+    labels = label_map.get(asset_id, [])
+
+    # 파일명(확장자 제외)을 템플릿에 미리 계산해서 전달
+    asset_name = Path(asset.path).stem
+
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request=request,
+        name="asset_detail.html",
+        context={
+            "asset": asset,
+            "asset_name": asset_name,
+            "pack_name": pack_name,
+            "width": width,
+            "height": height,
+            "size_kb": size_kb,
+            "labels": labels,
+        },
+    )
+
+
+# ── /api/audio/{asset_id} GET ─────────────────────────────────────────
+
+
+@router.get("/audio/{asset_id}")
+def api_audio(asset_id: int, request: Request) -> Response:
+    """사운드 자산 파일 stream. sound kind 에만 허용."""
+    import mimetypes
+
+    deps = request.app.state.deps
+    asset = deps.store.get_asset_by_id(asset_id)
+    if asset is None or asset.kind != "sound":
+        raise HTTPException(status_code=404, detail="audio only for sound kind")
+    path = Path(asset.path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="audio file missing")
+    mime, _ = mimetypes.guess_type(str(path))
+    return FileResponse(str(path), media_type=mime or "application/octet-stream")
+
+
+# ── /ui/audio-player/{asset_id} GET ──────────────────────────────────
+
+
+@router_ui.get("/audio-player/{asset_id}", response_class=HTMLResponse)
+def ui_audio_player(asset_id: int, request: Request) -> HTMLResponse:
+    """오디오 인라인 플레이어 fragment (HTMX hx-get → .audio-slot swap)."""
+    deps = request.app.state.deps
+    asset = deps.store.get_asset_by_id(asset_id)
+    if asset is None or asset.kind != "sound":
+        raise HTTPException(status_code=404, detail="audio only for sound kind")
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request=request,
+        name="_audio_player.html",
+        context={"asset_id": asset_id},
+    )
+
+
 # ── /api/thumbnail/{asset_id} GET ─────────────────────────────────────
 
 

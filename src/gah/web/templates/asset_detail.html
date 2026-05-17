@@ -1,0 +1,70 @@
+{# M5 — 자산 상세 모달 fragment.
+   HTMX 가 #asset-detail-modal 에 swap. Alpine @click.self 로 오버레이 클릭 시 닫기. #}
+<div class="modal-overlay" @click.self="$el.remove()" x-data>
+  <div class="modal-content asset-detail">
+    <button class="modal-close"
+            @click="$el.closest('.modal-overlay').remove()"
+            aria-label="{{ _('닫기') }}">✕</button>
+
+    <header class="modal-header">
+      <h2>{{ asset_name }}</h2>
+      <span class="kind-badge kind-{{ asset.kind }}">{{ asset.kind }}</span>
+    </header>
+
+    <div class="modal-body">
+      {% if asset.kind == "sprite" %}
+        <div class="detail-thumb">
+          <img src="/api/thumbnail/{{ asset.id }}"
+               alt="{{ asset.path }}"
+               onerror="this.style.display='none'" />
+        </div>
+      {% elif asset.kind == "sound" %}
+        <div class="detail-audio">
+          <audio controls preload="none" src="/api/audio/{{ asset.id }}"
+                 style="width:100%;"></audio>
+        </div>
+      {% endif %}
+
+      <dl class="detail-meta">
+        {% if pack_name %}
+          <dt>{{ _("팩") }}</dt><dd>{{ pack_name }}</dd>
+        {% endif %}
+        {% if width and height %}
+          <dt>{{ _("해상도") }}</dt><dd>{{ width }}×{{ height }}</dd>
+        {% endif %}
+        {% if size_kb %}
+          <dt>{{ _("파일 크기") }}</dt><dd>{{ size_kb }}KB</dd>
+        {% endif %}
+        {% if asset.path %}
+          <dt>{{ _("경로") }}</dt><dd class="path">{{ asset.path }}</dd>
+        {% endif %}
+      </dl>
+
+      {% if labels %}
+      <section class="detail-labels">
+        <h3>{{ _("라벨") }}</h3>
+        <div class="label-chips">
+          {% for lbl in labels %}
+            <span class="chip">{{ lbl.axis }}: {{ lbl.label }}</span>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+    </div>
+
+    <footer class="modal-footer">
+      <button class="btn-adopt"
+              hx-post="/api/record-use"
+              hx-vals='{"asset_id": {{ asset.id }}}'
+              @click="$el.closest('.modal-overlay').remove()">
+        {{ _("채택") }}
+      </button>
+      <button class="btn-reject"
+              hx-post="/api/feedback"
+              hx-vals='{"asset_id": {{ asset.id }}, "reason": "negative"}'
+              @click="$el.closest('.modal-overlay').remove()">
+        {{ _("거부") }}
+      </button>
+    </footer>
+  </div>
+</div>

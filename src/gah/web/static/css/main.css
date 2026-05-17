@@ -259,3 +259,67 @@ html, body {
 
 .card-size-s .card-list-thumb { width: 32px; height: 32px; }
 .card-size-l .card-list-thumb { width: 56px; height: 56px; }
+
+/* === 모달 === */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal-content {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.modal-close {
+  position: absolute; top: 12px; right: 12px;
+  background: transparent; border: none;
+  color: var(--fg); font-size: 1.5em; cursor: pointer;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.modal-header h2 { margin: 0; font-size: 1.2em; word-break: break-all; }
+.kind-badge {
+  padding: 4px 10px; border-radius: 4px;
+  background: var(--chip-bg); font-size: 0.85em; white-space: nowrap;
+}
+.detail-thumb img {
+  max-width: 100%; max-height: 320px;
+  object-fit: contain; display: block; margin: 0 auto;
+}
+.detail-audio { margin: 12px 0; }
+.detail-meta {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 8px 16px; margin: 16px 0;
+}
+.detail-meta dt { font-weight: 600; opacity: 0.7; }
+.detail-meta dd { margin: 0; word-break: break-all; }
+.detail-meta dd.path { font-family: monospace; font-size: 0.85em; }
+.detail-labels { margin-top: 16px; }
+.detail-labels h3 { margin: 0 0 8px; font-size: 0.95em; opacity: 0.8; }
+.label-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.label-chips .chip {
+  padding: 4px 10px; background: var(--chip-bg);
+  border-radius: 12px; font-size: 0.85em;
+}
+.modal-footer {
+  display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;
+}
+.btn-adopt, .btn-reject {
+  padding: 8px 20px; border-radius: 6px;
+  border: none; cursor: pointer; font-weight: 600;
+}
+.btn-adopt { background: var(--accent); color: white; }
+.btn-reject {
+  background: var(--card-bg); color: var(--fg);
+  border: 1px solid var(--border);
+}
