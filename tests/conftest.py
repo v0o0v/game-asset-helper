@@ -693,6 +693,7 @@ def deps_fixture(tmp_path):
         config=cfg,
         paths=paths,
         pending_picks=pending,
+        library_root=paths.library_dir,  # M5 bugfix: assets.path 상대경로 해석용
     )
     yield deps
     s.close()
@@ -740,6 +741,7 @@ def populated_deps(tmp_path, populated_store, fake_embedder):
         config=cfg,
         paths=paths,
         pending_picks=pending,
+        library_root=paths.library_dir,  # M5 bugfix: assets.path 상대경로 해석용
     )
 
 

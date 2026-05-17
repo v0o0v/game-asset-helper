@@ -29,17 +29,21 @@ def enrich_sample(
     store: "Store",
     cache_dir: Path,
     *,
+    library_root: Path,
     include_thumbnails: bool = True,
 ) -> dict:
     """asset_row → suggest_packs.samples[i] dict.
 
     Returned dict shape:
         {asset_id, path, kind, thumbnail_path: str|None, preview_blurb: str|None}
+
+    ``library_root`` は assets.path が library_root 기준 상대경로이므로
+    절대경로로 변환할 때 필요하다.
     """
     thumb: Path | None = None
     if include_thumbnails:
         thumb = ensure_thumbnail(
-            Path(asset_row.path), asset_row.kind, cache_dir, asset_row.id,
+            library_root / asset_row.path, asset_row.kind, cache_dir, asset_row.id,
         )
     return {
         "asset_id": asset_row.id,

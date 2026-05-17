@@ -302,16 +302,16 @@ def tool_suggest_packs(deps: ToolDeps, req: SuggestPacksRequest) -> SuggestPacks
         )
         samples = []
         if req.include_samples:
-            cache_dir = (
-                deps.paths.cache_dir / "thumbnails" if deps.paths is not None
-                else default_app_paths().cache_dir / "thumbnails"
-            )
+            _paths = deps.paths if deps.paths is not None else default_app_paths()
+            cache_dir = _paths.cache_dir / "thumbnails"
+            lib_root = _paths.library_dir
             for r in sorted(items, key=lambda x: x.score, reverse=True)[:3]:
                 asset_row = deps.store.get_asset_by_id(r.asset_id)
                 if asset_row is None:
                     continue
                 sample = enrich_sample(
                     asset_row, deps.store, cache_dir,
+                    library_root=lib_root,
                     include_thumbnails=req.include_thumbnails,
                 )
                 sample["score"] = r.score

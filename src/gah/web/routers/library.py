@@ -13,6 +13,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
 
+from ..deps import resolve_asset_path
+
 router = APIRouter(prefix="/api", tags=["library"])
 router_ui = APIRouter(prefix="/ui", tags=["library-ui"])
 
@@ -405,7 +407,7 @@ def api_audio(asset_id: int, request: Request) -> Response:
     asset = deps.store.get_asset_by_id(asset_id)
     if asset is None or asset.kind != "sound":
         raise HTTPException(status_code=404, detail="audio only for sound kind")
-    path = Path(asset.path)
+    path = resolve_asset_path(deps, asset.path)
     if not path.exists():
         raise HTTPException(status_code=404, detail="audio file missing")
     mime, _ = mimetypes.guess_type(str(path))
@@ -541,7 +543,7 @@ def api_thumbnail(asset_id: int, request: Request) -> Response:
     if asset.kind != "sprite":
         raise HTTPException(status_code=404, detail="thumbnail only for sprite kind")
 
-    asset_path = Path(asset.path)
+    asset_path = resolve_asset_path(deps, asset.path)
     cache_dir = deps.paths.cache_dir / "thumbnails"
     thumb = ensure_thumbnail(asset_path, asset.kind, cache_dir, asset_id, max_size=256)
     if thumb is None or not thumb.exists():

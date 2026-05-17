@@ -131,6 +131,7 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
         store=store, search=searcher, usage=usage, registry=registry,
         queue=queue, config=config, paths=paths, pending_picks=pending,
         tray_bridge=bridge,
+        library_root=library_root,  # M5 bugfix: assets.path 상대경로 해석용
     )
     web = WebServer(deps)
     web.start()

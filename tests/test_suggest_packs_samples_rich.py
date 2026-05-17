@@ -17,14 +17,21 @@ import pytest
 
 
 def _enrich(populated_store, tmp_thumbnail_cache,
-            *, include_thumbnails=True, sprite=True):
-    """`enrich_sample(asset_row, store, cache_dir, include_thumbnails)` 결과 dict."""
+            *, include_thumbnails=True, sprite=True, library_root: "Path | None" = None):
+    """`enrich_sample(asset_row, store, cache_dir, library_root, include_thumbnails)` 결과 dict.
+
+    library_root 기본값: tmp_thumbnail_cache.parent.parent (tmp_path).
+    sprite_file_on_disk fixture 가 asset.path 를 절대경로로 업데이트하므로
+    library_root / absolute_path → absolute_path (pathlib Windows 동작).
+    """
     from gah.core.suggest_packs import enrich_sample
 
     store, ids = populated_store
     aid = ids["hero"] if sprite else ids["bgm_loop"]
     asset_row = store.get_asset_by_id(aid)
+    root = library_root or tmp_thumbnail_cache.parent.parent
     return enrich_sample(asset_row, store, tmp_thumbnail_cache,
+                         library_root=root,
                          include_thumbnails=include_thumbnails), aid, store
 
 
@@ -101,7 +108,9 @@ def test_blurb_format_is_axis_equals_label_separator(
     store, ids = populated_store
     # jump 자산은 sound_category=sfx 1 라벨 — 단일 페어 케이스.
     asset_row = store.get_asset_by_id(ids["jump"])
+    root = tmp_thumbnail_cache.parent.parent
     out = enrich_sample(asset_row, store, tmp_thumbnail_cache,
+                        library_root=root,
                         include_thumbnails=False)
     blurb = out["preview_blurb"] or ""
     assert "=" in blurb
