@@ -90,8 +90,6 @@ html, body {
   align-self: flex-start;
   max-height: calc(100vh - 100px);
   overflow-y: auto;
-  /* 리사이즈 핸들 절대 위치 기준 */
-  position: relative;
 }
 .resize-handle {
   position: absolute;
