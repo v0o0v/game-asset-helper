@@ -73,6 +73,7 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
         model=config.model_image,
         timeout_seconds=config.analysis_timeout_seconds,
         max_retries=config.analysis_max_retries,
+        parallel=config.ollama_parallel,
     )
     embedder = EmbeddingEncoder(ollama, model=config.model_embed)
     clip: ClipLabeler | None = None

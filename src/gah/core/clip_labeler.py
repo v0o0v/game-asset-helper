@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable, Protocol
 
@@ -187,6 +188,9 @@ class ClipLabeler:
         self.store = store
         self.registry = registry
         self.enabled = enabled
+        # torch CLIP 모델 forward 는 thread-safe 가 아니다 — 워커 N 개가 동시에
+        # encode_image 를 부르면 비결정 결과·CUDA OOM 위험. 단일 lock 으로 직렬화.
+        self._lock = threading.Lock()
 
     # -- text-side cache ---------------------------------------------
 
@@ -199,14 +203,15 @@ class ClipLabeler:
         """
         if not self.enabled:
             return
-        targets = self._resolve_labels(labels)
-        missing = [t for t in targets if self._cache_get(t) is None]
-        if not missing:
-            return
-        vectors = self.backend.encode_text(missing)
-        dim = int(vectors.shape[-1])
-        for label, vec in zip(missing, vectors):
-            self._cache_put(label, dim, vec)
+        with self._lock:
+            targets = self._resolve_labels(labels)
+            missing = [t for t in targets if self._cache_get(t) is None]
+            if not missing:
+                return
+            vectors = self.backend.encode_text(missing)
+            dim = int(vectors.shape[-1])
+            for label, vec in zip(missing, vectors):
+                self._cache_put(label, dim, vec)
 
     def _resolve_labels(self, labels: Iterable[str] | None) -> list[str]:
         if labels is not None:
@@ -232,33 +237,33 @@ class ClipLabeler:
     ) -> dict[str, float]:
         if not self.enabled:
             return {}
+        with self._lock:
+            targets = self._resolve_labels(labels)
+            if not targets:
+                return {}
 
-        targets = self._resolve_labels(labels)
-        if not targets:
-            return {}
+            # 라벨 임베딩을 확보 (missing 인 것만 계산)
+            missing = [t for t in targets if self._cache_get(t) is None]
+            if missing:
+                vectors = self.backend.encode_text(missing)
+                dim_text = int(vectors.shape[-1])
+                for label, vec in zip(missing, vectors):
+                    self._cache_put(label, dim_text, vec)
 
-        # 라벨 임베딩을 확보 (missing 인 것만 계산)
-        missing = [t for t in targets if self._cache_get(t) is None]
-        if missing:
-            vectors = self.backend.encode_text(missing)
-            dim_text = int(vectors.shape[-1])
-            for label, vec in zip(missing, vectors):
-                self._cache_put(label, dim_text, vec)
+            label_vecs = np.stack(
+                [self._cache_get(t) for t in targets]  # type: ignore[list-item]
+            )
+            img_vec = self.backend.encode_image(image_path)
+            img_vec = img_vec.reshape(-1)
 
-        label_vecs = np.stack(
-            [self._cache_get(t) for t in targets]  # type: ignore[list-item]
-        )
-        img_vec = self.backend.encode_image(image_path)
-        img_vec = img_vec.reshape(-1)
-
-        # 코사인 유사도 = (L @ img) / (||L|| ||img||)
-        img_norm = np.linalg.norm(img_vec)
-        label_norms = np.linalg.norm(label_vecs, axis=1)
-        denom = label_norms * img_norm + 1e-12
-        scores = (label_vecs @ img_vec) / denom
-        # 음수 코사인은 의미 없는 신호 — 0 으로 클램프
-        scores = np.clip(scores, 0.0, 1.0)
-        return {label: float(s) for label, s in zip(targets, scores)}
+            # 코사인 유사도 = (L @ img) / (||L|| ||img||)
+            img_norm = np.linalg.norm(img_vec)
+            label_norms = np.linalg.norm(label_vecs, axis=1)
+            denom = label_norms * img_norm + 1e-12
+            scores = (label_vecs @ img_vec) / denom
+            # 음수 코사인은 의미 없는 신호 — 0 으로 클램프
+            scores = np.clip(scores, 0.0, 1.0)
+            return {label: float(s) for label, s in zip(targets, scores)}
 
     # -- cache helpers -----------------------------------------------
 

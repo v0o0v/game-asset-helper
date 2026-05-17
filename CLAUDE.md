@@ -21,6 +21,7 @@
 | M0 — 뼈대 | ✅ 완료 | 패키지 스캐폴딩, config/logging/single-instance, 트레이 셸, CLI |
 | M1 — 워처 + Pack Manager + DB | ✅ 완료 | watchdog 래퍼+디바운서, 매니페스트/벤더 휴리스틱, SQLite 4테이블, 부팅 풀스캔, GUI 팩/라이브러리 탭 |
 | M2 — 분석 파이프라인 + CLIP | ✅ 완료 | Pillow·numpy 기술 특성·librosa+soundfile·Ollama 클라이언트·`nomic-embed-text`·CLIP zero-shot·24축 ≈ 316 라벨 시드+`LabelRegistry`+라벨 관리 다이얼로그·분석 큐+ETA 상태바·M3 인계 stub |
+| M2.1 — 분석 큐 병렬화 패치 | ✅ 완료 | 동시성 1→3, Ollama semaphore(parallel=2), CLIP threading.Lock, SQLite write_lock+busy_timeout, GUI 250ms 디바운스 |
 | M3 — 검색 백엔드 + 통일성 + MCP (2주) | 다음 | FTS5+벡터+라벨 점수·MCP 도구 7~8개·GUI 최소 동작 |
 | M4 — 검색 UX 풍부화 (1.5주, 신설) | 대기 | 부울 라벨 쿼리·다축 필터·가중치 슬라이더·저장된 검색 |
 | M5 — 시트 분석 + 애니메이션 (1주) | 대기 | 격자 분할·`suggest_animation_frames` |
@@ -135,7 +136,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-`pytest -q`가 204 passed (+ 2 deselected) 로 떨어지면 준비 완료 (M0 18 + M1 49 + M2 134 + 추가 회귀 3). M2 시점 검증 결과는 [`milestones/M2_verification.md`](./milestones/M2_verification.md).
+`pytest -q`가 221 passed (+ 2 deselected) 로 떨어지면 준비 완료 (M0 18 + M1 49 + M2 134 + 추가 회귀 3 + M2.1 16 + 회귀 보존 1). M2.1 시점 검증 결과는 [`milestones/M2.1_verification.md`](./milestones/M2.1_verification.md).
 
 ## 7. 자주 쓰는 명령
 

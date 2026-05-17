@@ -99,8 +99,14 @@ class Config:
     # 30s 면 매번 timeout → native/spectrogram 둘 다 실패 → 휴리스틱 폴백으로 강등된다.
     # GPU 환경에서는 훨씬 빠르지만 default 는 양쪽 모두 안전한 값으로 둔다.
     analysis_timeout_seconds: float = 60.0
-    analysis_concurrency: int = 1
+    # M2.1 patch: 1 → 3. 분석 시간의 90%+ 가 Ollama 호출 대기라 CPU idle —
+    # 워커풀 3 으로 throughput 2~2.5x. 충돌 지점 4 가지(Ollama OOM / CLIP
+    # thread-unsafe / SQLite 경합 / GUI refresh 폭주) 는 함께 봉합됐다.
+    analysis_concurrency: int = 3
     analysis_max_retries: int = 3
+    # 동시 Ollama 호출 cap — analysis_concurrency 와 별개. 같은 모델 슬롯에
+    # N 개가 동시에 두드리면 GGML crash/OOM 위험이 있어 backend-level cap.
+    ollama_parallel: int = 2
     description_language: str = "ko"   # "ko" | "en" — anything else falls back to "ko"
     clip_model: str = "ViT-B-32"
     clip_pretrained: str = "openai"
@@ -121,6 +127,13 @@ class Config:
         strat = filtered.get("audio_chunk_strategy")
         if strat is not None and strat not in _VALID_AUDIO_CHUNK_STRATEGIES:
             filtered.pop("audio_chunk_strategy")
+        # 0/음수는 분석 자체를 멈춰버리므로 1 로 클램프.
+        parallel = filtered.get("ollama_parallel")
+        if parallel is not None:
+            try:
+                filtered["ollama_parallel"] = max(1, int(parallel))
+            except (TypeError, ValueError):
+                filtered.pop("ollama_parallel")
         return cls(**filtered)
 
     def to_mapping(self) -> dict[str, Any]:

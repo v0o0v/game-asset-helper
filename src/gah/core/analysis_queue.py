@@ -167,11 +167,9 @@ class AnalysisQueue(QObject):
             self.store.mark_asset_analyzing(row.id)
         # 표시는 했지만 실제 분석은 워커에 위임 — 큐에 다시 넣는다
         for row in rows:
-            # pending 으로 되돌려서 워커가 정상 처리하게
-            self.store.conn.execute(
-                "UPDATE assets SET analysis_state='pending' WHERE id=?",
-                (row.id,),
-            )
+            # pending 으로 되돌려서 워커가 정상 처리하게.
+            # M2.1: raw conn.execute 가 아니라 Store 메서드를 거쳐 write_lock 안에서.
+            self.store.mark_asset_pending(row.id)
             self._queue.put(row.id)
             self._enqueued_packs.add(row.pack_id)
         self._emit_progress()

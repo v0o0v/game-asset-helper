@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional
@@ -250,6 +251,13 @@ class Store:
             self.conn.execute("PRAGMA journal_mode = WAL")
         except sqlite3.DatabaseError:  # pragma: no cover - memory DB fallback
             pass
+        # M2.1: 다른 프로세스(sqlite3 CLI 등) 가 잠시 lock 을 잡고 있어도
+        # 5초까지는 기다린다. 우리 자체 워커 사이 직렬화는 write_lock 으로 처리.
+        self.conn.execute("PRAGMA busy_timeout = 5000")
+        # M2.1: 워커 N 개가 같은 connection 을 공유하므로 caller 가 serialise 한다.
+        # RLock 인 이유 — 외부 호출자가 with store.write_lock: 안에서 다시 writer
+        # 메서드를 부르는 패턴(LabelRegistry.bootstrap 등)을 nested acquire 로 허용.
+        self.write_lock: threading.RLock = threading.RLock()
 
     # -- lifecycle ----------------------------------------------------
 
@@ -275,65 +283,68 @@ class Store:
     def upsert_pack(
         self, name: str, manifest: PackManifest, *, scanned_at: int
     ) -> int:
-        cur = self.conn.execute("SELECT id FROM packs WHERE name = ?", (name,))
-        row = cur.fetchone()
-        if row is None:
+        with self.write_lock:
+            cur = self.conn.execute("SELECT id FROM packs WHERE name = ?", (name,))
+            row = cur.fetchone()
+            if row is None:
+                self.conn.execute(
+                    """
+                    INSERT INTO packs (
+                      name, display_name, vendor, source_url, license, description,
+                      enabled, added_at, scanned_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+                    """,
+                    (
+                        name,
+                        manifest.display_name,
+                        manifest.vendor,
+                        manifest.source_url,
+                        manifest.license,
+                        manifest.description,
+                        scanned_at,
+                        scanned_at,
+                    ),
+                )
+                return int(
+                    self.conn.execute(
+                        "SELECT id FROM packs WHERE name = ?", (name,)
+                    ).fetchone()[0]
+                )
+
+            pack_id = int(row[0])
             self.conn.execute(
                 """
-                INSERT INTO packs (
-                  name, display_name, vendor, source_url, license, description,
-                  enabled, added_at, scanned_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+                UPDATE packs SET
+                  display_name = ?,
+                  vendor = ?,
+                  source_url = ?,
+                  license = ?,
+                  description = ?,
+                  scanned_at = ?
+                WHERE id = ?
                 """,
                 (
-                    name,
                     manifest.display_name,
                     manifest.vendor,
                     manifest.source_url,
                     manifest.license,
                     manifest.description,
                     scanned_at,
-                    scanned_at,
+                    pack_id,
                 ),
             )
-            return int(
-                self.conn.execute(
-                    "SELECT id FROM packs WHERE name = ?", (name,)
-                ).fetchone()[0]
-            )
-
-        pack_id = int(row[0])
-        self.conn.execute(
-            """
-            UPDATE packs SET
-              display_name = ?,
-              vendor = ?,
-              source_url = ?,
-              license = ?,
-              description = ?,
-              scanned_at = ?
-            WHERE id = ?
-            """,
-            (
-                manifest.display_name,
-                manifest.vendor,
-                manifest.source_url,
-                manifest.license,
-                manifest.description,
-                scanned_at,
-                pack_id,
-            ),
-        )
-        return pack_id
+            return pack_id
 
     def delete_pack(self, pack_id: int) -> None:
-        self.conn.execute("DELETE FROM packs WHERE id = ?", (pack_id,))
+        with self.write_lock:
+            self.conn.execute("DELETE FROM packs WHERE id = ?", (pack_id,))
 
     def set_pack_enabled(self, pack_id: int, enabled: bool) -> None:
-        self.conn.execute(
-            "UPDATE packs SET enabled = ? WHERE id = ?",
-            (1 if enabled else 0, pack_id),
-        )
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE packs SET enabled = ? WHERE id = ?",
+                (1 if enabled else 0, pack_id),
+            )
 
     def get_pack_by_name(self, name: str) -> Optional[PackRow]:
         row = self.conn.execute(
@@ -355,10 +366,11 @@ class Store:
         return [_pack_row(r) for r in self.conn.execute(sql).fetchall()]
 
     def update_pack_aggregate(self, pack_id: int, aggregate_json: str) -> None:
-        self.conn.execute(
-            "UPDATE packs SET aggregate_meta = ? WHERE id = ?",
-            (aggregate_json, pack_id),
-        )
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE packs SET aggregate_meta = ? WHERE id = ?",
+                (aggregate_json, pack_id),
+            )
 
     # -- asset CRUD ---------------------------------------------------
 
@@ -372,70 +384,73 @@ class Store:
         *,
         added_at: int,
     ) -> int:
-        cur = self.conn.execute(
-            "SELECT id, file_hash FROM assets WHERE path = ?", (rel_path,)
-        )
-        existing = cur.fetchone()
-        if existing is None:
+        with self.write_lock:
+            cur = self.conn.execute(
+                "SELECT id, file_hash FROM assets WHERE path = ?", (rel_path,)
+            )
+            existing = cur.fetchone()
+            if existing is None:
+                self.conn.execute(
+                    """
+                    INSERT INTO assets (
+                      pack_id, path, kind, file_hash, file_size,
+                      added_at, analyzed_at, analysis_state
+                    ) VALUES (?, ?, ?, ?, ?, ?, NULL, 'pending')
+                    """,
+                    (pack_id, rel_path, kind, file_hash, file_size, added_at),
+                )
+                return int(
+                    self.conn.execute(
+                        "SELECT id FROM assets WHERE path = ?", (rel_path,)
+                    ).fetchone()[0]
+                )
+
+            asset_id = int(existing[0])
+            if existing[1] == file_hash:
+                self.conn.execute(
+                    "UPDATE assets SET pack_id = ?, kind = ?, file_size = ? WHERE id = ?",
+                    (pack_id, kind, file_size, asset_id),
+                )
+                return asset_id
+
+            # hash changed → re-analyse on next pass
             self.conn.execute(
                 """
-                INSERT INTO assets (
-                  pack_id, path, kind, file_hash, file_size,
-                  added_at, analyzed_at, analysis_state
-                ) VALUES (?, ?, ?, ?, ?, ?, NULL, 'pending')
+                UPDATE assets SET
+                  pack_id = ?,
+                  kind = ?,
+                  file_hash = ?,
+                  file_size = ?,
+                  analyzed_at = NULL,
+                  analysis_state = 'pending',
+                  analysis_error = NULL
+                WHERE id = ?
                 """,
-                (pack_id, rel_path, kind, file_hash, file_size, added_at),
-            )
-            return int(
-                self.conn.execute(
-                    "SELECT id FROM assets WHERE path = ?", (rel_path,)
-                ).fetchone()[0]
-            )
-
-        asset_id = int(existing[0])
-        if existing[1] == file_hash:
-            self.conn.execute(
-                "UPDATE assets SET pack_id = ?, kind = ?, file_size = ? WHERE id = ?",
-                (pack_id, kind, file_size, asset_id),
+                (pack_id, kind, file_hash, file_size, asset_id),
             )
             return asset_id
 
-        # hash changed → re-analyse on next pass
-        self.conn.execute(
-            """
-            UPDATE assets SET
-              pack_id = ?,
-              kind = ?,
-              file_hash = ?,
-              file_size = ?,
-              analyzed_at = NULL,
-              analysis_state = 'pending',
-              analysis_error = NULL
-            WHERE id = ?
-            """,
-            (pack_id, kind, file_hash, file_size, asset_id),
-        )
-        return asset_id
-
     def delete_asset(self, asset_id: int) -> None:
-        # FTS5 is not bound by FK — clean it explicitly.
-        self.conn.execute("DELETE FROM assets_fts WHERE asset_id = ?", (asset_id,))
-        self.conn.execute("DELETE FROM assets WHERE id = ?", (asset_id,))
+        with self.write_lock:
+            # FTS5 is not bound by FK — clean it explicitly.
+            self.conn.execute("DELETE FROM assets_fts WHERE asset_id = ?", (asset_id,))
+            self.conn.execute("DELETE FROM assets WHERE id = ?", (asset_id,))
 
     def delete_assets_outside(
         self, pack_id: int, kept_rel_paths: Iterable[str]
     ) -> None:
         kept = list(kept_rel_paths)
-        if not kept:
+        with self.write_lock:
+            if not kept:
+                self.conn.execute(
+                    "DELETE FROM assets WHERE pack_id = ?", (pack_id,)
+                )
+                return
+            placeholders = ",".join("?" * len(kept))
             self.conn.execute(
-                "DELETE FROM assets WHERE pack_id = ?", (pack_id,)
+                f"DELETE FROM assets WHERE pack_id = ? AND path NOT IN ({placeholders})",
+                (pack_id, *kept),
             )
-            return
-        placeholders = ",".join("?" * len(kept))
-        self.conn.execute(
-            f"DELETE FROM assets WHERE pack_id = ? AND path NOT IN ({placeholders})",
-            (pack_id, *kept),
-        )
 
     def assets_for_pack(self, pack_id: int) -> list[AssetRow]:
         rows = self.conn.execute(
@@ -474,10 +489,11 @@ class Store:
     # -- M2: analysis state transitions -------------------------------
 
     def mark_asset_analyzing(self, asset_id: int) -> None:
-        self.conn.execute(
-            "UPDATE assets SET analysis_state = 'analyzing' WHERE id = ?",
-            (asset_id,),
-        )
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE assets SET analysis_state = 'analyzing' WHERE id = ?",
+                (asset_id,),
+            )
 
     def mark_asset_state(
         self,
@@ -487,11 +503,25 @@ class Store:
         error: str | None = None,
         analyzed_at: int | None = None,
     ) -> None:
-        self.conn.execute(
-            "UPDATE assets SET analysis_state = ?, analysis_error = ?, analyzed_at = ?"
-            " WHERE id = ?",
-            (state, error, analyzed_at, asset_id),
-        )
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE assets SET analysis_state = ?, analysis_error = ?, analyzed_at = ?"
+                " WHERE id = ?",
+                (state, error, analyzed_at, asset_id),
+            )
+
+    def mark_asset_pending(self, asset_id: int) -> None:
+        """Restore an asset's state to 'pending'.
+
+        Used by :meth:`AnalysisQueue.drain_pending` to re-queue rows that
+        were temporarily flipped to 'analyzing' during the sweep.  Carved
+        out as a real Store method so all writes flow through ``write_lock``.
+        """
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE assets SET analysis_state = 'pending' WHERE id = ?",
+                (asset_id,),
+            )
 
     def next_pending_asset(self) -> Optional[AssetRow]:
         row = self.conn.execute(
@@ -524,77 +554,80 @@ class Store:
     def save_sprite_meta(self, asset_id: int, meta: SpriteMeta) -> None:
         import json
 
-        self.conn.execute(
-            """
-            INSERT OR REPLACE INTO sprite_meta (
-              asset_id, width, height, has_alpha, is_pixel_art,
-              dominant_colors, frame_w, frame_h, frame_count, animation_tags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                asset_id,
-                meta.width,
-                meta.height,
-                1 if meta.has_alpha else 0,
-                1 if meta.is_pixel_art else 0,
-                json.dumps(meta.dominant_colors),
-                meta.frame_w,
-                meta.frame_h,
-                meta.frame_count,
-                json.dumps(meta.animation_tags) if meta.animation_tags else None,
-            ),
-        )
+        with self.write_lock:
+            self.conn.execute(
+                """
+                INSERT OR REPLACE INTO sprite_meta (
+                  asset_id, width, height, has_alpha, is_pixel_art,
+                  dominant_colors, frame_w, frame_h, frame_count, animation_tags
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    asset_id,
+                    meta.width,
+                    meta.height,
+                    1 if meta.has_alpha else 0,
+                    1 if meta.is_pixel_art else 0,
+                    json.dumps(meta.dominant_colors),
+                    meta.frame_w,
+                    meta.frame_h,
+                    meta.frame_count,
+                    json.dumps(meta.animation_tags) if meta.animation_tags else None,
+                ),
+            )
 
     def save_sound_meta(self, asset_id: int, meta: SoundMeta) -> None:
         import json
 
-        self.conn.execute(
-            """
-            INSERT OR REPLACE INTO sound_meta (
-              asset_id, duration_ms, sample_rate, channels, loudness_db,
-              bpm, category, loopable, instruments,
-              tempo, intensity, genre, voice_type, audio_path_used
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                asset_id,
-                meta.duration_ms,
-                meta.sample_rate,
-                meta.channels,
-                meta.loudness_db,
-                meta.bpm,
-                meta.category,
-                None if meta.loopable is None else (1 if meta.loopable else 0),
-                json.dumps(meta.instruments) if meta.instruments else None,
-                meta.tempo,
-                meta.intensity,
-                meta.genre,
-                meta.voice_type,
-                meta.audio_path_used,
-            ),
-        )
+        with self.write_lock:
+            self.conn.execute(
+                """
+                INSERT OR REPLACE INTO sound_meta (
+                  asset_id, duration_ms, sample_rate, channels, loudness_db,
+                  bpm, category, loopable, instruments,
+                  tempo, intensity, genre, voice_type, audio_path_used
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    asset_id,
+                    meta.duration_ms,
+                    meta.sample_rate,
+                    meta.channels,
+                    meta.loudness_db,
+                    meta.bpm,
+                    meta.category,
+                    None if meta.loopable is None else (1 if meta.loopable else 0),
+                    json.dumps(meta.instruments) if meta.instruments else None,
+                    meta.tempo,
+                    meta.intensity,
+                    meta.genre,
+                    meta.voice_type,
+                    meta.audio_path_used,
+                ),
+            )
 
     def save_asset_labels(
         self, asset_id: int, labels: list[LabelScore]
     ) -> None:
         # 트랜잭션 안에서 기존 라벨 제거 후 일괄 INSERT.
-        self.conn.execute("BEGIN")
-        try:
-            self.conn.execute(
-                "DELETE FROM asset_labels WHERE asset_id = ?", (asset_id,)
-            )
-            self.conn.executemany(
-                "INSERT INTO asset_labels (asset_id, axis, label, score, source, weight)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                [
-                    (asset_id, lbl.axis, lbl.label, lbl.score, lbl.source, lbl.weight)
-                    for lbl in labels
-                ],
-            )
-            self.conn.execute("COMMIT")
-        except Exception:
-            self.conn.execute("ROLLBACK")
-            raise
+        with self.write_lock:
+            self.conn.execute("BEGIN")
+            try:
+                self.conn.execute(
+                    "DELETE FROM asset_labels WHERE asset_id = ?", (asset_id,)
+                )
+                self.conn.executemany(
+                    "INSERT INTO asset_labels (asset_id, axis, label, score, source, weight)"
+                    " VALUES (?, ?, ?, ?, ?, ?)",
+                    [
+                        (asset_id, lbl.axis, lbl.label, lbl.score, lbl.source, lbl.weight)
+                        for lbl in labels
+                    ],
+                )
+                self.conn.execute("COMMIT")
+            except Exception:
+                self.conn.execute("ROLLBACK")
+                raise
 
     def labels_for_asset(self, asset_id: int) -> list[LabelScore]:
         rows = self.conn.execute(
@@ -610,20 +643,22 @@ class Store:
     def save_embedding(
         self, asset_id: int, model: str, vector_bytes: bytes, dim: int
     ) -> None:
-        self.conn.execute(
-            "INSERT OR REPLACE INTO asset_embeddings (asset_id, model, dim, vector)"
-            " VALUES (?, ?, ?, ?)",
-            (asset_id, model, dim, vector_bytes),
-        )
+        with self.write_lock:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO asset_embeddings (asset_id, model, dim, vector)"
+                " VALUES (?, ?, ?, ?)",
+                (asset_id, model, dim, vector_bytes),
+            )
 
     def update_fts(self, asset_id: int, searchable_text: str) -> None:
-        self.conn.execute(
-            "DELETE FROM assets_fts WHERE asset_id = ?", (asset_id,)
-        )
-        self.conn.execute(
-            "INSERT INTO assets_fts (asset_id, searchable_text) VALUES (?, ?)",
-            (asset_id, searchable_text),
-        )
+        with self.write_lock:
+            self.conn.execute(
+                "DELETE FROM assets_fts WHERE asset_id = ?", (asset_id,)
+            )
+            self.conn.execute(
+                "INSERT INTO assets_fts (asset_id, searchable_text) VALUES (?, ?)",
+                (asset_id, searchable_text),
+            )
 
     # -- M2: CLIP label vector cache ----------------------------------
 
@@ -637,11 +672,12 @@ class Store:
     def clip_label_cache_put(
         self, label: str, model: str, dim: int, vector: bytes
     ) -> None:
-        self.conn.execute(
-            "INSERT OR REPLACE INTO clip_label_cache (label, model, dim, vector)"
-            " VALUES (?, ?, ?, ?)",
-            (label, model, dim, vector),
-        )
+        with self.write_lock:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO clip_label_cache (label, model, dim, vector)"
+                " VALUES (?, ?, ?, ?)",
+                (label, model, dim, vector),
+            )
 
     # -- M2: labels (vocabulary) --------------------------------------
 

@@ -8,7 +8,8 @@ from gah.config import Config, load_config, save_config
 def test_new_fields_have_documented_defaults() -> None:
     cfg = Config()
     assert cfg.analysis_timeout_seconds == 60.0
-    assert cfg.analysis_concurrency == 1
+    # M2.1 patch: default raised 1 → 3 to drive the worker pool. See M2.1_plan §3.1.
+    assert cfg.analysis_concurrency == 3
     assert cfg.analysis_max_retries == 3
     assert cfg.description_language == "ko"
     assert cfg.clip_model == "ViT-B-32"

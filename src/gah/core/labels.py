@@ -450,30 +450,33 @@ class LabelRegistry:
         self, seed: dict[str, list[tuple[str, str]]] | None = None
     ) -> int:
         """Insert seed labels only when the table is empty.  Idempotent."""
-        rows = self.store.conn.execute("SELECT COUNT(*) FROM labels").fetchone()
-        if rows and rows[0] > 0:
-            return 0
-        now = int(time.time())
-        seed = seed if seed is not None else SEED_LABELS
-        inserted = 0
-        self.store.conn.execute("BEGIN")
-        try:
-            for axis, items in seed.items():
-                for token, desc in items:
-                    self.store.conn.execute(
-                        "INSERT INTO labels"
-                        " (axis, label, description, source, enabled,"
-                        "  created_at, updated_at)"
-                        " VALUES (?, ?, ?, 'seed', 1, ?, ?)",
-                        (axis, token, desc, now, now),
-                    )
-                    inserted += 1
-            self.store.conn.execute("COMMIT")
-        except Exception:
-            self.store.conn.execute("ROLLBACK")
-            raise
-        self.invalidate()
-        return inserted
+        with self.store.write_lock:
+            rows = self.store.conn.execute(
+                "SELECT COUNT(*) FROM labels"
+            ).fetchone()
+            if rows and rows[0] > 0:
+                return 0
+            now = int(time.time())
+            seed = seed if seed is not None else SEED_LABELS
+            inserted = 0
+            self.store.conn.execute("BEGIN")
+            try:
+                for axis, items in seed.items():
+                    for token, desc in items:
+                        self.store.conn.execute(
+                            "INSERT INTO labels"
+                            " (axis, label, description, source, enabled,"
+                            "  created_at, updated_at)"
+                            " VALUES (?, ?, ?, 'seed', 1, ?, ?)",
+                            (axis, token, desc, now, now),
+                        )
+                        inserted += 1
+                self.store.conn.execute("COMMIT")
+            except Exception:
+                self.store.conn.execute("ROLLBACK")
+                raise
+            self.invalidate()
+            return inserted
 
     # -- reads --------------------------------------------------------
 
@@ -542,61 +545,64 @@ class LabelRegistry:
         """
         _validate_token(label)
         now = int(time.time())
-        cur = self.store.conn.execute(
-            "SELECT id, enabled FROM labels WHERE axis = ? AND label = ?",
-            (axis, label),
-        )
-        existing = cur.fetchone()
-        if existing is None:
-            self.store.conn.execute(
-                "INSERT INTO labels (axis, label, description, source,"
-                " enabled, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, 1, ?, ?)",
-                (axis, label, description, source, now, now),
+        with self.store.write_lock:
+            cur = self.store.conn.execute(
+                "SELECT id, enabled FROM labels WHERE axis = ? AND label = ?",
+                (axis, label),
             )
-            row_id = int(
+            existing = cur.fetchone()
+            if existing is None:
                 self.store.conn.execute(
-                    "SELECT id FROM labels WHERE axis = ? AND label = ?",
-                    (axis, label),
-                ).fetchone()[0]
-            )
-            self.invalidate()
-            return row_id, True
+                    "INSERT INTO labels (axis, label, description, source,"
+                    " enabled, created_at, updated_at)"
+                    " VALUES (?, ?, ?, ?, 1, ?, ?)",
+                    (axis, label, description, source, now, now),
+                )
+                row_id = int(
+                    self.store.conn.execute(
+                        "SELECT id FROM labels WHERE axis = ? AND label = ?",
+                        (axis, label),
+                    ).fetchone()[0]
+                )
+                self.invalidate()
+                return row_id, True
 
-        row_id = int(existing[0])
-        if description is not None:
-            self.store.conn.execute(
-                "UPDATE labels SET enabled = 1, description = ?, updated_at = ?"
-                " WHERE id = ?",
-                (description, now, row_id),
-            )
-        else:
-            self.store.conn.execute(
-                "UPDATE labels SET enabled = 1, updated_at = ? WHERE id = ?",
-                (now, row_id),
-            )
-        self.invalidate()
-        return row_id, False
+            row_id = int(existing[0])
+            if description is not None:
+                self.store.conn.execute(
+                    "UPDATE labels SET enabled = 1, description = ?, updated_at = ?"
+                    " WHERE id = ?",
+                    (description, now, row_id),
+                )
+            else:
+                self.store.conn.execute(
+                    "UPDATE labels SET enabled = 1, updated_at = ? WHERE id = ?",
+                    (now, row_id),
+                )
+            self.invalidate()
+            return row_id, False
 
     def set_enabled(self, axis: str, label: str, enabled: bool) -> None:
         now = int(time.time())
-        self.store.conn.execute(
-            "UPDATE labels SET enabled = ?, updated_at = ?"
-            " WHERE axis = ? AND label = ?",
-            (1 if enabled else 0, now, axis, label),
-        )
-        self.invalidate()
+        with self.store.write_lock:
+            self.store.conn.execute(
+                "UPDATE labels SET enabled = ?, updated_at = ?"
+                " WHERE axis = ? AND label = ?",
+                (1 if enabled else 0, now, axis, label),
+            )
+            self.invalidate()
 
     def set_description(
         self, axis: str, label: str, description: str | None
     ) -> None:
         now = int(time.time())
-        self.store.conn.execute(
-            "UPDATE labels SET description = ?, updated_at = ?"
-            " WHERE axis = ? AND label = ?",
-            (description, now, axis, label),
-        )
-        self.invalidate()
+        with self.store.write_lock:
+            self.store.conn.execute(
+                "UPDATE labels SET description = ?, updated_at = ?"
+                " WHERE axis = ? AND label = ?",
+                (description, now, axis, label),
+            )
+            self.invalidate()
 
     # -- catalog signature -------------------------------------------
 

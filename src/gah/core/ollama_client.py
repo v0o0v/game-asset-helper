@@ -21,6 +21,7 @@ import base64
 import io
 import json
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -65,11 +66,16 @@ class OllamaClient:
         model: str,
         timeout_seconds: float,
         max_retries: int = 3,
+        parallel: int = 2,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
+        # 동시 호출 cap — 같은 모델 슬롯을 N 개가 두드리지 못하게.
+        # chat()/embed() 가 같은 세마포어를 공유한다(둘 다 같은 Ollama 프로세스 자원).
+        self.parallel = max(1, int(parallel))
+        self._sem = threading.Semaphore(self.parallel)
 
     # -- chat ---------------------------------------------------------
 
@@ -94,82 +100,89 @@ class OllamaClient:
         * **200 with non-JSON content**: the backend is responsive but
           confused.  Retry up to ``max_retries`` times on the same
           endpoint, with exponential backoff.
+
+        모든 백엔드 호출은 ``self._sem`` 안에서 일어난다 — retry 의 sleep 도
+        세마포어 슬롯을 점유한 채로 — 다른 워커가 같은 모델에 동시에 cold-
+        start 를 걸지 않게.
         """
-        # ── 1. Transport: 한 번만 시도. OpenAI → native 폴백. ──────
-        last_path: str | None = None
-        try:
-            raw = self._call_openai(messages, num_ctx=num_ctx,
-                                    force_json=force_json)
-            last_path = "openai"
-        except httpx.HTTPError as e:
-            log.debug("OpenAI path failed (%s); trying native", e)
+        with self._sem:
+            # ── 1. Transport: 한 번만 시도. OpenAI → native 폴백. ──────
+            last_path: str | None = None
             try:
-                raw = self._call_native(messages, num_ctx=num_ctx,
+                raw = self._call_openai(messages, num_ctx=num_ctx,
                                         force_json=force_json)
-                last_path = "native"
-            except httpx.HTTPError as e2:
-                raise OllamaError(
-                    stage="chat", path="native", cause=e2,
-                ) from e2
-
-        # ── 2. Parse: force_json invalid 면 같은 backend 에서 retry. ─
-        last_exc: Exception | None = None
-        for attempt in range(self.max_retries + 1):
-            parsed = self._parse_content(raw, source=last_path or "openai")
-            if not force_json or parsed is not None:
-                return parsed if parsed is not None else raw
-            last_exc = ValueError(
-                f"{last_path} response was not valid JSON"
-            )
-            if attempt >= self.max_retries:
-                break
-            time.sleep(min(2 ** attempt * 0.1, 2.0))
-            caller = (self._call_openai if last_path == "openai"
-                       else self._call_native)
-            try:
-                raw = caller(messages, num_ctx=num_ctx,
-                              force_json=force_json)
+                last_path = "openai"
             except httpx.HTTPError as e:
-                raise OllamaError(
-                    stage="chat", path=last_path, cause=e,
-                ) from e
+                log.debug("OpenAI path failed (%s); trying native", e)
+                try:
+                    raw = self._call_native(messages, num_ctx=num_ctx,
+                                            force_json=force_json)
+                    last_path = "native"
+                except httpx.HTTPError as e2:
+                    raise OllamaError(
+                        stage="chat", path="native", cause=e2,
+                    ) from e2
 
-        raise OllamaError(stage="chat", path=last_path, cause=last_exc)
+            # ── 2. Parse: force_json invalid 면 같은 backend 에서 retry. ─
+            last_exc: Exception | None = None
+            for attempt in range(self.max_retries + 1):
+                parsed = self._parse_content(raw, source=last_path or "openai")
+                if not force_json or parsed is not None:
+                    return parsed if parsed is not None else raw
+                last_exc = ValueError(
+                    f"{last_path} response was not valid JSON"
+                )
+                if attempt >= self.max_retries:
+                    break
+                time.sleep(min(2 ** attempt * 0.1, 2.0))
+                caller = (self._call_openai if last_path == "openai"
+                           else self._call_native)
+                try:
+                    raw = caller(messages, num_ctx=num_ctx,
+                                  force_json=force_json)
+                except httpx.HTTPError as e:
+                    raise OllamaError(
+                        stage="chat", path=last_path, cause=e,
+                    ) from e
+
+            raise OllamaError(stage="chat", path=last_path, cause=last_exc)
 
     # -- embed --------------------------------------------------------
 
     def embed(self, text: str, *, model: str | None = None) -> list[float]:
         model_name = model or "nomic-embed-text"
-        # OpenAI-compatible first
-        try:
-            r = httpx.post(
-                f"{self.base_url}/v1/embeddings",
-                json={"model": model_name, "input": text},
-                timeout=self.timeout_seconds,
-            )
-            if r.status_code == 200:
-                body = r.json()
-                # OpenAI shape: {"data": [{"embedding": [...]}]}
-                if "data" in body:
-                    return list(body["data"][0]["embedding"])
-                # Some backends use top-level "embedding"
-                if "embedding" in body:
-                    return list(body["embedding"])
-        except httpx.HTTPError as e:
-            log.debug("OpenAI embed path failed (%s); trying native", e)
+        # chat 과 같은 세마포어를 공유 — 같은 백엔드 자원 점유.
+        with self._sem:
+            # OpenAI-compatible first
+            try:
+                r = httpx.post(
+                    f"{self.base_url}/v1/embeddings",
+                    json={"model": model_name, "input": text},
+                    timeout=self.timeout_seconds,
+                )
+                if r.status_code == 200:
+                    body = r.json()
+                    # OpenAI shape: {"data": [{"embedding": [...]}]}
+                    if "data" in body:
+                        return list(body["data"][0]["embedding"])
+                    # Some backends use top-level "embedding"
+                    if "embedding" in body:
+                        return list(body["embedding"])
+            except httpx.HTTPError as e:
+                log.debug("OpenAI embed path failed (%s); trying native", e)
 
-        # Native fallback
-        try:
-            r = httpx.post(
-                f"{self.base_url}/api/embeddings",
-                json={"model": model_name, "prompt": text},
-                timeout=self.timeout_seconds,
-            )
-            r.raise_for_status()
-            body = r.json()
-            return list(body["embedding"])
-        except httpx.HTTPError as e:
-            raise OllamaError(stage="embed", path="native", cause=e) from e
+            # Native fallback
+            try:
+                r = httpx.post(
+                    f"{self.base_url}/api/embeddings",
+                    json={"model": model_name, "prompt": text},
+                    timeout=self.timeout_seconds,
+                )
+                r.raise_for_status()
+                body = r.json()
+                return list(body["embedding"])
+            except httpx.HTTPError as e:
+                raise OllamaError(stage="embed", path="native", cause=e) from e
 
     # -- internals ----------------------------------------------------
 

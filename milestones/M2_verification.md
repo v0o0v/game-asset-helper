@@ -217,6 +217,8 @@ Claude 가 명령줄로 자동 가능한 1~9 항목을 모두 직접 실행. 사
 
 graceful fallback 으로 partial 도 검색 가능한 데이터는 채워짐 (라벨 + 임베딩 + 메타). Ollama 호출 자체의 cold-start 지연은 M2.1 동시성 패치에서 함께 검토.
 
+> **M2.1 패치 후 갱신** (2026-05-17): 분석 큐 동시성 1 → 3, Ollama 호출 cap 2, SQLite write_lock, GUI 250ms 디바운스가 추가됐다. M2.1 의 자동 검증 결과(`221 passed, 2 deselected`) + 사용자 수동 검증 항목은 [`M2.1_verification.md`](./M2.1_verification.md). M2 의 단일 워커 가정에서 측정된 분석 시간은 M2.1 적용 후 환경에 따라 2~2.5x 단축이 기대된다.
+
 ## 4. 알려진 한계 / M3 로 미룬 것
 
 - `assets_fts.searchable_text` 안에 라벨 description 자연어가 인용부호로 색인되지만, 실제 검색 쿼리는 M3 의 `find_asset` 백엔드가 등장해야 의미가 있다. M2 시점에는 단순 표 표시만.

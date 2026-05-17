@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
+from PySide6.QtCore import QCoreApplication, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QLabel,
@@ -54,6 +54,11 @@ class MainWindow(QMainWindow):
         self._store = store
         self._library_root: Optional[Path] = None
         self._label_registry: Optional["LabelRegistry"] = None
+        # M2.1: 분석 큐 동시성 3 일 때 progressChanged 가 N 배로 emit 된다.
+        # 250ms 디바운스로 4Hz cap — leading-edge 즉시 표시 + trailing flush.
+        self._pending_snapshot: "AnalysisProgress | None" = None
+        self._progress_flush_timer: QTimer | None = None
+        self._progress_debounce_ms: int = 250
 
         self.tab_widget = QTabWidget(self)
         self.pack_view = PackView(store, self.tab_widget)
@@ -112,6 +117,32 @@ class MainWindow(QMainWindow):
 
     @Slot(object)
     def update_progress(self, snapshot: "AnalysisProgress") -> None:
+        """Receive a progress snapshot — debounced at 4Hz.
+
+        Leading-edge: 첫 호출(또는 직전 창이 끝난 직후의 첫 호출) 은 즉시 그린다.
+        그 다음 250ms 창 안에 들어오는 추가 호출은 마지막 snapshot 만 누적되어
+        창이 끝날 때 한 번 더 그려진다. 사용자 체감 lag 없이 refresh 폭주를 막는다.
+        """
+        self._pending_snapshot = snapshot
+        if self._progress_flush_timer is None:
+            # leading-edge — 즉시 한 번 그린다.
+            self._flush_progress()
+            timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self._on_progress_window_end)
+            self._progress_flush_timer = timer
+            timer.start(self._progress_debounce_ms)
+        # else: 이미 창이 열려 있어 trailing flush 가 마지막 snapshot 을 처리한다.
+
+    def _on_progress_window_end(self) -> None:
+        # 창이 끝났다 — 마지막에 쌓인 snapshot 을 그려주고 타이머를 비운다.
+        self._flush_progress()
+        self._progress_flush_timer = None
+
+    def _flush_progress(self) -> None:
+        snapshot = self._pending_snapshot
+        if snapshot is None:
+            return
         # 지연 import — 모듈 결합 줄이기 위해
         from ..core.analysis_queue import _format_duration_kor
 

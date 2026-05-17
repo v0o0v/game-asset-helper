@@ -1,31 +1,35 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
 **마지막 인계 시각**: 2026-05-17
-**마지막 완료 마일스톤**: M2 (분석 파이프라인 + CLIP)
+**마지막 완료 마일스톤**: M2.1 (분석 큐 병렬화 패치)
 **다음 작업**: M3 (검색 백엔드 + 통일성 + MCP 도구)
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가"를 한 번에 파악하도록 작성된 스냅샷이다. 마일스톤이 하나 끝날 때마다 이 문서를 갱신한다.
 
 ## 1. 한 줄 요약
 
-설계(`DESIGN.md`) 위에 M0(뼈대) → M1(워처 + 팩 매니저 + SQLite 4테이블 + GUI 팩/라이브러리 탭) → M2(분석 파이프라인 + CLIP 라벨러 + 24축 316 시드 + 라벨 관리 다이얼로그 + 분석 큐/ETA 상태바) 까지 자동 204 테스트 통과 + 수동 검증 항목까지 정리됐다. 다음은 M3 (FTS5+벡터 코사인 검색 + 통일성 스코어러 + MCP stdio 도구 7~8개) 를 같은 TDD 사이클로 시작한다.
+설계(`DESIGN.md`) 위에 M0(뼈대) → M1(워처 + 팩 매니저 + SQLite 4테이블 + GUI 팩/라이브러리 탭) → M2(분석 파이프라인 + CLIP 라벨러 + 24축 316 시드 + 라벨 관리 다이얼로그 + 분석 큐/ETA 상태바) → **M2.1**(분석 큐 동시성 1 → 3 + Ollama semaphore + CLIP lock + SQLite write_lock + GUI 250ms 디바운스) 까지 자동 221 테스트 통과. 다음은 M3 (FTS5+벡터 코사인 검색 + 통일성 스코어러 + MCP stdio 도구 7~8개) 를 같은 TDD 사이클로 시작한다.
 
-## 2. 검증된 사실 (M2 시점)
+## 2. 검증된 사실 (M2.1 시점)
 
-자동 — `pytest -q` 결과 **205/205 통과** (20s, Windows 10 / Python 3.12, `clip_integration` 2 옵트인 deselected). 자동 검증 중 발견·즉시 fix 한 2 항목(`analysis_timeout_seconds` 30→60s, list-coerce squash) 포함.
+자동 — `pytest -q` 결과 **221/221 통과** (37s, Windows 10 / Python 3.12, `clip_integration` 2 옵트인 deselected). M2 의 204 + M2.1 의 16 신규 + 회귀 보존 +1.
 
-수동 — 사용자 PC 에서 GUI 시각 4 항목 (트레이 아이콘 / 우클릭 메뉴 / 메인 윈도우 + 컬럼 + 상태바 / 라벨 관리 다이얼로그) 모두 OK 확인. 자세한 결과는 [`milestones/M2_verification.md`](./milestones/M2_verification.md) §3.8.
+M2.1 동시성 테스트 5회 반복 실행 결과 0 flake.
+
+수동(M2 시점) — 사용자 PC 에서 GUI 시각 4 항목 (트레이 아이콘 / 우클릭 메뉴 / 메인 윈도우 + 컬럼 + 상태바 / 라벨 관리 다이얼로그) 모두 OK 확인. M2.1 의 수동 검증 항목(분석 부드러움 / DB lock 0건 / throughput 비교) 은 [`milestones/M2.1_verification.md`](./milestones/M2.1_verification.md) §3.
 
 ```
-M0 회귀:      18 passed  (config 6 + logging 4 + single_instance 4 + entrypoint 3 + imports 1)
-M1 회귀:      49 passed  (asset_kind 4 + manifest 8 + store 12 + pack_manager 8 + scanner 5 + watcher 5 + ui_smoke 3 + tray 4)
-M2 신규:     134 passed  (store_m2 17 + labels 19 + labels_admin_ui 7 + ollama_client 16 + embedding 5 + clip_labeler 6 + searchable 9 + analyzer_sprite 11 + analyzer_sound 13 + analysis_queue 8 + analysis_progress 9 + progress_statusbar 4 + config_m2 5 + ui_smoke_m2 3)
-M1 추가 회귀: 3 passed (ui_smoke 의 M2 변경 후 통과 확인)
+M0 회귀:        18 passed  (config 6 + logging 4 + single_instance 4 + entrypoint 3 + imports 1)
+M1 회귀:        49 passed  (asset_kind 4 + manifest 8 + store 12 + pack_manager 8 + scanner 5 + watcher 5 + ui_smoke 3 + tray 4)
+M2 회귀+신규:  134 passed  (store_m2 17 + labels 19 + labels_admin_ui 7 + ollama_client 16 + embedding 5 + clip_labeler 6 + searchable 9 + analyzer_sprite 11 + analyzer_sound 13 + analysis_queue 8 + analysis_progress 9 + progress_statusbar 4 + config_m2 5 + ui_smoke_m2 3)
+M1 추가 회귀:    3 passed  (ui_smoke 의 M2 변경 후 통과 확인)
+M2.1 신규:      16 passed  (config_m2_1 5 + ollama_client_concurrency 3 + clip_labeler_concurrency 2 + store_concurrency 3 + progress_debounce 3)
+회귀 보존:      +1 passed  (상위 묶음 회귀)
 ─────────────────────────────────────────────
-합계 204 passed (active) + 2 deselected (clip_integration)
+합계 221 passed (active) + 2 deselected (clip_integration)
 ```
 
-수동 검증 항목과 단계는 [`milestones/M2_verification.md`](./milestones/M2_verification.md) §3 참고. 사용자가 실제로 Ollama + GAH 트레이를 띄우고 `library/` 에 PNG/WAV 를 떨어뜨려 라벨/설명 컬럼 + 상태바 ETA + 라벨 관리 다이얼로그 + DB 의 14 객체를 직접 확인한다.
+M2.1 수동 검증 단계는 [`milestones/M2.1_verification.md`](./milestones/M2.1_verification.md) §3 참고. M2 의 수동 검증 단계도 그대로 유효하며 [`milestones/M2_verification.md`](./milestones/M2_verification.md) §3 에 있다.
 
 ## 3. 환경 (재현용)
 
@@ -75,7 +79,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-→ `204 passed, 2 deselected` 확인. 그러면 M0+M1+M2 기준점이 유지되고 있다는 뜻.
+→ `221 passed, 2 deselected` 확인. 그러면 M0+M1+M2+M2.1 기준점이 유지되고 있다는 뜻.
 
 venv 가 없는 새 PC 라면 [`CLAUDE.md §6`](./CLAUDE.md) 의 셋업 절차 그대로.
 
