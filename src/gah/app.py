@@ -122,6 +122,10 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     main_window.set_library_root(library_root)
     main_window.set_label_registry(registry)
     main_window.library_view.set_searcher(searcher)
+    # M4: LibraryView 의 좌·중·우 QSplitter 풍부 위젯 (LabelChipPanel /
+    # FilterBar / SearchSidePanel) 이 lazy 인스턴스화되도록 두 setter 호출.
+    main_window.library_view.set_label_registry(registry)
+    main_window.library_view.set_config(config)
     main_window.refresh()
 
     # 워처 이벤트는 GUI 스레드로 마샬링되어 _on_pack_changed 가 인테이크를 마치고

@@ -1,13 +1,24 @@
-"""Library tab — flat table of all indexed assets + M3 search box.
+"""Library tab — QSplitter 3 분할 (좌 칩+필터 / 중 검색박스+테이블 / 우 슬라이더+저장).
 
-M2 surfaces ``라벨`` (top-3 labels) and ``설명``.  M3 adds a debounced
-search input on top: typing fires ``HybridSearcher.hybrid()`` after a
-250 ms quiet period (M2.1 pattern) and replaces the grid rows with the
-ranked results.  Clearing the input restores the default library view.
+M2 surfaces ``라벨`` (top-3 labels) and ``설명``.  M3 adds a debounced search
+input on top: typing fires ``HybridSearcher.hybrid()`` after a 250 ms quiet
+period (M2.1 pattern) and replaces the grid rows with the ranked results.
+M4 wraps everything in a horizontal QSplitter — left/right panels are lazily
+populated when ``set_label_registry`` / ``set_config`` get called (so the
+M3 minimal mode without those setters still works).
+
+신호 흐름:
+    search_input.textChanged → 250ms debounce → _run_search()
+    LabelChipPanel.selectionChanged → 250ms debounce → _run_search()
+    FilterBar.filterChanged → 250ms debounce → _run_search()
+    SearchSidePanel.weightsChanged → 250ms debounce → _run_search()
+    SearchSidePanel.savedSearchActivated(name) → _on_saved_search_activated
+    SearchSidePanel.saveCurrentRequested(name) → _on_save_current_requested
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING
 
@@ -15,6 +26,7 @@ from PySide6.QtCore import QCoreApplication, Qt, QTimer
 from PySide6.QtWidgets import (
     QHeaderView,
     QLineEdit,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -22,6 +34,8 @@ from PySide6.QtWidgets import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ..config import Config
+    from ..core.labels import LabelRegistry
     from ..core.search import HybridSearcher
     from ..core.store import Store
 
@@ -38,29 +52,45 @@ def _tr(text: str) -> str:
 
 
 class LibraryView(QWidget):
-    """A flat list of all assets — pagination/filtering arrives in M4."""
+    """좌·중·우 QSplitter — 풍부 위젯은 setter 호출 시 lazy 생성."""
 
     def __init__(self, store: "Store", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._store = store
         self._searcher: "HybridSearcher | None" = None
-        self._config = None
+        self._config: "Config | None" = None
+        self._registry: "LabelRegistry | None" = None
         self._in_search_mode: bool = False
+        # M4 lazy 위젯들 — setter 호출 후에만 생성/노출.
+        self._chip_panel = None
+        self._filter_bar = None
+        self._side_panel = None
+
         # debounce timer (single-shot) — M2.1 _flush_progress 패턴
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
         self._search_timer.setInterval(_SEARCH_DEBOUNCE_MS)
         self._search_timer.timeout.connect(self._run_search)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        # ── 레이아웃 — QSplitter Horizontal 3 분할 ─────────────────────
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        self._splitter = QSplitter(Qt.Horizontal, self)
 
-        # M3: 검색 박스
-        self.search_input = QLineEdit(self)
+        # 좌측 패널 — set_label_registry 시 LabelChipPanel + FilterBar 추가.
+        self._left_panel = QWidget(self._splitter)
+        self._left_layout = QVBoxLayout(self._left_panel)
+        self._left_layout.setContentsMargins(0, 0, 0, 0)
+        self._splitter.addWidget(self._left_panel)
+
+        # 중앙 패널 — 검색 박스 + 결과 테이블 (M3 와 동일).
+        center = QWidget(self._splitter)
+        center_layout = QVBoxLayout(center)
+        center_layout.setContentsMargins(0, 0, 0, 0)
+        self.search_input = QLineEdit(center)
         self.search_input.setPlaceholderText(_tr("자연어 검색…"))
         self.search_input.textChanged.connect(self._on_search_text_changed)
-        layout.addWidget(self.search_input)
-
+        center_layout.addWidget(self.search_input)
         headers = (
             _tr("경로"),
             _tr("종류"),
@@ -70,7 +100,7 @@ class LibraryView(QWidget):
             _tr("설명"),
             _tr("점수"),
         )
-        self.table = QTableWidget(0, len(headers), self)
+        self.table = QTableWidget(0, len(headers), center)
         self.table.setHorizontalHeaderLabels(headers)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -78,34 +108,66 @@ class LibraryView(QWidget):
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
         header.setStretchLastSection(True)
+        center_layout.addWidget(self.table)
+        self._splitter.addWidget(center)
 
-        layout.addWidget(self.table)
+        # 우측 패널 — set_config 시 SearchSidePanel 추가.
+        self._right_panel = QWidget(self._splitter)
+        self._right_layout = QVBoxLayout(self._right_panel)
+        self._right_layout.setContentsMargins(0, 0, 0, 0)
+        self._splitter.addWidget(self._right_panel)
 
-    # -- M3 search wiring --------------------------------------------
+        # 스트레치: 좌 1 · 중 4 · 우 1.
+        self._splitter.setStretchFactor(0, 1)
+        self._splitter.setStretchFactor(1, 4)
+        self._splitter.setStretchFactor(2, 1)
+        root.addWidget(self._splitter)
+
+    # -- setter (app.py 가 부팅 시 호출) ----------------------------------
 
     def set_searcher(self, searcher: "HybridSearcher") -> None:
         """``app.py`` 가 부팅 시 1회 호출 — HybridSearcher 주입."""
         self._searcher = searcher
 
-    def set_config(self, config) -> None:
-        """M4: ``app.py`` 가 부팅 시 1회 호출 — Config 주입.
-
-        SearchSidePanel 의 슬라이더 양방향 바인딩 및 현재 검색 저장 기능이
-        같은 인스턴스를 참조하기 위해 필요.
-        """
+    def set_config(self, config: "Config") -> None:
+        """M4 — Config 주입 + 우측 SearchSidePanel lazy 생성."""
         self._config = config
+        if self._side_panel is None:
+            from .search_side_panel import SearchSidePanel
 
-    def set_label_registry(self, registry) -> None:
-        """M4: ``app.py`` 가 부팅 시 1회 호출 — LabelRegistry 주입."""
+            self._side_panel = SearchSidePanel(config, self._store, self._right_panel)
+            self._side_panel.weightsChanged.connect(self._on_filter_changed)
+            self._side_panel.savedSearchActivated.connect(self._on_saved_search_activated)
+            self._side_panel.saveCurrentRequested.connect(self._on_save_current_requested)
+            self._right_layout.addWidget(self._side_panel)
+            # 저장된 검색 초기 로드 (global = project_id None).
+            self._side_panel.reload_saved_searches(None)
+
+    def set_label_registry(self, registry: "LabelRegistry") -> None:
+        """M4 — LabelRegistry 주입 + 좌측 LabelChipPanel + FilterBar lazy 생성."""
         self._registry = registry
+        if self._chip_panel is None:
+            from .label_chip_panel import LabelChipPanel
+
+            self._chip_panel = LabelChipPanel(registry, self._left_panel)
+            self._chip_panel.selectionChanged.connect(self._on_filter_changed)
+            self._left_layout.addWidget(self._chip_panel)
+        if self._filter_bar is None:
+            from .filter_bar import FilterBar
+
+            self._filter_bar = FilterBar(self._store, self._left_panel)
+            self._filter_bar.filterChanged.connect(self._on_filter_changed)
+            self._left_layout.addWidget(self._filter_bar)
 
     @property
     def is_in_search_mode(self) -> bool:
         return self._in_search_mode
 
+    # -- 입력 이벤트 → 디바운스 → _run_search ---------------------------
+
     def _on_search_text_changed(self, _text: str) -> None:
-        # 빈 입력은 즉시 기본 모드로 복귀 (디바운스 없이).
-        if not self.search_input.text().strip():
+        # 텍스트 + 칩 둘 다 비면 즉시 기본 모드로 복귀 (디바운스 없이).
+        if not self._has_any_input():
             self._search_timer.stop()
             if self._in_search_mode:
                 self._in_search_mode = False
@@ -113,21 +175,96 @@ class LibraryView(QWidget):
             return
         self._search_timer.start()
 
+    def _on_filter_changed(self) -> None:
+        """칩·필터·슬라이더 변경 → 디바운스 후 검색 재호출 (입력 있을 때만)."""
+        if not self._has_any_input():
+            self._search_timer.stop()
+            if self._in_search_mode:
+                self._in_search_mode = False
+                self.refresh()
+            return
+        self._search_timer.start()
+
+    def _has_any_input(self) -> bool:
+        if self.search_input.text().strip():
+            return True
+        if self._chip_panel is not None:
+            _, filters = self._chip_panel.selected()
+            if filters:
+                return True
+        return False
+
+    # -- 핵심 검색 ----------------------------------------------------------
+
     def _run_search(self) -> None:
         if self._searcher is None:
             return
-        query = self.search_input.text().strip()
-        if not query:
+        text = self.search_input.text().strip()
+        if not self._has_any_input():
             return
-        from ..core.search import SearchRequest
+
+        from ..core.search import LabelFilter, SearchRequest
+
+        # 칩 선택 → labels_all/any/none (모드 라디오 단일 단위).
+        labels_all: list[LabelFilter] = []
+        labels_any: list[LabelFilter] = []
+        labels_none: list[LabelFilter] = []
+        if self._chip_panel is not None:
+            mode, chip_filters = self._chip_panel.selected()
+            cf = [LabelFilter(axis=f.axis, label=f.label) for f in chip_filters]
+            if mode == "all":
+                labels_all = cf
+            elif mode == "any":
+                labels_any = cf
+            elif mode == "none":
+                labels_none = cf
+
+        # FilterBar — kind + force_pack_id (단일 선택만 v1).
+        fb_kind = None
+        fb_force_pack = None
+        if self._filter_bar is not None:
+            fb = self._filter_bar.current_filters()
+            fb_kind = fb.get("kind")
+            packs = fb.get("pack_ids") or []
+            if len(packs) == 1:
+                fb_force_pack = packs[0]
+
+        # 텍스트는 query + (registry 있으면 label_query) 둘 다로 전달.
+        # 파서가 axis:label/AND/OR/NOT 토큰을 자동 추출 + 미지 토큰은 free_text 로
+        # 분리되어 effective_query 에 합쳐진다.  파서 예외 (모호/혼합) 는 캐치 후
+        # label_query 없이 재시도.
+        use_label_query = bool(text) and self._registry is not None
 
         try:
-            results = self._searcher.hybrid(SearchRequest(query=query, count=20))
-        except Exception:  # noqa: BLE001 — UI 안에서 검색 실패가 트레이를 죽이면 안 됨
-            # 단, 로그에는 traceback 을 박는다 — silent 으로 삼키면 사용자가
-            # "결과가 안 보인다"는 증상만 보고 원인을 추적할 수 없음.
-            log.exception("library search failed for query=%r", query)
-            return
+            request = SearchRequest(
+                query=text,
+                label_query=text if use_label_query else None,
+                kind=fb_kind,
+                force_pack_id=fb_force_pack,
+                labels_all=labels_all,
+                labels_any=labels_any,
+                labels_none=labels_none,
+                count=20,
+            )
+            results = self._searcher.hybrid(request)
+        except Exception:
+            log.exception(
+                "library search failed for query=%r; retrying without label_query",
+                text,
+            )
+            try:
+                results = self._searcher.hybrid(SearchRequest(
+                    query=text,
+                    kind=fb_kind,
+                    force_pack_id=fb_force_pack,
+                    labels_all=labels_all,
+                    labels_any=labels_any,
+                    labels_none=labels_none,
+                    count=20,
+                ))
+            except Exception:
+                log.exception("library search fallback also failed")
+                return
         self._show_search_results(results.results)
 
     def _show_search_results(self, rows) -> None:
@@ -176,6 +313,64 @@ class LibraryView(QWidget):
                 item = QTableWidgetItem(text)
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                 self.table.setItem(r, c, item)
+
+    # -- 저장된 검색 핸들러 ---------------------------------------------------
+
+    def _on_saved_search_activated(self, name: str) -> None:
+        """우측 패널 저장된 검색 더블클릭 → 저장된 query_json 로드 → 검색박스 채움."""
+        try:
+            row = self._store.get_saved_search(None, name)
+        except Exception:
+            log.exception("get_saved_search failed: %s", name)
+            return
+        if row is None:
+            log.warning("saved_search not found: %s", name)
+            return
+        try:
+            payload = json.loads(row.query_json)
+        except (ValueError, TypeError):
+            log.exception("saved_search query_json malformed: %s", name)
+            return
+        # v1: 텍스트 쿼리만 복원 (칩/필터 복원은 follow-up).
+        text = payload.get("query") or ""
+        self.search_input.setText(text)
+        # last_used 갱신.
+        try:
+            self._store.update_saved_search_last_used(row.id)
+        except Exception:
+            log.exception("update_saved_search_last_used failed: %s", row.id)
+        # 즉시 한 번 검색 (디바운스 우회).
+        self._run_search()
+
+    def _on_save_current_requested(self, name: str) -> None:
+        """우측 패널 "현재 검색 저장…" 클릭 → 현재 SearchRequest 핵심만 JSON 직렬화."""
+        text = self.search_input.text().strip()
+        chip_mode = "all"
+        chip_dump: list[dict] = []
+        if self._chip_panel is not None:
+            chip_mode, chip_filters = self._chip_panel.selected()
+            chip_dump = [{"axis": f.axis, "label": f.label} for f in chip_filters]
+        fb_kind = None
+        if self._filter_bar is not None:
+            fb_kind = self._filter_bar.current_filters().get("kind")
+        # MCP save_search 와 같은 JSON 포맷 (project_id 제외, _schema_version=1).
+        payload: dict = {
+            "query": text,
+            "label_query": text if (text and self._registry is not None) else None,
+            "kind": fb_kind,
+            "labels_all": chip_dump if chip_mode == "all" else [],
+            "labels_any": chip_dump if chip_mode == "any" else [],
+            "labels_none": chip_dump if chip_mode == "none" else [],
+            "count": 20,
+            "_schema_version": 1,
+        }
+        try:
+            self._store.save_search(None, name, json.dumps(payload))
+        except Exception:
+            log.exception("save_search failed: %s", name)
+            return
+        if self._side_panel is not None:
+            self._side_panel.reload_saved_searches(None)
 
     # -- helpers ------------------------------------------------------
 

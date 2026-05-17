@@ -301,3 +301,107 @@ def test_library_view_debounce_remains_250ms_after_rich_ux_added(
     assert searcher.calls == []   # 100 ms < 250 ms 디바운스
     _qwait(300)                    # 합계 400 ms > 250 ms
     assert searcher.calls == ["hero"]
+
+
+# ── M4 fix: LibraryView 통합 (QSplitter 3 panel) ──────────────────────
+
+
+def test_library_view_has_qsplitter_three_panels_after_setters(
+    qapp, populated_store, config_default, registry_with_axes,
+):
+    """set_config + set_label_registry 호출 후 LibraryView 가 좌·중·우 3 분할
+    QSplitter 구성을 갖는지 — 사용자 GUI 검증 보고 (2026-05-17) 의 1단계 회귀 가드.
+
+    이 테스트가 없으면 'plan §3.6 에서 적은 QSplitter 통합이 실제 코드엔 없는데
+    위젯 단위 테스트만 보고 통합된 줄로 잘못 보고하는' 갭이 다시 생긴다.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QSplitter
+
+    from gah.ui.filter_bar import FilterBar
+    from gah.ui.label_chip_panel import LabelChipPanel
+    from gah.ui.library_view import LibraryView
+    from gah.ui.search_side_panel import SearchSidePanel
+
+    store, _ = populated_store
+    view = LibraryView(store)
+    view.set_config(config_default)
+    view.set_label_registry(registry_with_axes)
+
+    splitters = view.findChildren(QSplitter)
+    assert splitters, "QSplitter 가 LibraryView 안에 없다"
+    h_splitter = next((s for s in splitters
+                        if s.orientation() == Qt.Horizontal), None)
+    assert h_splitter is not None, "Horizontal QSplitter 가 없다"
+    assert h_splitter.count() >= 3, (
+        f"QSplitter 가 3 패널 구성이 아니다 (count={h_splitter.count()})"
+    )
+
+    # 3 신규 위젯 모두 LibraryView 안에 자식으로 인스턴스화.
+    assert view.findChild(LabelChipPanel) is not None, "LabelChipPanel 통합 안 됨"
+    assert view.findChild(FilterBar) is not None, "FilterBar 통합 안 됨"
+    assert view.findChild(SearchSidePanel) is not None, "SearchSidePanel 통합 안 됨"
+
+
+def test_library_view_works_without_registry_or_config(qapp, populated_store):
+    """M3 호환 — set_config/set_label_registry 안 부른 LibraryView 도 정상 동작.
+
+    M3 test_library_search_ui.py 시나리오가 그대로 통과해야 함 (search_input + table
+    + _show_search_results + refresh).  3 분할 위젯들은 lazily 만들어지므로 setter
+    호출 전엔 없음.
+    """
+    from gah.ui.label_chip_panel import LabelChipPanel
+    from gah.ui.library_view import LibraryView
+    from gah.ui.search_side_panel import SearchSidePanel
+
+    store, _ = populated_store
+    view = LibraryView(store)
+    # setter 호출 안 함.
+    assert view.search_input is not None
+    assert view.table is not None
+    # 위젯 3개는 아직 없음.
+    assert view.findChild(LabelChipPanel) is None
+    assert view.findChild(SearchSidePanel) is None
+
+
+def test_chip_selection_triggers_search_with_labels_all(
+    qapp, populated_store, config_default, registry_with_axes,
+):
+    """chip 선택 → SearchRequest.labels_all 에 반영되어 searcher 호출됨."""
+    from gah.ui.library_view import LibraryView
+
+    store, _ = populated_store
+
+    class _Capture:
+        def __init__(self):
+            self.requests = []
+        def hybrid(self, req):
+            self.requests.append(req)
+
+            class _R:
+                query_id = 1
+                results = []
+
+            return _R()
+
+    view = LibraryView(store)
+    view.set_config(config_default)
+    view.set_label_registry(registry_with_axes)
+    cap = _Capture()
+    view.set_searcher(cap)
+
+    # 칩 1개 체크 + 디바운스 통과.
+    from PySide6.QtWidgets import QCheckBox
+
+    chip = view.findChild(LibraryView).__class__.__bases__  # noqa — just confirms findChild works
+    checks = view.findChildren(QCheckBox)
+    assert checks, "라벨 칩 체크박스가 없음"
+    checks[0].setChecked(True)
+    _qwait(400)   # 250ms 디바운스 + 마진
+
+    assert cap.requests, "칩 선택 후 searcher 호출 안 됨"
+    req = cap.requests[-1]
+    # 매칭 모드 기본 = "all" → labels_all 에 1개 이상.
+    assert len(req.labels_all) >= 1, (
+        f"chip 선택이 labels_all 로 안 흘러감 (labels_all={req.labels_all})"
+    )
