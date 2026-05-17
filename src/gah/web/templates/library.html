@@ -19,6 +19,10 @@
     <input type="hidden" name="count" value="20" />
     <input type="hidden" name="offset" value="0" />
     <input type="hidden" name="sort" :value="$store.search.sort" />
+    {# Task 3.9 — B 탭 사이드 패널 필터값을 form 직렬화로 서버에 전달 #}
+    <input type="hidden" name="match_mode" :value="$store.search.matchMode" />
+    <input type="hidden" name="labels" :value="JSON.stringify($store.b.selectedLabels)" />
+    <input type="hidden" name="pack_ids" :value="JSON.stringify($store.b.selectedPackIds)" />
     <button type="button"
             class="advanced-toggle"
             :class="{ active: $store.advanced.open }"

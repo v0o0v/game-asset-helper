@@ -139,8 +139,13 @@ def _do_search(deps: Any, body: SearchBody) -> dict[str, Any]:
     빈 검색 (query 비어 + label_query 없음 + 기타 필터 없음) 인 경우에는
     HybridSearcher 를 거치지 않고 store.list_assets() 폴백으로 라이브러리
     전체를 추가일↓ 순으로 반환한다. sort=score 는 이 경우 added_desc 로 전환.
+
+    Phase 3 추가:
+    - body.labels (label id list) → LabelFilter list → match_mode 에 따라
+      labels_all / labels_any / labels_none 분배
+    - body.pack_ids → SearchRequest 후 Python 후처리 필터 (v1 단순화)
     """
-    from ...core.search import SearchRequest
+    from ...core.search import LabelFilter, SearchRequest
 
     # ── 빈 검색 판정 ────────────────────────────────────────────────────
     is_empty_search = (
@@ -156,6 +161,26 @@ def _do_search(deps: Any, body: SearchBody) -> dict[str, Any]:
     # offset 만큼 앞 결과를 버릴 수 있도록 충분히 가져온다.
     fetch_count = body.count + body.offset
 
+    # ── labels list[int] → LabelFilter 매핑 ────────────────────────────
+    labels_all_list: list[LabelFilter] = []
+    labels_any_list: list[LabelFilter] = []
+    labels_none_list: list[LabelFilter] = []
+
+    raw_labels = body.labels or []
+    if raw_labels:
+        all_label_rows = deps.store.list_labels_raw(axis=None, enabled_only=True)
+        id_to_lf: dict[int, LabelFilter] = {
+            r.id: LabelFilter(axis=r.axis, label=r.label) for r in all_label_rows
+        }
+        filters = [id_to_lf[lid] for lid in raw_labels if lid in id_to_lf]
+        if filters:
+            if body.match_mode == "all":
+                labels_all_list = filters
+            elif body.match_mode == "any":
+                labels_any_list = filters
+            elif body.match_mode == "none":
+                labels_none_list = filters
+
     sr = SearchRequest(
         query=body.query,
         label_query=body.label_query,
@@ -164,13 +189,19 @@ def _do_search(deps: Any, body: SearchBody) -> dict[str, Any]:
         diversity=body.diversity,
         diversity_lambda=body.diversity_lambda,
         count=fetch_count,
-        # labels_all/any/none — match_mode 에 따라 분배 (Phase 3 활용)
-        # body.labels 는 label id 리스트이나 SearchRequest 는 LabelFilter 리스트.
-        # v1 에서는 label_query 로 처리하고 labels 는 패스.
+        labels_all=labels_all_list,
+        labels_any=labels_any_list,
+        labels_none=labels_none_list,
     )
     response = deps.search.hybrid(sr)
 
     all_rows = [_row_to_dict(r) for r in response.results]
+
+    # ── pack_ids 후처리 필터 (v1 — Python list comprehension) ──────────
+    if body.pack_ids:
+        pack_id_set = set(body.pack_ids)
+        all_rows = [r for r in all_rows if r.get("pack_id") in pack_id_set]
+
     # fetch_count 개 중 offset 이후만 count 개 취함
     sliced = all_rows[body.offset: body.offset + body.count]
     sliced = _apply_sort(sliced, body.sort)
@@ -178,7 +209,7 @@ def _do_search(deps: Any, body: SearchBody) -> dict[str, Any]:
     total = len(all_rows)
     next_offset: int | None = (
         body.offset + body.count
-        if len(all_rows) > body.offset + body.count
+        if total > body.offset + body.count
         else None
     )
     return {
@@ -269,9 +300,22 @@ async def ui_search_results(request: Request) -> HTMLResponse:
                     body_dict[k] = int(body_dict[k])
                 except ValueError:
                     body_dict.pop(k)
-        # multi-value 필드는 v1 에서 무시
-        body_dict.pop("pack_ids", None)
-        body_dict.pop("labels", None)
+        # JSON-encoded 필드 파싱 (hidden input 으로 전달된 labels / pack_ids)
+        import json as _json
+        for json_key in ("labels", "pack_ids"):
+            raw = body_dict.get(json_key)
+            if isinstance(raw, str):
+                try:
+                    parsed = _json.loads(raw)
+                    if isinstance(parsed, list):
+                        body_dict[json_key] = [
+                            int(x) for x in parsed
+                            if str(x).strip()
+                        ]
+                    else:
+                        body_dict.pop(json_key)
+                except (_json.JSONDecodeError, ValueError):
+                    body_dict.pop(json_key)
 
     try:
         body = SearchBody(**body_dict)
