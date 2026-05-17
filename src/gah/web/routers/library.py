@@ -144,6 +144,13 @@ def _do_search(deps: Any, body: SearchBody) -> dict[str, Any]:
     - body.labels (label id list) → LabelFilter list → match_mode 에 따라
       labels_all / labels_any / labels_none 분배
     - body.pack_ids → SearchRequest 후 Python 후처리 필터 (v1 단순화)
+
+    **알려진 한계** — ``body.pack_ids`` 가 지정되면 SearchRequest 결과를 Python
+    후처리로 필터하므로, ``next_offset`` 이 Searcher 가 본 row 수가 아니라 필터 후
+    row 수 기준으로 계산된다. 페이지네이션이 조기 종료될 수 있다 (예: pack_b 자산이
+    DB 에 80개 있어도 ``fetch_count`` 안에서 절반만 매칭되면 total 이 작게 보고됨).
+    이는 v1 단순화 결과이며, M6 이후 ``SearchRequest.pack_ids`` 직접 매핑 또는
+    ``fetch_count`` 오버페치로 개선 권장.
     """
     from ...core.search import LabelFilter, SearchRequest
 

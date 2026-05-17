@@ -111,12 +111,7 @@
   /* 반응형: 768px 이하에서 사이드 패널 자동 닫힘 (Task 3.16) */
   window.addEventListener('resize', function() {
     if (window.innerWidth <= 768) {
-      document.addEventListener('alpine:initialized', function() {
-        if (Alpine.store('advanced').open) {
-          Alpine.store('advanced').open = false;
-        }
-      }, { once: true });
-      /* Alpine 이미 초기화된 경우 직접 토글 */
+      /* resize 이벤트는 Alpine 초기화 후 발생하므로 직접 store 조작 */
       if (typeof Alpine !== 'undefined' && Alpine.store) {
         try {
           if (Alpine.store('advanced').open) {
