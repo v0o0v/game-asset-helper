@@ -378,10 +378,45 @@ html, body {
 }
 .kind-tabs button:hover:not(.active) { background: var(--chip-bg); }
 
-/* === 칩 — 라벨 검색 매칭 강조 === */
+/* === 칩 — axis 그룹 + FlowLayout === */
+.axis-chips-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.axis-group {
+  margin-bottom: 16px;
+}
+.axis-group h4 {
+  margin: 0 0 6px;
+  font-size: 0.9em;
+  opacity: 0.8;
+  font-weight: 600;
+}
+.chip-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow-x: hidden;  /* spec §4.4.1 — 좌우 스크롤 금지 */
+}
+.chip {
+  padding: 4px 10px;
+  background: var(--chip-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.chip.active {
+  background: var(--chip-active);
+  color: white;
+  border-color: var(--chip-active);
+}
+/* === 칩 — 라벨 검색 매칭 강조 (box-shadow 만 — background 변경 없음) === */
 .chip.matched {
   box-shadow: 0 0 0 2px var(--chip-matched);
-  background: var(--chip-matched);
 }
 
 /* === 모달 === */

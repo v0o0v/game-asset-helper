@@ -294,3 +294,102 @@ def test_filters_labels_empty_store(client):
     assert body["sprite"] == []
     assert body["sheet"] == []
     assert body["sound"] == []
+
+
+# ── Task 3.7: axis 칩 FlowLayout + toggleLabel ────────────────────────
+
+
+def test_b_tab_axis_chips_area_exists(client):
+    """B 탭에 axis-chips-area 영역이 존재한다."""
+    r = client.get("/library")
+    assert r.status_code == 200
+    assert "axis-chips-area" in r.text
+
+
+def test_b_tab_axis_chips_uses_x_for_axis(client):
+    """axis 칩이 x-for loop 로 axis 를 순회한다."""
+    r = client.get("/library")
+    assert "x-for" in r.text
+    assert "labelsByKind" in r.text
+
+
+def test_b_tab_axis_chip_has_active_class_binding(client):
+    """axis 칩 버튼에 :class active 바인딩이 존재한다."""
+    r = client.get("/library")
+    assert "selectedLabels" in r.text
+    assert "active" in r.text
+
+
+def test_b_tab_axis_chip_has_matched_class_binding(client):
+    """axis 칩 버튼에 :class matched 바인딩이 존재한다."""
+    r = client.get("/library")
+    assert "matched" in r.text
+    assert "labelFilter" in r.text
+
+
+def test_b_tab_toggle_label_function_in_html(client):
+    """toggleLabel 함수가 라이브러리 페이지에 존재한다."""
+    r = client.get("/library")
+    assert "toggleLabel" in r.text
+
+
+def test_b_tab_toggle_label_triggers_search(client):
+    """toggleLabel 이 htmx.trigger 로 검색을 재호출한다."""
+    r = client.get("/library")
+    # toggleLabel 함수 안에서 htmx.trigger 사용
+    assert "htmx.trigger" in r.text
+
+
+def test_main_css_has_chip_class():
+    """main.css 에 .chip 스타일이 정의되어 있다."""
+    from pathlib import Path
+    css = (
+        Path(__file__).parent.parent
+        / "src/gah/web/static/css/main.css"
+    ).read_text(encoding="utf-8")
+    assert ".chip" in css
+
+
+def test_main_css_chip_matched_box_shadow_only():
+    """.chip.matched 는 box-shadow 만 사용하고 background 는 없다 (정정됨)."""
+    from pathlib import Path
+    css = (
+        Path(__file__).parent.parent
+        / "src/gah/web/static/css/main.css"
+    ).read_text(encoding="utf-8")
+    idx = css.find(".chip.matched")
+    assert idx >= 0, ".chip.matched 스타일 없음"
+    # 닫는 } 까지만 추출해 해당 CSS 블록만 검사
+    end = css.find("}", idx)
+    block = css[idx: end + 1] if end >= 0 else css[idx: idx + 200]
+    # box-shadow 는 있어야 함
+    assert "box-shadow" in block
+    # background 가 그 블록에 없어야 함 (정정 확인)
+    assert "background" not in block
+
+
+def test_main_css_has_axis_group():
+    """main.css 에 .axis-group 스타일이 정의되어 있다."""
+    from pathlib import Path
+    css = (
+        Path(__file__).parent.parent
+        / "src/gah/web/static/css/main.css"
+    ).read_text(encoding="utf-8")
+    assert ".axis-group" in css
+
+
+def test_main_css_has_chip_flow():
+    """main.css 에 .chip-flow 스타일이 정의되어 있다 (flex-wrap)."""
+    from pathlib import Path
+    css = (
+        Path(__file__).parent.parent
+        / "src/gah/web/static/css/main.css"
+    ).read_text(encoding="utf-8")
+    assert ".chip-flow" in css
+
+
+def test_b_tab_axis_chips_fetch_on_init(client):
+    """B 탭 패널에 /api/filters/labels 를 x-init 으로 fetch 하는 코드가 있다."""
+    r = client.get("/library")
+    assert "/api/filters/labels" in r.text
+    assert "x-init" in r.text

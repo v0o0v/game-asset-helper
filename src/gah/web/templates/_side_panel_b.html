@@ -1,4 +1,9 @@
-<div class="b-panel-content">
+<div class="b-panel-content"
+     x-init="
+       fetch('/api/filters/labels')
+         .then(function(r){ return r.json(); })
+         .then(function(d){ $store.b.labelsByKind = d; })
+     ">
   <h3 class="side-panel-heading">{{ _("B 필터") }}</h3>
 
   {# ── 매칭 모드 (Task 3.4) ──────────────────────────────── #}
@@ -51,8 +56,40 @@
     </button>
   </nav>
 
-  {# ── axis 칩 영역 placeholder (Task 3.7 가 채움) ─────── #}
+  {# ── axis 칩 FlowLayout (Task 3.7) ───────────────────── #}
   <div class="axis-chips-area" id="axis-chips">
-    {# Task 3.7 (axis 칩 렌더) 에서 hx-get 으로 채워짐 #}
+    <template x-for="axis in ($store.b.labelsByKind[$store.b.kindTab] || [])" :key="axis.axis">
+      <div class="axis-group">
+        <h4 x-text="axis.label_ko"></h4>
+        <div class="chip-flow">
+          <template x-for="label in axis.labels" :key="label.id">
+            <button
+              type="button"
+              class="chip"
+              :class="{
+                active: $store.b.selectedLabels.includes(label.id),
+                matched: $store.b.labelFilter && label.label_ko.toLowerCase().includes($store.b.labelFilter.toLowerCase())
+              }"
+              @click="toggleLabel(label.id)"
+              x-text="label.label_ko">
+            </button>
+          </template>
+        </div>
+      </div>
+    </template>
   </div>
 </div>
+
+<script>
+  function toggleLabel(id) {
+    var sel = Alpine.store('b').selectedLabels;
+    var i = sel.indexOf(id);
+    if (i >= 0) {
+      sel.splice(i, 1);
+    } else {
+      sel.push(id);
+    }
+    // 즉시 검색 재호출
+    htmx.trigger(document.querySelector('form.search-bar'), 'submit');
+  }
+</script>
