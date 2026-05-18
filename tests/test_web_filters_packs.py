@@ -146,15 +146,15 @@ def test_b_tab_has_pack_filter_label(client):
 
 
 def test_b_tab_has_vendor_filter_label(client):
-    """B 탭에 '벤더' 필터 레이블이 존재한다."""
+    """B 탭에 'Vendor' 필터 레이블이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "벤더" in r.text
+    assert "Vendor" in r.text
 
 
 def test_b_tab_has_license_filter_label(client):
-    """B 탭에 '라이선스' 필터 레이블이 존재한다."""
+    """B 탭에 'License' 필터 레이블이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "라이선스" in r.text
+    assert "License" in r.text
 
 
 def test_b_tab_has_state_filter_label(client):
@@ -164,15 +164,15 @@ def test_b_tab_has_state_filter_label(client):
 
 
 def test_b_tab_state_filter_has_all_option(client):
-    """상태 필터에 '전체' 옵션이 있다."""
+    """상태 필터에 'All' 옵션이 있다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "전체" in r.text
+    assert "All" in r.text
 
 
 def test_b_tab_state_filter_has_ok_option(client):
-    """상태 필터에 '완료' 옵션이 있다."""
+    """상태 필터에 'Done' 옵션이 있다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "완료" in r.text
+    assert "Done" in r.text
 
 
 def test_b_tab_multi_filters_fetches_packs_api(client):

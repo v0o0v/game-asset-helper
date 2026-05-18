@@ -25,10 +25,10 @@ def test_c_tab_has_opt_group(client):
 
 
 def test_c_tab_has_view_mode_toggle(client):
-    """C 탭에 그리드/리스트 뷰 모드 토글 버튼이 존재한다."""
+    """C 탭에 Grid/List 뷰 모드 토글 버튼이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "그리드" in r.text
-    assert "리스트" in r.text
+    assert "Grid" in r.text
+    assert "List" in r.text
 
 
 def test_c_tab_view_mode_binds_store(client):
@@ -38,9 +38,9 @@ def test_c_tab_view_mode_binds_store(client):
 
 
 def test_c_tab_has_card_size_buttons(client):
-    """C 탭에 카드 크기 S/M/L 버튼이 존재한다."""
+    """C 탭에 Card size S/M/L 버튼이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "카드 크기" in r.text
+    assert "Card size" in r.text
 
 
 def test_c_tab_card_size_binds_store(client):
@@ -62,10 +62,10 @@ def test_c_tab_sort_xmodel(client):
 
 
 def test_c_tab_sort_has_options(client):
-    """C 탭 정렬 select 에 추가일↓/이름↑ 등 옵션이 존재한다."""
+    """C 탭 정렬 select 에 Added↓/Name↑ 등 옵션이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "추가일" in r.text
-    assert "이름" in r.text
+    assert "Added" in r.text
+    assert "Name" in r.text
 
 
 def test_c_tab_sort_triggers_search(client):
@@ -105,9 +105,9 @@ def test_main_css_opt_group_uses_var():
 
 
 def test_c_tab_has_card_meta_section(client):
-    """C 탭에 카드에 표시할 정보 섹션이 존재한다."""
+    """C 탭에 Card display info 섹션이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "카드에 표시할 정보" in r.text
+    assert "Card display info" in r.text
 
 
 def test_c_tab_card_meta_has_labels_checkbox(client):
@@ -148,9 +148,9 @@ def test_c_tab_card_meta_xmodel_binding(client):
 
 
 def test_c_tab_card_meta_label_text(client):
-    """C 탭 카드 메타에 '라벨', '팩', '점수', '크기' 텍스트가 존재한다."""
+    """C 탭 카드 메타에 'Label', 'Packs', 'Score', 'Size' 텍스트가 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "라벨" in r.text
-    assert "팩" in r.text
-    assert "점수" in r.text
-    assert "크기" in r.text
+    assert "Label" in r.text
+    assert "Packs" in r.text
+    assert "Score" in r.text
+    assert "Size" in r.text

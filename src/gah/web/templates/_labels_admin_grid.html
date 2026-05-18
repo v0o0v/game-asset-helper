@@ -35,15 +35,15 @@
       <div class="label-add-row">
         <input type="text"
                name="label"
-               placeholder="{{ _('라벨 토큰 (소문자 + 숫자 + _)') }}"
+               placeholder="{{ _('Label token (lowercase + digits + _)') }}"
                class="label-input"
                required
                pattern="[a-z][a-z0-9_]{0,31}">
         <input type="text"
                name="description"
-               placeholder="{{ _('설명 (선택)') }}"
+               placeholder="{{ _('Description (optional)') }}"
                class="desc-input">
-        <button type="submit" class="btn btn-primary">{{ _('추가') }}</button>
+        <button type="submit" class="btn btn-primary">{{ _('Add') }}</button>
       </div>
     </form>
 
@@ -51,11 +51,11 @@
     <table class="label-table">
       <thead>
         <tr>
-          <th>{{ _('라벨') }}</th>
-          <th>{{ _('설명') }}</th>
-          <th>{{ _('출처') }}</th>
-          <th>{{ _('상태') }}</th>
-          <th>{{ _('작업') }}</th>
+          <th>{{ _('Label') }}</th>
+          <th>{{ _('Description') }}</th>
+          <th>{{ _('Source') }}</th>
+          <th>{{ _('Status') }}</th>
+          <th>{{ _('Actions') }}</th>
         </tr>
       </thead>
       <tbody id="axis-tbody-{{ axis }}">
@@ -73,7 +73,7 @@
     <a href="/api/labels/export"
        class="btn btn-secondary"
        download="labels.json">
-      {{ _('내보내기 (JSON)') }}
+      {{ _('Export (JSON)') }}
     </a>
 
     <form class="import-form"
@@ -82,7 +82,7 @@
           hx-swap="outerHTML"
           hx-encoding="multipart/form-data">
       <label class="btn btn-secondary" for="import-file">
-        {{ _('가져오기 (JSON)') }}
+        {{ _('Import (JSON)') }}
       </label>
       <input type="file"
              id="import-file"

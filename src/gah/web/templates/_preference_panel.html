@@ -1,26 +1,26 @@
 {# M7 Phase 6C — 자산별 선호도 패널 (D14) #}
 <section class="preference-panel" x-data="preferencePanel({{ project.id }})" x-init="init()">
-  <h2>{{ _("자산별 선호도") }}</h2>
+  <h2>{{ _("Asset preferences") }}</h2>
   <div class="preference-controls">
     <select x-model="sort" @change="offset = 0; refresh()">
-      <option value="score_desc">{{ _("선호도 높은 순") }}</option>
-      <option value="score_asc">{{ _("선호도 낮은 순") }}</option>
-      <option value="usage_desc">{{ _("채택 많은 순") }}</option>
-      <option value="recent_desc">{{ _("최근 활동 순") }}</option>
+      <option value="score_desc">{{ _("Highest preference first") }}</option>
+      <option value="score_asc">{{ _("Lowest preference first") }}</option>
+      <option value="usage_desc">{{ _("Most adopted first") }}</option>
+      <option value="recent_desc">{{ _("Most recent activity first") }}</option>
     </select>
     <input type="text" x-model.debounce.300ms="search" @input="offset = 0; refresh()"
-           placeholder="{{ _('자산 검색') }}">
+           placeholder="{{ _('Search assets') }}">
   </div>
   <template x-if="items.length > 0">
     <table class="preference-table">
       <thead>
         <tr>
-          <th>{{ _("자산") }}</th>
-          <th>{{ _("팩") }}</th>
-          <th>{{ _("선호도") }}</th>
+          <th>{{ _("Asset") }}</th>
+          <th>{{ _("Packs") }}</th>
+          <th>{{ _("Preference") }}</th>
           <th>{{ _("feedback") }}</th>
-          <th>{{ _("채택") }}</th>
-          <th>{{ _("마지막 활동") }}</th>
+          <th>{{ _("Adopt") }}</th>
+          <th>{{ _("Last activity") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -48,7 +48,7 @@
     </table>
   </template>
   <template x-if="items.length === 0">
-    <p class="preference-empty">{{ _("선호도 데이터가 없습니다.") }}</p>
+    <p class="preference-empty">{{ _("No preference data available.") }}</p>
   </template>
   <nav class="pager" x-show="total > 0">
     <button @click="prev()" :disabled="offset === 0" type="button">{{ _("◀") }}</button>

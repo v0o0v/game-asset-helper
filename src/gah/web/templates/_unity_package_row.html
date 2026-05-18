@@ -20,13 +20,13 @@
   <td class="unity-actions">
     {# M7 patch — failed state 도 임포트 재시도 + 건너뜀 가능 (사용자 통제 보존). #}
     {% if item.import_state in ("discovered", "previewed", "skipped", "failed") %}
-      <button type="button" onclick="gahUnityAction(this, 'import', {{ item.id }})">{{ _("임포트") }}</button>
+      <button type="button" onclick="gahUnityAction(this, 'import', {{ item.id }})">{{ _("Import") }}</button>
     {% endif %}
     {% if item.import_state in ("discovered", "previewed", "failed") %}
-      <button type="button" onclick="gahUnityAction(this, 'skip', {{ item.id }})">{{ _("건너뜀") }}</button>
+      <button type="button" onclick="gahUnityAction(this, 'skip', {{ item.id }})">{{ _("Skip") }}</button>
     {% endif %}
     {% if item.import_state == "skipped" %}
-      <button type="button" onclick="gahUnityAction(this, 'restore', {{ item.id }})">{{ _("다시 후보로") }}</button>
+      <button type="button" onclick="gahUnityAction(this, 'restore', {{ item.id }})">{{ _("Restore") }}</button>
     {% endif %}
   </td>
 </tr>

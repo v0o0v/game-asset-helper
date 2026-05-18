@@ -72,9 +72,9 @@ def test_b_tab_label_filter_xmodel(client):
 
 
 def test_b_tab_label_filter_placeholder(client):
-    """라벨 검색 input 에 placeholder 가 있다."""
+    """라벨 검색 input 에 placeholder 가 있다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "라벨 검색" in r.text
+    assert "Search labels" in r.text
 
 
 def test_main_css_has_chip_matched():
@@ -108,21 +108,21 @@ def test_b_tab_has_kind_tabs_nav(client):
 
 
 def test_b_tab_kind_tab_sprite(client):
-    """종류 탭에 스프라이트 버튼이 존재한다."""
+    """종류 탭에 Sprite 버튼이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "스프라이트" in r.text
+    assert "Sprite" in r.text
 
 
 def test_b_tab_kind_tab_sheet(client):
-    """종류 탭에 시트 버튼이 존재한다."""
+    """종류 탭에 Sheet 버튼이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "시트" in r.text
+    assert "Sheet" in r.text
 
 
 def test_b_tab_kind_tab_sound(client):
-    """종류 탭에 사운드 버튼이 존재한다."""
+    """종류 탭에 Sound 버튼이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "사운드" in r.text
+    assert "Sound" in r.text
 
 
 def test_b_tab_kind_tab_xclick_binding(client):

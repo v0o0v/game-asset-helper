@@ -4,11 +4,11 @@
          .then(function(r){ return r.json(); })
          .then(function(d){ $store.b.labelsByKind = d; })
      ">
-  <h3 class="side-panel-heading">{{ _("B 필터") }}</h3>
+  <h3 class="side-panel-heading">{{ _("B Filters") }}</h3>
 
   {# ── 매칭 모드 (Task 3.4) ──────────────────────────────── #}
   <fieldset class="match-mode">
-    <legend class="match-mode-legend">{{ _("매칭 모드") }}</legend>
+    <legend class="match-mode-legend">{{ _("Matching mode") }}</legend>
     <label class="match-mode-option">
       <input type="radio" name="match_mode" value="all"
              x-model="$store.search.matchMode"
@@ -34,7 +34,7 @@
     <input type="search"
            class="label-filter-input"
            x-model="$store.b.labelFilter"
-           placeholder="{{ _('🔍 라벨 검색…') }}" />
+           placeholder="{{ _('🔍 Search labels…') }}" />
   </div>
 
   {# ── 종류 탭 (Task 3.6) ───────────────────────────────── #}
@@ -42,17 +42,17 @@
     <button
       @click="$store.b.kindTab = 'sprite'"
       :class="{ active: $store.b.kindTab === 'sprite' }">
-      {{ _("스프라이트") }}
+      {{ _("Sprite") }}
     </button>
     <button
       @click="$store.b.kindTab = 'sheet'"
       :class="{ active: $store.b.kindTab === 'sheet' }">
-      {{ _("시트") }}
+      {{ _("Sheet") }}
     </button>
     <button
       @click="$store.b.kindTab = 'sound'"
       :class="{ active: $store.b.kindTab === 'sound' }">
-      {{ _("사운드") }}
+      {{ _("Sound") }}
     </button>
   </nav>
 
@@ -71,7 +71,7 @@
 
     {# 팩 다중 선택 #}
     <details class="filter-group">
-      <summary>{{ _("팩") }}</summary>
+      <summary>{{ _("Packs") }}</summary>
       <div class="filter-group-body">
         <template x-for="p in packs" :key="p.id">
           <label class="filter-label">
@@ -82,13 +82,13 @@
             <span x-text="p.display_name + ' (' + p.asset_count + ')'"></span>
           </label>
         </template>
-        <p x-show="packs.length === 0" class="filter-empty">{{ _("팩 없음") }}</p>
+        <p x-show="packs.length === 0" class="filter-empty">{{ _("No packs") }}</p>
       </div>
     </details>
 
     {# 벤더 다중 선택 #}
     <details class="filter-group">
-      <summary>{{ _("벤더") }}</summary>
+      <summary>{{ _("Vendor") }}</summary>
       <div class="filter-group-body">
         <template x-for="v in vendors" :key="v">
           <label class="filter-label">
@@ -99,13 +99,13 @@
             <span x-text="v"></span>
           </label>
         </template>
-        <p x-show="vendors.length === 0" class="filter-empty">{{ _("벤더 없음") }}</p>
+        <p x-show="vendors.length === 0" class="filter-empty">{{ _("No vendors") }}</p>
       </div>
     </details>
 
     {# 라이선스 다중 선택 #}
     <details class="filter-group">
-      <summary>{{ _("라이선스") }}</summary>
+      <summary>{{ _("License") }}</summary>
       <div class="filter-group-body">
         <template x-for="lic in licenses" :key="lic">
           <label class="filter-label">
@@ -116,37 +116,37 @@
             <span x-text="lic"></span>
           </label>
         </template>
-        <p x-show="licenses.length === 0" class="filter-empty">{{ _("라이선스 없음") }}</p>
+        <p x-show="licenses.length === 0" class="filter-empty">{{ _("No licenses") }}</p>
       </div>
     </details>
 
     {# 상태 단일 선택 — v1 서버 매핑 없음, frontend state 만 #}
     <details class="filter-group">
-      <summary>{{ _("상태") }}</summary>
+      <summary>{{ _("Status") }}</summary>
       <div class="filter-group-body">
         <label class="filter-label">
           <input type="radio" name="state_filter" value="all"
                  x-model="$store.b.selectedState"
                  @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
-          {{ _("전체") }}
+          {{ _("All") }}
         </label>
         <label class="filter-label">
           <input type="radio" name="state_filter" value="ok"
                  x-model="$store.b.selectedState"
                  @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
-          {{ _("완료") }}
+          {{ _("Done") }}
         </label>
         <label class="filter-label">
           <input type="radio" name="state_filter" value="pending"
                  x-model="$store.b.selectedState"
                  @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
-          {{ _("대기") }}
+          {{ _("Pending") }}
         </label>
         <label class="filter-label">
           <input type="radio" name="state_filter" value="error"
                  x-model="$store.b.selectedState"
                  @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
-          {{ _("실패") }}
+          {{ _("Failed") }}
         </label>
       </div>
     </details>

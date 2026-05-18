@@ -10,15 +10,15 @@
             class="view-btn"
             :class="{ active: $store.search.viewMode === 'grid' }"
             @click="$store.search.viewMode = 'grid'"
-            aria-label="{{ _('그리드') }}">
-      🖼 <span>{{ _("그리드") }}</span>
+            aria-label="{{ _('Grid') }}">
+      🖼 <span>{{ _("Grid") }}</span>
     </button>
     <button type="button"
             class="view-btn"
             :class="{ active: $store.search.viewMode === 'list' }"
             @click="$store.search.viewMode = 'list'"
-            aria-label="{{ _('리스트') }}">
-      ≡ <span>{{ _("리스트") }}</span>
+            aria-label="{{ _('List') }}">
+      ≡ <span>{{ _("List") }}</span>
     </button>
   </div>
 
@@ -35,22 +35,22 @@
   </div>
 
   <div class="sort-control">
-    <label for="sort-select" class="sr-only">{{ _("정렬") }}</label>
+    <label for="sort-select" class="sr-only">{{ _("Sort") }}</label>
     <select id="sort-select"
             x-model="$store.search.sort"
             @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')">
-      <option value="score">{{ _("점수↓") }}</option>
-      <option value="added_desc">{{ _("추가일↓") }}</option>
-      <option value="added_asc">{{ _("추가일↑") }}</option>
-      <option value="name_asc">{{ _("이름↑") }}</option>
-      <option value="name_desc">{{ _("이름↓") }}</option>
-      <option value="size_desc">{{ _("크기↓") }}</option>
-      <option value="size_asc">{{ _("크기↑") }}</option>
+      <option value="score">{{ _("Score↓") }}</option>
+      <option value="added_desc">{{ _("Added↓") }}</option>
+      <option value="added_asc">{{ _("Added↑") }}</option>
+      <option value="name_asc">{{ _("Name↑") }}</option>
+      <option value="name_desc">{{ _("Name↓") }}</option>
+      <option value="size_desc">{{ _("Size↓") }}</option>
+      <option value="size_asc">{{ _("Size↑") }}</option>
     </select>
   </div>
 
   <div class="total-count">
-    <strong>{{ total }}</strong> {{ _("자산") }}
+    <strong>{{ total }}</strong> {{ _("Asset") }}
   </div>
 </div>
 

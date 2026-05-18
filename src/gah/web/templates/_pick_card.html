@@ -10,13 +10,13 @@
 #}
 <div class="pick-card-group" data-rid="{{ rid }}">
   <div class="pick-header">
-    <span class="badge">🤖 {{ _('Claude 요청') }}</span>
-    <span class="reason">{{ reason or _('후보 중 골라줘') }}</span>
+    <span class="badge">🤖 {{ _('Claude request') }}</span>
+    <span class="reason">{{ reason or _('Pick from candidates') }}</span>
     <button class="cancel-pick"
             hx-post="/api/user-pick/{{ rid }}/cancel"
             hx-target="closest .pick-card-group"
             hx-swap="delete"
-            onclick="event.stopPropagation()">✕ {{ _('거부') }}</button>
+            onclick="event.stopPropagation()">✕ {{ _('Reject') }}</button>
   </div>
 
   <div class="pick-candidates">
@@ -62,7 +62,7 @@
                 hx-ext="json-enc"
                 hx-target="closest .pick-card-group"
                 hx-swap="delete"
-                onclick="event.stopPropagation()">{{ _('채택') }}</button>
+                onclick="event.stopPropagation()">{{ _('Adopt') }}</button>
       </div>
     {% endfor %}
   </div>

@@ -4,7 +4,7 @@
   <div class="modal-content asset-detail">
     <button class="modal-close"
             @click="$el.closest('.modal-overlay').remove()"
-            aria-label="{{ _('닫기') }}">✕</button>
+            aria-label="{{ _('Close') }}">✕</button>
 
     <header class="modal-header">
       <h2>{{ asset_name }}</h2>
@@ -27,22 +27,22 @@
 
       <dl class="detail-meta">
         {% if pack_name %}
-          <dt>{{ _("팩") }}</dt><dd>{{ pack_name }}</dd>
+          <dt>{{ _("Packs") }}</dt><dd>{{ pack_name }}</dd>
         {% endif %}
         {% if width and height %}
-          <dt>{{ _("해상도") }}</dt><dd>{{ width }}×{{ height }}</dd>
+          <dt>{{ _("Resolution") }}</dt><dd>{{ width }}×{{ height }}</dd>
         {% endif %}
         {% if size_kb %}
-          <dt>{{ _("파일 크기") }}</dt><dd>{{ size_kb }}KB</dd>
+          <dt>{{ _("File size") }}</dt><dd>{{ size_kb }}KB</dd>
         {% endif %}
         {% if asset.path %}
-          <dt>{{ _("경로") }}</dt><dd class="path">{{ asset.path }}</dd>
+          <dt>{{ _("Path") }}</dt><dd class="path">{{ asset.path }}</dd>
         {% endif %}
       </dl>
 
       {% if labels %}
       <section class="detail-labels">
-        <h3>{{ _("라벨") }}</h3>
+        <h3>{{ _("Label") }}</h3>
         <div class="label-chips">
           {% for lbl in labels %}
             <span class="chip">{{ lbl.axis }}: {{ lbl.label }}</span>
@@ -57,13 +57,13 @@
               hx-post="/api/record-use"
               hx-vals='{"asset_id": {{ asset.id }}}'
               @click="$el.closest('.modal-overlay').remove()">
-        {{ _("채택") }}
+        {{ _("Adopt") }}
       </button>
       <button class="btn-reject"
               hx-post="/api/feedback"
               hx-vals='{"asset_id": {{ asset.id }}, "reason": "negative"}'
               @click="$el.closest('.modal-overlay').remove()">
-        {{ _("거부") }}
+        {{ _("Reject") }}
       </button>
     </footer>
   </div>

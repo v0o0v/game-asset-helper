@@ -274,18 +274,18 @@ def test_library_page_has_b_match_mode(client):
 
 
 def test_library_page_has_c_view_mode_toggle(client):
-    """C 탭 실 구현 — opt-group + $store.search.viewMode + 카드 크기 가 렌더된다."""
+    """C 탭 실 구현 — opt-group + $store.search.viewMode + Card size 가 렌더된다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
     assert "opt-group" in r.text
     assert "$store.search.viewMode" in r.text
-    assert "카드 크기" in r.text
+    assert "Card size" in r.text
 
 
 def test_library_page_has_d_tab_sections(client):
-    """D 탭 실 구현 (저장된 검색 + 통일성/페널티) 섹션이 렌더된다."""
+    """D 탭 실 구현 (Saved searches + Consistency/penalty) 섹션이 렌더된다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "저장된 검색" in r.text
-    assert "통일성 / 페널티" in r.text
+    assert "Saved searches" in r.text
+    assert "Consistency / penalty" in r.text
 
 
 def test_side_tab_content_has_x_show(client):

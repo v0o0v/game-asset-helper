@@ -14,18 +14,18 @@
             hx-vals='{"enabled": {{ "false" if pack.enabled else "true" }}}'
             hx-target="closest .pack-card"
             hx-swap="outerHTML">
-      {% if pack.enabled %}{{ _("비활성") }}{% else %}{{ _("활성") }}{% endif %}
+      {% if pack.enabled %}{{ _("Inactive") }}{% else %}{{ _("Active") }}{% endif %}
     </button>
   </div>
   <div class="pack-card-meta">
-    <span class="pack-vendor">{{ pack.vendor or _("알 수 없음") }}</span>
+    <span class="pack-vendor">{{ pack.vendor or _("Unknown") }}</span>
     {% if pack.license %}
       <span class="pack-sep">&middot;</span>
       <span class="pack-license">{{ pack.license }}</span>
     {% endif %}
   </div>
   <div class="pack-card-stats">
-    <span class="pack-asset-count">{{ pack.asset_count }}{{ _("개") }}</span>
+    <span class="pack-asset-count">{{ pack.asset_count }} {{ _("items") }}</span>
     {% if pack.kind_counts %}
       <span class="pack-sep">&middot;</span>
       <span class="pack-kinds">

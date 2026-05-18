@@ -26,11 +26,11 @@ def test_d_tab_has_preset_section(client):
 
 
 def test_d_tab_has_three_preset_buttons(client):
-    """D 탭에 균형/통일성 우선/참신성 버튼이 존재한다."""
+    """D 탭에 Balanced/Consistency first/Novelty 버튼이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "균형" in r.text
-    assert "통일성 우선" in r.text
-    assert "참신성" in r.text
+    assert "Balanced" in r.text
+    assert "Consistency first" in r.text
+    assert "Novelty" in r.text
 
 
 def test_d_tab_preset_buttons_call_apply_preset(client):
@@ -248,10 +248,10 @@ def test_api_weights_updates_config(deps_fixture):
 
 
 def test_d_tab_has_saved_and_usage_sections(client):
-    """D 탭에 Phase 3D-2 실 구현 (저장된 검색 + 통일성/페널티) 섹션이 있다."""
+    """D 탭에 Phase 3D-2 실 구현 (Saved searches + Consistency/penalty) 섹션이 있다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "저장된 검색" in r.text
-    assert "통일성 / 페널티" in r.text
+    assert "Saved searches" in r.text
+    assert "Consistency / penalty" in r.text
 
 
 # ── Alpine.store 초기화 확인 ────────────────────────────────────────────

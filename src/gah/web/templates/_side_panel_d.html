@@ -3,25 +3,25 @@
 
   {# ── 프리셋 3 버튼 (Task 3.12) ────────────────────────────── #}
   <div class="preset-section">
-    <h4 class="section-heading">{{ _("가중치 프리셋") }}</h4>
+    <h4 class="section-heading">{{ _("Weight presets") }}</h4>
     <div class="preset-row">
       <button type="button"
               class="preset-btn"
               @click="applyPreset('balanced')"
               :class="{ active: $store.d.activePreset === 'balanced' }">
-        {{ _("균형") }}
+        {{ _("Balanced") }}
       </button>
       <button type="button"
               class="preset-btn"
               @click="applyPreset('consistency')"
               :class="{ active: $store.d.activePreset === 'consistency' }">
-        {{ _("통일성 우선") }}
+        {{ _("Consistency first") }}
       </button>
       <button type="button"
               class="preset-btn"
               @click="applyPreset('novelty')"
               :class="{ active: $store.d.activePreset === 'novelty' }">
-        {{ _("참신성") }}
+        {{ _("Novelty") }}
       </button>
     </div>
     <p class="preset-desc" x-text="$store.d.presetDesc"></p>
@@ -29,11 +29,11 @@
 
   {# ── 슬라이더 6개 (Task 3.13) — details 펼침 UI ───────────── #}
   <details class="weights-section">
-    <summary class="weights-summary">{{ _("▶ 슬라이더 직접 조정…") }}</summary>
+    <summary class="weights-summary">{{ _("▶ Adjust sliders manually…") }}</summary>
     <div class="sliders">
 
       <label class="slider-row">
-        <span class="slider-label">{{ _("의미 (semantic)") }}</span>
+        <span class="slider-label">{{ _("Semantic") }}</span>
         <input type="range" min="0" max="100"
                x-model.number="$store.weights.semantic"
                @change="syncWeights()" />
@@ -41,7 +41,7 @@
       </label>
 
       <label class="slider-row">
-        <span class="slider-label">{{ _("키워드 (keyword)") }}</span>
+        <span class="slider-label">{{ _("Keyword") }}</span>
         <input type="range" min="0" max="100"
                x-model.number="$store.weights.keyword"
                @change="syncWeights()" />
@@ -49,7 +49,7 @@
       </label>
 
       <label class="slider-row">
-        <span class="slider-label">{{ _("라벨 (label)") }}</span>
+        <span class="slider-label">{{ _("Label weight") }}</span>
         <input type="range" min="0" max="100"
                x-model.number="$store.weights.label"
                @change="syncWeights()" />
@@ -57,7 +57,7 @@
       </label>
 
       <label class="slider-row">
-        <span class="slider-label">{{ _("통일성 (consistency)") }}</span>
+        <span class="slider-label">{{ _("Consistency") }}</span>
         <input type="range" min="0" max="100"
                x-model.number="$store.weights.consistency"
                @change="syncWeights()" />
@@ -65,7 +65,7 @@
       </label>
 
       <label class="slider-row">
-        <span class="slider-label">{{ _("신선도 (recency)") }}</span>
+        <span class="slider-label">{{ _("Recency") }}</span>
         <input type="range" min="0" max="100"
                x-model.number="$store.weights.recency"
                @change="syncWeights()" />
@@ -73,7 +73,7 @@
       </label>
 
       <label class="slider-row">
-        <span class="slider-label">{{ _("피드백 (feedback)") }}</span>
+        <span class="slider-label">{{ _("Feedback") }}</span>
         <input type="range" min="0" max="100"
                x-model.number="$store.weights.feedback"
                @change="syncWeights()" />
@@ -85,7 +85,7 @@
 
   {# ── 저장된 검색 (Task 3.14) ──────────────────────────────── #}
   <div class="saved-section" x-data="savedSearches()" x-init="fetchSaved()">
-    <h4 class="section-heading">{{ _("저장된 검색") }}</h4>
+    <h4 class="section-heading">{{ _("Saved searches") }}</h4>
     <ul class="saved-list">
       <template x-for="ss in items" :key="ss.id">
         <li class="saved-item" @click="loadSaved(ss)">
@@ -93,41 +93,41 @@
           <button type="button"
                   class="saved-del-btn"
                   @click.stop="deleteSaved(ss)"
-                  :title="'{{ _('삭제') }}'">×</button>
+                  :title="'{{ _('Delete') }}'">×</button>
         </li>
       </template>
       <li class="saved-empty" x-show="items.length === 0">
-        <span>{{ _("아직 저장된 검색이 없습니다.") }}</span>
+        <span>{{ _("No saved searches yet.") }}</span>
       </li>
     </ul>
     <div class="save-form">
       <input type="text"
              class="save-name-input"
              x-model="newName"
-             placeholder="{{ _('새 검색 이름…') }}" />
+             placeholder="{{ _('New search name…') }}" />
       <button type="button"
               class="save-btn"
               @click="saveCurrent()"
               :disabled="!newName.trim()">
-        {{ _("+ 현재 검색 저장") }}
+        {{ _("+ Save current search") }}
       </button>
     </div>
   </div>
 
   {# ── 통일성 / 페널티 요약 (Task 3.15) ─────────────────────── #}
   <div class="usage-section" x-data="usageSummary()" x-init="fetchSummary()">
-    <h4 class="section-heading">{{ _("통일성 / 페널티") }}</h4>
+    <h4 class="section-heading">{{ _("Consistency / penalty") }}</h4>
     <p class="usage-summary-line">
-      {{ _("채택 상위 팩") }}: <strong x-text="summary.top_packs.length"></strong>
-      {{ _("개") }} &nbsp;·&nbsp;
-      {{ _("거부") }}: <strong x-text="summary.rejected_count"></strong>
+      {{ _("Top adopted packs") }}: <strong x-text="summary.top_packs.length"></strong>
+      {{ _("items") }} &nbsp;·&nbsp;
+      {{ _("Reject") }}: <strong x-text="summary.rejected_count"></strong>
     </p>
     <button type="button"
             class="usage-detail-btn"
             hx-get="/ui/usage/detail"
             hx-target="#usage-modal"
             hx-swap="innerHTML">
-      {{ _("상세 보기") }}
+      {{ _("View details") }}
     </button>
   </div>
   <div id="usage-modal" class="modal-container"></div>

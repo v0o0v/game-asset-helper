@@ -84,9 +84,9 @@ def test_usage_detail_has_modal_overlay(client):
 
 
 def test_usage_detail_has_title(client):
-    """GET /ui/usage/detail → 통일성/페널티 상세 타이틀 포함."""
+    """GET /ui/usage/detail → Consistency/penalty 상세 타이틀 포함 (Task 6 이후 영어 msgid)."""
     r = client.get("/ui/usage/detail")
-    assert "통일성" in r.text
+    assert "Consistency" in r.text
 
 
 def test_usage_detail_has_close_button(client):
@@ -106,16 +106,16 @@ def test_usage_detail_with_project_id(client):
 
 
 def test_library_page_has_usage_section(client):
-    """라이브러리 페이지 D 탭에 통일성/페널티 섹션이 있다."""
+    """라이브러리 페이지 D 탭에 Consistency/penalty 섹션이 있다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
     assert r.status_code == 200
-    assert "통일성 / 페널티" in r.text
+    assert "Consistency / penalty" in r.text
 
 
 def test_library_page_has_usage_detail_button(client):
-    """라이브러리 페이지에 상세 보기 버튼이 있다."""
+    """라이브러리 페이지에 View details 버튼이 있다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "상세 보기" in r.text
+    assert "View details" in r.text
     assert "/ui/usage/detail" in r.text
 
 

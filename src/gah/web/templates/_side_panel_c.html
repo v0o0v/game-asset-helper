@@ -2,24 +2,24 @@
 
 {# ── 결과 표시 형식 (viewMode) ─────────────────────────────────── #}
 <div class="opt-group">
-  <h4>{{ _('결과 표시 형식') }}</h4>
+  <h4>{{ _('Result display format') }}</h4>
   <div class="opt-btn-row">
     <button type="button" class="view-btn"
             @click="$store.search.viewMode = 'grid'"
             :class="{ active: $store.search.viewMode === 'grid' }">
-      🖼 {{ _('그리드') }}
+      🖼 {{ _('Grid') }}
     </button>
     <button type="button" class="view-btn"
             @click="$store.search.viewMode = 'list'"
             :class="{ active: $store.search.viewMode === 'list' }">
-      ≡ {{ _('리스트') }}
+      ≡ {{ _('List') }}
     </button>
   </div>
 </div>
 
 {# ── 카드 크기 (cardSize) ──────────────────────────────────────── #}
 <div class="opt-group">
-  <h4>{{ _('카드 크기') }}</h4>
+  <h4>{{ _('Card size') }}</h4>
   <div class="opt-btn-row">
     <button type="button" class="size-btn"
             @click="$store.search.cardSize = 's'"
@@ -35,39 +35,39 @@
 
 {# ── 정렬 (sort) — 변경 시 서버 재호출 ────────────────────────── #}
 <div class="opt-group">
-  <h4>{{ _('정렬') }}</h4>
+  <h4>{{ _('Sort') }}</h4>
   <select class="opt-select"
           x-model="$store.search.sort"
           @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')">
-    <option value="score">{{ _('점수↓') }}</option>
-    <option value="added_desc">{{ _('추가일↓') }}</option>
-    <option value="added_asc">{{ _('추가일↑') }}</option>
-    <option value="name_asc">{{ _('이름↑') }}</option>
-    <option value="name_desc">{{ _('이름↓') }}</option>
-    <option value="size_desc">{{ _('크기↓') }}</option>
-    <option value="size_asc">{{ _('크기↑') }}</option>
+    <option value="score">{{ _('Score↓') }}</option>
+    <option value="added_desc">{{ _('Added↓') }}</option>
+    <option value="added_asc">{{ _('Added↑') }}</option>
+    <option value="name_asc">{{ _('Name↑') }}</option>
+    <option value="name_desc">{{ _('Name↓') }}</option>
+    <option value="size_desc">{{ _('Size↓') }}</option>
+    <option value="size_asc">{{ _('Size↑') }}</option>
   </select>
 </div>
 
 {# ── 카드에 표시할 정보 (cardMeta) ────────────────────────────── #}
 <div class="opt-group">
-  <h4>{{ _('카드에 표시할 정보') }}</h4>
+  <h4>{{ _('Card display info') }}</h4>
   <div class="opt-check-list">
     <label class="opt-check">
       <input type="checkbox" x-model="$store.search.cardMeta.labels" />
-      {{ _('라벨') }}
+      {{ _('Label') }}
     </label>
     <label class="opt-check">
       <input type="checkbox" x-model="$store.search.cardMeta.pack" />
-      {{ _('팩') }}
+      {{ _('Packs') }}
     </label>
     <label class="opt-check">
       <input type="checkbox" x-model="$store.search.cardMeta.score" />
-      {{ _('점수') }}
+      {{ _('Score') }}
     </label>
     <label class="opt-check">
       <input type="checkbox" x-model="$store.search.cardMeta.size" />
-      {{ _('크기') }}
+      {{ _('Size') }}
     </label>
   </div>
 </div>
