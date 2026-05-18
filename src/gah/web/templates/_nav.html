@@ -17,6 +17,16 @@
   </div>
   <div class="nav-notifications">
     {% include "_header_project_dropdown.html" %}
+    <button type="button"
+            x-data="themeToggle()"
+            x-init="init()"
+            @click="cycle()"
+            x-text="icon"
+            :title="`${$el.dataset.tooltipPrefix || 'Theme'}: ${label}`"
+            class="theme-toggle-btn"
+            data-tooltip-prefix="{{ _('Theme') }}"
+            aria-label="{{ _('Toggle theme') }}">
+    </button>
     <span class="notif-badge" x-show="$store.notifications.pickCount > 0">
       🤖 {{ _("Claude request") }} (<span x-text="$store.notifications.pickCount"></span>)
     </span>

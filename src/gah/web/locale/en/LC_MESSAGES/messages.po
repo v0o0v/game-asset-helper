@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-05-19 03:02+0900\n"
+"POT-Creation-Date: 2026-05-19 03:18+0900\n"
 "PO-Revision-Date: 2026-05-19 02:42+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -158,7 +158,7 @@ msgid "Rejections"
 msgstr "Rejections"
 
 #: src/gah/web/templates/_nav.html:6 src/gah/web/templates/base.html:6
-#: src/gah/web/templates/base.html:63 src/gah/web/templates/error.html:2
+#: src/gah/web/templates/base.html:73 src/gah/web/templates/error.html:2
 #: src/gah/web/templates/labels_admin.html:6
 #: src/gah/web/templates/library.html:2 src/gah/web/templates/packs.html:6
 #: src/gah/web/templates/project_detail.html:7
@@ -200,7 +200,15 @@ msgstr "Unity Asset Store"
 msgid "Settings"
 msgstr "Settings"
 
-#: src/gah/web/templates/_nav.html:21 src/gah/web/templates/_pick_card.html:13
+#: src/gah/web/templates/_nav.html:27 src/gah/web/templates/settings.html:31
+msgid "Theme"
+msgstr "Theme"
+
+#: src/gah/web/templates/_nav.html:28
+msgid "Toggle theme"
+msgstr "Toggle theme"
+
+#: src/gah/web/templates/_nav.html:31 src/gah/web/templates/_pick_card.html:13
 msgid "Claude request"
 msgstr "Claude request"
 
@@ -696,10 +704,6 @@ msgstr "English"
 #: src/gah/web/templates/settings.html:26
 msgid "Auto-detect"
 msgstr "Auto-detect"
-
-#: src/gah/web/templates/settings.html:31
-msgid "Theme"
-msgstr "Theme"
 
 #: src/gah/web/templates/settings.html:35
 msgid "Auto (system)"

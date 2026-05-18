@@ -32,8 +32,71 @@
   --score-neg: #dc3545;
 }
 
+/* M8 — data-theme="light" 강제 모드 (시스템이 dark 여도 light 강제) */
+html[data-theme="light"] {
+  --bg: #fafafa;
+  --fg: #1a1a1a;
+  --card-bg: #ffffff;
+  --border: #e0e0e0;
+  --accent: #3b82f6;
+  --chip-bg: #f0f0f0;
+  --chip-fg: #333;
+  --chip-active: #3b82f6;
+  --chip-matched: #fef3c7;
+  --purple-strip: #8b5cf6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --frame-badge-bg: #e6f0ff;
+  --frame-badge-fg: #1d4ed8;
+  --chip-discovered-bg: #cce4ff;
+  --chip-previewed-bg: #d4edff;
+  --chip-pending-bg: #fff4d6;
+  --chip-imported-bg: #28a745;
+  --chip-skipped-bg: #f0f0f0; --chip-skipped-fg: #777;
+  --chip-failed-bg: #f8d7da; --chip-failed-fg: #721c24;
+  --focus-outline: #ffaa00;
+  --code-bg: #f5f5f5;
+  --text-muted: #888;
+  --bar-track: #ddd;
+  --score-pos: #28a745;
+  --score-neg: #dc3545;
+}
+
+/* M8 — data-theme="dark" 강제 모드 (시스템이 light 여도 dark 강제) */
+html[data-theme="dark"] {
+  --bg: #1a1a1a;
+  --fg: #fafafa;
+  --card-bg: #2a2a2a;
+  --border: #3a3a3a;
+  --accent: #60a5fa;
+  --chip-bg: #2f2f2f;
+  --chip-fg: #ddd;
+  --chip-active: #60a5fa;
+  --chip-matched: #78350f;
+  --purple-strip: #a78bfa;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --frame-badge-bg: #1e3a8a;
+  --frame-badge-fg: #bfdbfe;
+  --chip-discovered-bg: #1f3a5f;
+  --chip-previewed-bg: #2a4a6f;
+  --chip-pending-bg: #5f5028;
+  --chip-imported-bg: #2a5f3a;
+  --chip-skipped-bg: #444; --chip-skipped-fg: #999;
+  --chip-failed-bg: #5f2a2a; --chip-failed-fg: #f8d7da;
+  --focus-outline: #ffcc55;
+  --code-bg: #2a2a2a;
+  --text-muted: #aaa;
+  --bar-track: #444;
+  --score-pos: #4caf50;
+  --score-neg: #f44336;
+}
+
+/* 기존 자동 모드 — data-theme 미설정 + 시스템 다크일 때만 */
 @media (prefers-color-scheme: dark) {
-  :root {
+  html:not([data-theme]) {
     --bg: #1a1a1a;
     --fg: #fafafa;
     --card-bg: #2a2a2a;

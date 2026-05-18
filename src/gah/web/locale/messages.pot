@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-05-19 03:02+0900\n"
+"POT-Creation-Date: 2026-05-19 03:18+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -157,7 +157,7 @@ msgid "Rejections"
 msgstr ""
 
 #: src/gah/web/templates/_nav.html:6 src/gah/web/templates/base.html:6
-#: src/gah/web/templates/base.html:63 src/gah/web/templates/error.html:2
+#: src/gah/web/templates/base.html:73 src/gah/web/templates/error.html:2
 #: src/gah/web/templates/labels_admin.html:6
 #: src/gah/web/templates/library.html:2 src/gah/web/templates/packs.html:6
 #: src/gah/web/templates/project_detail.html:7
@@ -199,7 +199,15 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/gah/web/templates/_nav.html:21 src/gah/web/templates/_pick_card.html:13
+#: src/gah/web/templates/_nav.html:27 src/gah/web/templates/settings.html:31
+msgid "Theme"
+msgstr ""
+
+#: src/gah/web/templates/_nav.html:28
+msgid "Toggle theme"
+msgstr ""
+
+#: src/gah/web/templates/_nav.html:31 src/gah/web/templates/_pick_card.html:13
 msgid "Claude request"
 msgstr ""
 
@@ -686,10 +694,6 @@ msgstr ""
 
 #: src/gah/web/templates/settings.html:26
 msgid "Auto-detect"
-msgstr ""
-
-#: src/gah/web/templates/settings.html:31
-msgid "Theme"
 msgstr ""
 
 #: src/gah/web/templates/settings.html:35
