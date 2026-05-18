@@ -1,0 +1,70 @@
+{# M7 — Unity Asset Store 발견 패키지 표 #}
+{% extends "base.html" %}
+{% block title %}Unity Asset Store{% endblock %}
+{% block content %}
+<section class="unity-page" x-data="unityPage()" x-init="init()">
+  <header class="unity-header">
+    <h1>{{ _("Unity Asset Store") }}</h1>
+    {% if cache_path %}
+      <p class="unity-cache-path">
+        {{ _("캐시 경로") }}: <code>{{ cache_path }}</code>
+      </p>
+    {% else %}
+      <p class="unity-empty">{{ _("캐시 경로가 비어 있습니다. 설정에서 Unity Asset Store 캐시 경로를 입력하세요.") }}</p>
+    {% endif %}
+    <button @click="scan()" :disabled="scanning">
+      <span x-show="!scanning">{{ _("캐시 스캔") }}</span>
+      <span x-show="scanning">{{ _("스캔 중...") }}</span>
+    </button>
+  </header>
+  {% if items %}
+  <table class="unity-table">
+    <thead>
+      <tr>
+        <th>{{ _("Publisher") }}</th>
+        <th>{{ _("Category") }}</th>
+        <th>{{ _("Asset name") }}</th>
+        <th>{{ _("Size") }}</th>
+        <th>{{ _("State") }}</th>
+        <th>{{ _("Preview") }}</th>
+        <th>{{ _("Actions") }}</th>
+      </tr>
+    </thead>
+    <tbody id="unity-rows">
+      {% for item in items %}
+        {% include "_unity_package_row.html" %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="unity-empty">{{ _("스캔된 패키지가 없습니다. '캐시 스캔' 버튼을 눌러 패키지를 검색하세요.") }}</p>
+  {% endif %}
+</section>
+<script>
+function unityPage() {
+  return {
+    scanning: false,
+    focusId: {{ focus_id | tojson if focus_id is not none else 'null' }},
+    init() {
+      if (this.focusId) {
+        const row = document.querySelector(`[data-focus="${this.focusId}"]`);
+        if (row) row.scrollIntoView({block: "center"});
+      }
+    },
+    async scan() {
+      this.scanning = true;
+      try {
+        await fetch("/api/unity-packages/scan", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({force: false}),
+        });
+        location.reload();
+      } finally {
+        this.scanning = false;
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

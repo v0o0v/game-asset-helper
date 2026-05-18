@@ -7,6 +7,7 @@
   --border: #e0e0e0;
   --accent: #3b82f6;
   --chip-bg: #f0f0f0;
+  --chip-fg: #333;
   --chip-active: #3b82f6;
   --chip-matched: #fef3c7;  /* 노란 강조 (B 탭 라벨 검색) */
   --purple-strip: #8b5cf6;  /* Claude 요청 카드 */
@@ -15,6 +16,16 @@
   --error: #ef4444;
   --frame-badge-bg: #e6f0ff;
   --frame-badge-fg: #1d4ed8;
+  /* M7 — Unity Asset Store 상태 칩 */
+  --chip-discovered-bg: #cce4ff;
+  --chip-previewed-bg: #d4edff;
+  --chip-pending-bg: #fff4d6;
+  --chip-imported-bg: #28a745;
+  --chip-skipped-bg: #f0f0f0; --chip-skipped-fg: #777;
+  --chip-failed-bg: #f8d7da; --chip-failed-fg: #721c24;
+  --focus-outline: #ffaa00;
+  --code-bg: #f5f5f5;
+  --text-muted: #888;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -25,6 +36,7 @@
     --border: #3a3a3a;
     --accent: #60a5fa;
     --chip-bg: #2f2f2f;
+    --chip-fg: #ddd;
     --chip-active: #60a5fa;
     --chip-matched: #78350f;
     --purple-strip: #a78bfa;
@@ -33,5 +45,15 @@
     --error: #f87171;
     --frame-badge-bg: #1e3a8a;
     --frame-badge-fg: #bfdbfe;
+    /* M7 — Unity Asset Store 상태 칩 dark */
+    --chip-discovered-bg: #1f3a5f;
+    --chip-previewed-bg: #2a4a6f;
+    --chip-pending-bg: #5f5028;
+    --chip-imported-bg: #2a5f3a;
+    --chip-skipped-bg: #444; --chip-skipped-fg: #999;
+    --chip-failed-bg: #5f2a2a; --chip-failed-fg: #f8d7da;
+    --focus-outline: #ffcc55;
+    --code-bg: #2a2a2a;
+    --text-muted: #aaa;
   }
 }

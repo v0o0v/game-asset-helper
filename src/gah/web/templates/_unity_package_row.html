@@ -1,0 +1,41 @@
+{# M7 — Unity package 표 row fragment #}
+<tr {% if focus_id is not none and focus_id == item.id %}data-focus="{{ item.id }}" class="row-focus"{% endif %}>
+  <td>{{ item.publisher or "—" }}</td>
+  <td>{{ item.category or "—" }}</td>
+  <td><strong>{{ item.asset_name }}</strong></td>
+  <td>{{ item.package_size }}</td>
+  <td>
+    <span class="state-chip state-{{ item.import_state }}">
+      {{ item.import_state }}
+    </span>
+  </td>
+  <td>
+    {% if item.preview_asset_count is not none %}
+      🖼 {{ item.preview_image_count }} · 🔊 {{ item.preview_sound_count }}
+    {% else %}
+      —
+    {% endif %}
+  </td>
+  <td class="unity-actions">
+    {% if item.import_state in ("discovered", "previewed") %}
+      <form method="post" action="/api/unity-packages/{{ item.id }}/preview" style="display:inline">
+        <button type="submit">{{ _("미리보기") }}</button>
+      </form>
+    {% endif %}
+    {% if item.import_state in ("discovered", "previewed", "skipped") %}
+      <form method="post" action="/api/unity-packages/{{ item.id }}/import" style="display:inline">
+        <button type="submit">{{ _("임포트") }}</button>
+      </form>
+    {% endif %}
+    {% if item.import_state in ("discovered", "previewed") %}
+      <form method="post" action="/api/unity-packages/{{ item.id }}/skip" style="display:inline">
+        <button type="submit">{{ _("건너뜀") }}</button>
+      </form>
+    {% endif %}
+    {% if item.import_state == "skipped" %}
+      <form method="post" action="/api/unity-packages/{{ item.id }}/restore" style="display:inline">
+        <button type="submit">{{ _("다시 후보로") }}</button>
+      </form>
+    {% endif %}
+  </td>
+</tr>

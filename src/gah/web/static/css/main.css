@@ -1248,3 +1248,28 @@ html, body {
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* M7 — Unity Asset Store */
+.unity-page { padding: 16px; }
+.unity-header { margin-bottom: 16px; }
+.unity-header h1 { margin: 0 0 8px 0; }
+.unity-cache-path code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+.unity-empty { color: var(--text-muted); }
+.unity-table { width: 100%; border-collapse: collapse; }
+.unity-table th, .unity-table td { padding: 8px; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.9em; }
+.unity-table th { font-weight: 600; background: var(--chip-bg); }
+.state-chip {
+  display: inline-block;
+  padding: 2px 8px; border-radius: 12px; font-size: 0.8em;
+  background: var(--chip-bg); color: var(--chip-fg);
+}
+.state-chip.state-discovered { background: var(--chip-discovered-bg); }
+.state-chip.state-previewed  { background: var(--chip-previewed-bg); }
+.state-chip.state-import_pending { background: var(--chip-pending-bg); }
+.state-chip.state-imported   { background: var(--chip-imported-bg); color: #fff; }
+.state-chip.state-skipped    { background: var(--chip-skipped-bg); color: var(--chip-skipped-fg); }
+.state-chip.state-failed     { background: var(--chip-failed-bg); color: var(--chip-failed-fg); }
+.row-focus { outline: 2px solid var(--focus-outline); }
+.nav-divider { color: var(--border); margin: 0 4px; }
+.unity-actions form { display: inline; }
+.unity-actions button { margin-right: 4px; }
