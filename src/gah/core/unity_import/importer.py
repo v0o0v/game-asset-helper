@@ -58,6 +58,17 @@ class UnityImporter:
         try:
             entries = parse_pathnames(row.package_path)
             target_guids = list(entries.keys())
+            # M7 patch — 지원 자산 (png/jpg/webp/wav/ogg/mp3) 이 0개면 임포트
+            # 자체가 무의미 (라이브러리에 빈 팩 생성). 명확한 실패 메시지.
+            if not target_guids:
+                msg = "지원되는 자산 (png/jpg/webp/wav/ogg/mp3) 이 없습니다"
+                self._store.update_unity_state(
+                    unity_import_id, "failed", import_error=msg,
+                )
+                return UnityImportResult(
+                    pack_id=None, pack_name=pack_name, asset_count=0,
+                    state="failed", error=msg,
+                )
             result = extract_targets(row.package_path, dest, target_guids)
             self._write_manifest(dest, row)
             now = int(time.time())
