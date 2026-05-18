@@ -108,6 +108,48 @@ def make_tray_icon(
         menu.addAction(open_action)
         menu.addSeparator()
 
+    # M7: Unity 캐시 스캔 메뉴
+    unity_scan_action = QAction(_tr("Unity 캐시 스캔"), menu)
+
+    def _on_unity_scan() -> None:
+        """트레이에서 Unity 캐시 수동 스캔 (별도 스레드)."""
+        import threading
+        import logging as _logging
+
+        _log = _logging.getLogger(__name__)
+
+        def _run() -> None:
+            try:
+                from gah.core.unity_import.cache_paths import detect_cache_path
+                from gah.core.unity_import.scanner import UnityAssetStoreScanner
+                from gah.config import load_config
+                from gah.platform.single_instance import get_app_paths
+            except ImportError:
+                _log.debug("unity_import 모듈 없음 — 수동 스캔 skip")
+                return
+            try:
+                paths, cfg = get_app_paths(), load_config()
+                from gah.core.store import Store
+                store = Store(paths.db_path)
+                store.initialize()
+                cache = detect_cache_path(cfg)
+                if cache is None:
+                    _log.info("Unity 캐시 경로 없음 — 스캔 skip")
+                    store.close()
+                    return
+                scanner = UnityAssetStoreScanner(store=store)
+                result = scanner.run_once(cache_path=cache)
+                _log.info("트레이 Unity 스캔: 새 %d개", result.new)
+                store.close()
+            except Exception:
+                _log.exception("트레이 Unity 수동 스캔 오류")
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    unity_scan_action.triggered.connect(_on_unity_scan)
+    menu.addAction(unity_scan_action)
+    menu.addSeparator()
+
     quit_action = QAction(_tr("종료"), menu)
     quit_action.triggered.connect(qapp.quit)
     menu.addAction(quit_action)
