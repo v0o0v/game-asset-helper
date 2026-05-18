@@ -1,15 +1,17 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-18 (M7 Phase 7 완료 — 마지막 phase)
-**마지막 완료 마일스톤**: **M7 — Unity Asset Store 임포트 + 프로젝트 워크플로** — ✅ 완료 (`feat/m7-unity-asset-store-import` 브랜치, PR 대기)
-**현재 브랜치**: `feat/m7-unity-asset-store-import` (main 위 30+ commit, working tree clean)
-**다음 작업**: **M8 — 패키징 + i18n** (`superpowers:brainstorming` → `milestones/M8_plan.md`)
+**마지막 인계 시각**: 2026-05-19 (M7 Phase 0~7 완료 + 수동 검증 통과 + 후속 patch 19건)
+**마지막 완료 마일스톤**: **M7 — Unity Asset Store 임포트 + 프로젝트 워크플로** — ✅ 완료 + 수동 검증 통과
+**현재 브랜치**: `feat/m7-unity-asset-store-import` (main 위 50+ commit, working tree clean)
+**다음 작업**: PR 생성 → main 머지 → **M8 — 패키징 + i18n**
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가"를 한 번에 파악하도록 작성된 스냅샷이다.
 
 ## 1. 한 줄 요약
 
-M7 (Unity Asset Store 임포트 + 프로젝트 워크플로) **전체 완료**. 7 phase 모두 끝, **1011 passed + 1 skipped + 40 deselected** (M6 887 + M7 +124). MCP 18 → **20 도구** (scan_unity_asset_store_cache + list_unity_packages). 격리 불변식 I-1~I-5 회귀 테스트 고정 완료. 신규 의존성 없음. 다음 = PR 머지 후 M8 시작.
+M7 (Unity Asset Store 임포트 + 프로젝트 워크플로) **전체 완료 + 사용자 수동 검증 통과**. 7 phase + 후속 patch 19건 (수동 검증 중 발견된 회귀/UX 개선) 누적. pytest **1000 passed + 3 skipped + 40 deselected** (M6 887 + M7 spec +124 → +사용자 의도 정리로 일부 테스트 폐기 -11). MCP 18 → **20 도구**. 격리 불변식 I-1~I-5 회귀 테스트 고정. 신규 의존성 0. 다음 = PR 머지 후 M8.
+
+수동 검증 결과 + 후속 patch 19 목록은 [`milestones/M7_verification.md`](./milestones/M7_verification.md) 참고.
 
 ## 2. 검증된 사실 (M7 완료)
 
