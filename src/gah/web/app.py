@@ -29,6 +29,7 @@ from .routers import (
     packs,
     pages,
     picks,
+    projects,
     saved_searches,
     sse,
     unity_asset_store,
@@ -108,6 +109,7 @@ def build_app(deps: WebDeps) -> FastAPI:
     app.include_router(sse.router)
     app.include_router(pages.router)  # HTML 페이지 라우트 (/, /library)
     app.include_router(unity_asset_store.router)  # M7 Unity Asset Store
+    app.include_router(projects.router)           # M7 Phase 5 — 활성 프로젝트 API
 
     # ── 전역 에러 핸들러 ──────────────────────────────────────────────
     # /api/* 경로는 JSON 응답 유지; 그 외 경로는 친절한 HTML 에러 페이지 반환.
