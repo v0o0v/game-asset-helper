@@ -162,6 +162,11 @@ html, body {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
 }
+/* Phase 6 fix: sound 카드의 audio 컨트롤은 좁은 240px 폭에서 timeline 이 너무
+   작게 표시 → grid 에서 2 column 차지로 폭 확보. 1 column 환경에선 자동 1. */
+.results-cards.view-mode-grid .grid-container > .card-wide.kind-sound {
+  grid-column: span 2;
+}
 .results-cards.view-mode-list .list-container {
   display: flex;
   flex-direction: column;
