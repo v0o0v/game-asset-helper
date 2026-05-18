@@ -1,19 +1,19 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-18 (M6 완료 시점)
-**마지막 완료 마일스톤**: **M6 — 시트 분석 + 애니메이션** — ✅ 완료 (`feat/m6-sheet-animation` 브랜치, main 머지 대기)
-**현재 브랜치**: `feat/m6-sheet-animation` (main 위 **20+ commit**, 미머지)
-**다음 작업**: **M7 — Unity Asset Store 임포트** (~1주) 또는 M6 브랜치 main 머지
+**마지막 인계 시각**: 2026-05-18 (M6 머지 + 후속 patch 8 적용 완료)
+**마지막 완료 마일스톤**: **M6 — 시트 분석 + 애니메이션** — ✅ 완료, [PR #7](https://github.com/v0o0v/game-asset-helper/pull/7) main 머지됨 + 수동 검증 중 발견된 회귀 8건도 main 에 반영 완료
+**현재 브랜치**: `main` (origin/main 과 sync), working tree clean
+**다음 작업**: **M7 — Unity Asset Store 임포트** (~1주) — spec/plan/todo 부터 시작
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가" 를 한 번에 파악하도록 작성된 스냅샷이다. 마일스톤 또는 phase 가 하나 끝날 때마다 이 문서를 갱신한다.
 
 ## 1. 한 줄 요약
 
-M5 가 main 으로 머지된 후 M6 spec ([`docs/superpowers/specs/2026-05-18-m6-sheet-and-animation-design.md`](docs/superpowers/specs/2026-05-18-m6-sheet-and-animation-design.md)) + plan ([`milestones/M6_plan.md`](milestones/M6_plan.md)) + todo 작성 → `feat/m6-sheet-animation` 브랜치 분기 후 **Phase 0~5 전 구간 완료**. `core/sheet/` 패키지 4 모듈 + `SpritesheetAnalyzer` + `suggest_animation_frames` MCP 18번째 도구 + 와이드/리스트 카드 `🎞 N frames` 배지. 누적 20+ commit, **880 passed + 1 skipped + 40 deselected**. 신규 의존성 0. **브랜치가 main 머지 준비 완료 상태**다. 다음 작업 = M7 (Unity Asset Store 임포트) 시작 또는 먼저 M6 브랜치 main 머지.
+M6 (시트 분석 + 애니메이션) 가 1 세션 안에 전 phase 완료 → [PR #7](https://github.com/v0o0v/game-asset-helper/pull/7) main 머지. 그 후 사용자 수동 검증 중 회귀 8건 (썸네일 분기/모달/큐 라우팅/aggregate 레이스/Gemma str split/Ollama cold-start 등) 발견 → 모두 fix + 회귀 테스트 추가 후 main 에 누적. 최종 **887 passed + 1 skipped + 40 deselected** (M6 spec 결정 +84 + 후속 patch test +7). MCP 18 도구. 신규 의존성 0. 다음 작업 = M7 (Unity Asset Store 임포트) spec/plan 부터.
 
-## 2. 검증된 사실 (M6 완료 시점)
+## 2. 검증된 사실 (M6 완료 + 후속 patch 적용)
 
-자동 — `pytest -q` 결과 **880 passed + 1 skipped + 40 deselected** (M5 end 796 대비 +84 신규).
+자동 — `pytest -q` 결과 **887 passed + 1 skipped + 40 deselected** (M5 end 796 대비 +91 신규: M6 spec +84, 후속 patch test +7).
 
 | 영역 | 신규 케이스 | 비고 |
 |---|---:|---|
@@ -32,7 +32,12 @@ M5 가 main 으로 머지된 후 M6 spec ([`docs/superpowers/specs/2026-05-18-m6
 | Phase 4A (Web 카드 라우터) | +3 | frame_count flatten |
 | Phase 4B (Web 카드 HTML 배지) | +2 | wide/list 배지 존재 |
 | Phase 5 (cleanup + docs) | 0 | refactor + docs 만 |
-| **M6 신규 합계** | **+84** | **total 880** |
+| **M6 spec 합계** | **+84** | M6 PR #7 (main 머지) |
+| 후속 patch — spritesheet 썸네일 회귀 | +1 | `test_spritesheet_kind_generates_thumbnail` |
+| 후속 patch — Gemma str→char split 방어 | +2 | `test_gemma_returns_string_not_array_normalized` 외 |
+| 후속 patch — Ollama cold-start retry | +4 | `TestColdStartRetry` 4건 (ReadTimeout/ConnectError/4xx no-retry/native succeeds) |
+| **후속 patch 합계** | **+7** | M6 머지 후 main 직접 누적 |
+| **최종 누적** | **+91** | **total 887** |
 
 `pytest -m mcp_integration -v` — 2/2 (**18 도구** 확인, Phase 3 에서 갱신).
 
@@ -55,8 +60,9 @@ python -m gah --tray
 | 런타임 데이터 | `C:\Users\v0o0v\AppData\Roaming\GameAssetHelper\` |
 | 라이브러리 루트 | `%APPDATA%\GameAssetHelper\library\` |
 | 메타 DB | `%APPDATA%\GameAssetHelper\metadata.db` (WAL, `sprite_meta.animations_json` M6 에서 추가) |
-| **신규 M6: sheet 패키지** | `src/gah/core/sheet/` (json_parser/grid_detect/preview/detect 4 모듈) |
-| **신규 M6: MCP 도구 수** | 18 도구 (`suggest_animation_frames` 추가 — Phase 3 완료) |
+| **M6: sheet 패키지** | `src/gah/core/sheet/` (json_parser/grid_detect/preview/detect 4 모듈) |
+| **M6: MCP 도구 수** | 18 도구 (`suggest_animation_frames` 추가) |
+| **M6: 수동 테스트 helper** | `tools/setup_m6_test.py` (비균일 시트 → Aseprite JSON 자동 생성), `tools/inspect_m6.py` (DB 진단 + 재분석 reset) |
 
 **금기**: Microsoft Store Python, Cowork 작업 폴더 내부 venv.
 
@@ -84,19 +90,19 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 git status
 ```
 
-→ `On branch feat/m6-sheet-animation` + 20+ commits ahead of main + clean.
+→ `On branch main` + `Your branch is up to date with 'origin/main'` + clean.
 
 ```powershell
 git log --oneline -5
 ```
 
-→ 최상단에 Phase 5 cleanup/docs 커밋들.
+→ 최상단에 Ollama cold-start retry / Gemma str split 방어 / aggregate race fix 등 후속 patch + M6 PR #7 머지 commit.
 
 ```powershell
 pytest -q
 ```
 
-→ `880 passed, 1 skipped, 40 deselected`.
+→ `887 passed, 1 skipped, 40 deselected`.
 
 선택 — 사용자 직접 시각 검증:
 
@@ -104,29 +110,36 @@ pytest -q
 python -m gah --tray
 ```
 
-→ 브라우저로 라이브러리 페이지 진입. 시트 PNG + JSON 드롭 → 카드 배지 확인.
+→ 브라우저로 라이브러리 페이지 진입. M6 시트 PNG + JSON 드롭 → 카드 배지 + 모달 라벨 칩 확인.
 
-## 5. 다음 세션 진입 절차 (M7 시작 또는 M6 머지)
+## 5. 다음 세션 진입 절차 (M7 시작)
 
 ### 5.1 환경 복원 + 회귀 검증
 
-§4 의 명령 (Activate.ps1 / cd / git status / pytest -q) 실행. **880 passed** 확인.
+§4 의 명령 (Activate.ps1 / cd / git status / pytest -q) 실행. **887 passed** 확인.
 
-### 5.2 선택 A — M6 브랜치 main 머지
+### 5.2 M7 spec 작성
 
-`feat/m6-sheet-animation` 브랜치가 main 머지 준비 완료 상태다. PR 생성 또는 직접 머지.
+M7 — Unity Asset Store 임포트 (~1주). spec → plan → todo → TDD 순서:
 
-```powershell
-gh pr create --title "M6: 시트 분석 + 애니메이션 + suggest_animation_frames MCP 18번째 도구" --base main --head feat/m6-sheet-animation
-```
+1. `docs/superpowers/specs/YYYY-MM-DD-m7-unity-asset-store-import.md` — brainstorming 결과
+2. `milestones/M7_plan.md` — 작업 단위 + 코드 스니펫 + step-by-step
+3. `milestones/M7_todo.md` — TDD 체크리스트
+4. 테스트 먼저(red phase), 구현(green phase), `milestones/M7_verification.md` 순서
 
-### 5.3 선택 B — M7 시작
+M7 핵심 (DESIGN.md §11 Milestone 7):
+- 캐시 경로 자동 검출 (`ASSETSTORE_CACHE_PATH` 환경변수 + Unity Editor Preferences 폴백 + 사용자 오버라이드)
+- `.unitypackage` 파서 (tar.gz 아카이브) + 선택적 추출 (이미지/사운드만, 메타 자동 생성)
+- 증분 동기화 (mtime 비교)
+- `unity_imports` 테이블 (자산 origin 추적)
+- `sync_unity_asset_store` MCP 도구 (18 → **19**)
+- 웹 UI 의 Unity Asset Store 페이지 (사용자가 임포트 트리거 + 진행 상황 SSE)
+- 비공식 publisher 패널 경로는 skeleton 만 (기본 비활성)
 
-M7 — Unity Asset Store 임포트 (~1주). 먼저 plan 작성부터 시작.
-
-1. `milestones/M7_plan.md` 작성 — 목표: Unity Asset Store 캐시 경로 자동 검출 + `.unitypackage` 파서 + 매니페스트 자동 생성 + `sync_unity_asset_store` MCP 도구 (19번째) + 웹 UI Unity Asset Store 페이지.
-2. `milestones/M7_todo.md` 작성 — TDD 체크리스트.
-3. 테스트 먼저(red phase), 구현(green phase), `milestones/M7_verification.md` 순서.
+권장 워크플로:
+- `superpowers:brainstorming` → 옵션 비교 + 결정
+- `superpowers:writing-plans` → M7_plan.md
+- `superpowers:subagent-driven-development` → phase 별 sonnet implementer + haiku reviewer (M5/M6 검증된 패턴)
 
 ### 5.4 새 세션이 자동 로드하는 메모리
 
@@ -150,7 +163,7 @@ M7 — Unity Asset Store 임포트 (~1주). 먼저 plan 작성부터 시작.
 | M0~M3 | (변경 없음) | — | ✅ 완료 (main) |
 | M4 | 검색 UX 풍부화 | 1.5주 | ✅ 완료 (main, [PR #5](https://github.com/v0o0v/game-asset-helper/pull/5)) |
 | M5 | 웹 GUI 전환 + 라이브러리 리디자인 + Claude pick | 5.5주 | ✅ 완료 (main 머지됨) |
-| **M6** | **시트 분석 + 애니메이션** | **1주** | **✅ 완료** (`feat/m6-sheet-animation`, main 머지 대기) |
+| M6 | 시트 분석 + 애니메이션 | 1주 | ✅ 완료 (main 머지됨, [PR #7](https://github.com/v0o0v/game-asset-helper/pull/7)) + 후속 patch 8건 main 직접 누적 |
 | **M7** | **Unity Asset Store 임포트** | **1주** | **대기 (다음)** |
 | M8 | 패키징 + i18n | 1주 | 대기 |
 
@@ -193,8 +206,23 @@ M6 v1 에서 채우지 않고 남긴 항목:
 
 - **알파 채널 없는 PNG 시트** — JSON 사이드카 없으면 일반 `sprite` 로 분류. `grid_detect` 가 alpha=0 픽셀에 의존하므로.
 - **비균일 atlas** — Aseprite Hash 는 파싱하지만 불균일 `x/y/w/h` 가 올 경우 frame 분할 정확도 낮음 — v2.
-- **Gemma 없는 환경** — OllamaError 시 `state="partial"` + 라벨 미완성 + 시트 kind 는 유지.
+- **Gemma cold-start 후 OllamaError** — cold-start retry (max_retries 회 exponential backoff) 가 흡수하지만 timeout_seconds 가 너무 짧으면 통과 못할 수 있음. 그래도 시트 분석 자체는 JSON 사이드카로 완성 (state="partial").
 - **mcp_integration 18 도구 확인** — 실 Ollama subprocess 없는 CI 환경에서 analyze 흐름은 partial 상태로 저장됨.
+
+### 9.1.1 M6 후속 patch 8건 (main 직접 누적)
+
+M6 PR #7 머지 후 수동 검증 중 발견된 회귀들 — 모두 main 에 직접 commit + 회귀 테스트 추가:
+
+| Commit | 내용 |
+|---|---|
+| `5149c71` | `tools/setup_m6_test.py` — 비균일 시트 → Aseprite JSON 자동 생성 helper |
+| `022f4d5` | `store.count_pending_assets` — `fetchone()` None 방어 (트레이 부팅 race) |
+| `3d39f4a` | spritesheet 카드도 썸네일 노출 — `_card_wide/list.html` 분기에 spritesheet 추가, `ensure_thumbnail` kind 체크 확장 |
+| `c546090` | 자산 상세 모달 + 라벨 + 재분석 라우팅 3건 — `ui_asset_detail`/`asset_detail.html` 의 spritesheet 분기 + `SpritesheetAnalyzer` 가 JSON frameTags 라벨도 `LabelScore` INSERT + `_analyze_one` 의 라우팅이 `kind in ('sprite', 'spritesheet')` |
+| `bbd27ac` | `tools/inspect_m6.py` — DB 진단 + `--reset` 으로 재분석 트리거 |
+| `fd7def3` | `pack_aggregate` read 도 `write_lock` 안에서 — `sqlite3.InterfaceError: bad parameter or other API misuse` 방어 |
+| `6e359f6` | Gemma 가 `"run"` 같은 단일 문자열로 `animation_hint` 응답 시 character split 방어 (`hints` 정규화) |
+| `0b2d427` | `OllamaClient.chat` 의 transport error retry — `ReadTimeout`/`ConnectError`/`ConnectTimeout`/`RemoteProtocolError`/`PoolTimeout` 에 backoff 후 max_retries 재시도 (cold-start 모델 로딩 흡수) |
 
 ### 9.2 환경 / 기술 한계 (M5 에서 이월)
 

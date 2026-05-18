@@ -25,6 +25,9 @@ Thumbs.db
 # Runtime data (do not commit user data)
 /runtime/
 
+# Local manual-test workspace (M6 setup_m6_test.py 의 hero.png 등)
+/tmp/
+
 # Generated test fixtures (M2) — conftest 가 결정적 PRNG 로 매번 동일하게 생성
 tests/fixtures/*.png
 tests/fixtures/*.wav
