@@ -19,7 +19,8 @@ from fastapi.templating import Jinja2Templates
 
 import gah
 from .deps import WebDeps
-from .i18n import setup_jinja_i18n
+from .i18n import _load_translations, setup_jinja_i18n
+from .locale_middleware import LocaleMiddleware
 from .routers import (
     feedback,
     filters,
@@ -47,6 +48,11 @@ def _static_dir() -> Path:
 def _templates_dir() -> Path:
     """패키지 내 templates 디렉터리 경로."""
     return Path(__file__).parent / "templates"
+
+
+def _locale_dir() -> Path:
+    """패키지 내 locale 디렉터리 경로."""
+    return Path(__file__).parent / "locale"
 
 
 @contextlib.asynccontextmanager
@@ -89,6 +95,12 @@ def build_app(deps: WebDeps) -> FastAPI:
         lifespan=_lifespan,
     )
     app.state.deps = deps
+
+    # M8 — boot 시 i18n 카탈로그 1회 로드 + locale 미들웨어 등록
+    _load_translations(_locale_dir())
+    app.state.config = deps.config  # LocaleMiddleware 가 참조
+    app.add_middleware(LocaleMiddleware)
+
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     templates = Jinja2Templates(directory=str(templates_dir))
     setup_jinja_i18n(templates.env)
