@@ -116,6 +116,40 @@ window.onPickResolved = function (evt) {
 };
 
 /**
+ * M7 — 라이브러리 카드 "채택" 버튼 onclick 핸들러 (vanilla).
+ *
+ * htmx 의 hx-on::htmx:after-request 가 일부 버전에서 동작 불안정 + hx-vals
+ * form-encoded 가 endpoint 의 await request.json() 과 mismatch 였던
+ * 회귀 두 가지를 한 번에 해결. fetch 직접 호출 + 응답 후 1.5초 시각 피드백.
+ */
+window.gahAdopt = function (btn, assetId) {
+  if (btn.disabled) return;
+  fetch("/api/assets/" + assetId + "/adopt", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ context: "library_card" }),
+  })
+    .then(function (r) {
+      if (!r.ok) {
+        console.warn("[GAH] adopt failed:", r.status);
+        return;
+      }
+      var orig = btn.textContent;
+      btn.textContent = "✓ 채택됨";
+      btn.classList.add("adopted");
+      btn.disabled = true;
+      setTimeout(function () {
+        btn.textContent = orig;
+        btn.classList.remove("adopted");
+        btn.disabled = false;
+      }, 1500);
+    })
+    .catch(function (e) {
+      console.warn("[GAH] adopt error:", e);
+    });
+};
+
+/**
  * Native EventSource 직접 등록 — htmx-sse 우회.
  *
  * DOMContentLoaded 시점에 한 번 등록. 페이지 진입마다 새 EventSource 인스턴스

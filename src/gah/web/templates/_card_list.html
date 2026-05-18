@@ -45,14 +45,9 @@
       <div class="audio-slot"></div>
     {% endif %}
     {# M7 Phase 5 — 채택 버튼 (활성 프로젝트 없으면 disabled).
-       hx-ext json-enc + hx-on after-request 시각 피드백은 _card_wide.html 와 동일. #}
+       vanilla fetch (app.js 의 gahAdopt) — htmx hx-on 호환성 이슈 회피. #}
     <button class="adopt-btn"
             {% if not active_project_id %}disabled title="{{ _('프로젝트를 먼저 선택하세요') }}"{% endif %}
-            hx-post="/api/assets/{{ row.asset_id }}/adopt"
-            hx-ext="json-enc"
-            hx-vals='{"context": "library_card"}'
-            hx-swap="none"
-            hx-on::htmx:after-request="if(event.detail.successful){this.dataset.orig=this.textContent;this.textContent='✓ 채택됨';this.classList.add('adopted');this.disabled=true;setTimeout(()=>{this.textContent=this.dataset.orig;this.classList.remove('adopted');this.disabled=false;},1500)}"
-            onclick="event.stopPropagation()">{{ _("채택") }}</button>
+            onclick="event.stopPropagation(); gahAdopt(this, {{ row.asset_id }});">{{ _("채택") }}</button>
   </div>
 </div>
