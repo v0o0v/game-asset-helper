@@ -269,6 +269,27 @@ def _list_all_assets(deps: Any, body: SearchBody) -> dict[str, Any]:
         return {"query_id": None, "total": 0, "rows": [], "next_offset": None}
 
     all_rows = [_asset_row_to_dict(a) for a in all_assets]
+
+    # M6 — spritesheet 행에 frame_count 보충 (sprite_meta JOIN)
+    sheet_ids = [r["asset_id"] for r in all_rows if r["kind"] == "spritesheet"]
+    if sheet_ids:
+        placeholders = ",".join("?" * len(sheet_ids))
+        frame_rows = deps.store.conn.execute(
+            f"SELECT asset_id, frame_w, frame_h, frame_count FROM sprite_meta WHERE asset_id IN ({placeholders})",
+            sheet_ids,
+        ).fetchall()
+        frame_map = {
+            int(fr[0]): {
+                "frame_w": int(fr[1]) if fr[1] is not None else None,
+                "frame_h": int(fr[2]) if fr[2] is not None else None,
+                "frame_count": int(fr[3]) if fr[3] is not None else None,
+            }
+            for fr in frame_rows
+        }
+        for row in all_rows:
+            if row["kind"] == "spritesheet" and row["asset_id"] in frame_map:
+                row.update(frame_map[row["asset_id"]])
+
     all_rows = _apply_sort(all_rows, effective_sort)
 
     total = len(all_rows)
