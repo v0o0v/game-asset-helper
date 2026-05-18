@@ -1,6 +1,10 @@
 """M6 — sheet 데이터클래스 동등성·해시·repr 회귀."""
 from __future__ import annotations
 
+import dataclasses
+
+import pytest
+
 from gah.core.sheet.types import (
     AnimationSpec,
     AsepriteAtlas,
@@ -15,12 +19,8 @@ def test_frame_spec_frozen_and_equal():
     b = FrameSpec(x=0, y=0, w=32, h=32, duration_ms=100, name="hero 0")
     assert a == b
     # frozen — 변경 시 FrozenInstanceError
-    import dataclasses
-    try:
+    with pytest.raises(dataclasses.FrozenInstanceError):
         a.x = 99  # type: ignore[misc]
-    except dataclasses.FrozenInstanceError:
-        return
-    assert False, "FrameSpec must be frozen"
 
 
 def test_animation_spec_round_trip():
