@@ -41,7 +41,7 @@
               <span class="fb-irrelevant" x-text="item.irrelevant_count"></span>
             </td>
             <td x-text="item.usage_count"></td>
-            <td x-text="item.last_activity_at || ''"></td>
+            <td x-text="fmtTs(item.last_activity_at)"></td>
           </tr>
         </template>
       </tbody>
@@ -75,6 +75,12 @@ function preferencePanel(pid) {
     },
     prev() { this.offset = Math.max(0, this.offset - this.limit); this.refresh(); },
     next() { this.offset += this.limit; this.refresh(); },
+    fmtTs(ts) {
+      if (!ts) return "";
+      const d = new Date(ts * 1000);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    },
   };
 }
 </script>

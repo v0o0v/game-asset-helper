@@ -47,7 +47,7 @@
             <td><a href="/asset/{{ u.asset_id }}">{{ u.asset_path }}</a></td>
             <td>{{ u.pack_name }}</td>
             <td>{{ u.source }}</td>
-            <td>{{ u.used_at }}</td>
+            <td>{{ u.used_at | datetime }}</td>
             <td>{{ u.context or "" }}</td>
           </tr>
         {% endfor %}
