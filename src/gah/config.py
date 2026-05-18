@@ -81,6 +81,8 @@ def default_app_paths(data_root: str | os.PathLike[str] | None = None) -> AppPat
 
 _VALID_DESCRIPTION_LANGUAGES = ("ko", "en")
 _VALID_AUDIO_CHUNK_STRATEGIES = ("smart", "first", "rms_peak")
+_VALID_UI_LANGUAGES = ("ko", "en", "auto")
+_VALID_UI_THEMES = ("auto", "light", "dark")
 
 
 class UsageSource(str, Enum):
@@ -174,6 +176,9 @@ class Config:
     active_project_id: int | None = None
     # M7 — /projects/<id> 선호도 점수 공식 (D14)
     preference_usage_weight: float = 0.1
+    # M8 — 웹 UI 언어 / 테마 (description_language 와 별개)
+    ui_language: str = "auto"  # "ko" | "en" | "auto"
+    ui_theme: str = "auto"     # "auto" | "light" | "dark"
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "Config":
@@ -188,6 +193,12 @@ class Config:
         strat = filtered.get("audio_chunk_strategy")
         if strat is not None and strat not in _VALID_AUDIO_CHUNK_STRATEGIES:
             filtered.pop("audio_chunk_strategy")
+        ui_lang = filtered.get("ui_language")
+        if ui_lang is not None and ui_lang not in _VALID_UI_LANGUAGES:
+            filtered.pop("ui_language")
+        ui_theme = filtered.get("ui_theme")
+        if ui_theme is not None and ui_theme not in _VALID_UI_THEMES:
+            filtered.pop("ui_theme")
         # 0/음수는 분석 자체를 멈춰버리므로 1 로 클램프.
         parallel = filtered.get("ollama_parallel")
         if parallel is not None:
