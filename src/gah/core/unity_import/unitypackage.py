@@ -32,10 +32,15 @@ def _classify(pathname: str) -> str | None:
 
 
 def _read_member_text(tar: tarfile.TarFile, member: tarfile.TarInfo) -> str:
+    """pathname 텍스트 읽기. Unity 가 일부 패키지에서 "<경로>\\n<flag>" 형식
+    으로 저장 (둘째 줄에 "00" 같은 메타) — 첫 줄만 가져옴. 그러지 않으면
+    suffix 가 ".png\\n00" 같은 형태가 되어 확장자 매칭 실패."""
     f = tar.extractfile(member)
     if f is None:
         return ""
-    return f.read().decode("utf-8", errors="replace").strip()
+    text = f.read().decode("utf-8", errors="replace")
+    # 첫 줄만 — Unity 일부 패키지의 "경로\nflag" 패턴 회피.
+    return text.split("\n", 1)[0].strip()
 
 
 def parse_pathnames(package_path: Path) -> dict[str, UnityPackageEntry]:
