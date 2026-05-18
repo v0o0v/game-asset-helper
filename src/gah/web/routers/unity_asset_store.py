@@ -23,6 +23,7 @@ router = APIRouter()
 _SORT_FIELDS = {
     "publisher", "category", "asset_name",
     "package_size", "import_state", "preview_asset_count",
+    "first_seen_at",
 }
 
 

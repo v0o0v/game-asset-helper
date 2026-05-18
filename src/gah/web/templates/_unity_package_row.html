@@ -16,6 +16,7 @@
       —
     {% endif %}
   </td>
+  <td>{{ item.first_seen_at | datetime }}</td>
   <td class="unity-actions">
     {# M7 patch — 미리보기 버튼 제거. 임포트 시 자산 카운트가 자동으로 preview 컬럼
        채움 (importer 가 parse_pathnames 결과 활용). previewed state 는 MCP 도구

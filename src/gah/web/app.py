@@ -105,6 +105,19 @@ def build_app(deps: WebDeps) -> FastAPI:
         return f"{f:.1f} GB"
 
     templates.env.filters["humansize"] = _humansize
+
+    # M7 patch — Unity Asset Store 표의 first_seen_at 등 unix timestamp →
+    # "YYYY-MM-DD HH:MM" 표시.
+    def _datetime_fmt(ts) -> str:
+        if ts is None:
+            return "—"
+        from datetime import datetime
+        try:
+            return datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M")
+        except (ValueError, OSError):
+            return "—"
+
+    templates.env.filters["datetime"] = _datetime_fmt
     app.state.templates = templates
 
     # 10 라우터 등록 (library 는 /api + /ui 두 라우터, pages 는 HTML 페이지)
