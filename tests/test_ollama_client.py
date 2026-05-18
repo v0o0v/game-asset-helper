@@ -202,6 +202,96 @@ class TestRetry:
         assert exc.value.stage == "chat"
 
 
+# ── M6 patch — cold-start transport retry ───────────────────────────
+
+
+class TestColdStartRetry:
+    """Ollama 의 큰 chat 모델(예: gemma4:e4b 9.6GB) 첫 호출 시 모델 로딩
+    중에는 transport 가 ReadTimeout / ConnectError 로 떨어질 수 있다. 새
+    `_call_transport_with_cold_start_retry` 가 backoff 후 재시도해서
+    통과시키는지 검증.
+    """
+
+    def test_cold_start_timeout_retries_then_succeeds(self, mock_ollama, mocker) -> None:
+        """OpenAI path 첫 호출이 ReadTimeout → backoff → 두 번째 OpenAI 호출 성공."""
+        # time.sleep 을 mock 으로 cap 해서 테스트가 실제로 대기하지 않음
+        mocker.patch("gah.core.ollama_client.time.sleep", return_value=None)
+        responses = [
+            httpx.ReadTimeout("model loading"),  # cold-start
+            httpx.Response(200, json=_openai_response({"ok": True})),
+        ]
+        oai = mock_ollama.post(
+            "http://127.0.0.1:11434/v1/chat/completions"
+        ).mock(side_effect=responses)
+        # native 도 cold-start 라 ReadTimeout (둘 다 같은 ollama 프로세스)
+        nat = mock_ollama.post(
+            "http://127.0.0.1:11434/api/chat"
+        ).mock(side_effect=httpx.ReadTimeout("model loading"))
+        client = _make_client(max_retries=2)
+        result = client.chat([ChatMessage(role="user", content="hi")])
+        assert result == {"ok": True}
+        # OpenAI 가 2번 호출 (첫 fail, 두 번째 success), native 는 첫 attempt 에서 1번 호출
+        assert oai.call_count == 2
+        assert nat.call_count == 1
+
+    def test_cold_start_max_retries_exhausted_raises(self, mock_ollama, mocker) -> None:
+        """ReadTimeout 이 반복되면 max_retries 후 OllamaError."""
+        mocker.patch("gah.core.ollama_client.time.sleep", return_value=None)
+        mock_ollama.post(
+            "http://127.0.0.1:11434/v1/chat/completions"
+        ).mock(side_effect=httpx.ReadTimeout("never loads"))
+        mock_ollama.post(
+            "http://127.0.0.1:11434/api/chat"
+        ).mock(side_effect=httpx.ReadTimeout("never loads"))
+        client = _make_client(max_retries=2)
+        with pytest.raises(OllamaError) as exc:
+            client.chat([ChatMessage(role="user", content="hi")])
+        assert exc.value.stage == "chat"
+        assert isinstance(exc.value.cause, httpx.ReadTimeout)
+
+    def test_non_cold_start_4xx_no_retry_native_fallback_only(
+        self, mock_ollama, mocker,
+    ) -> None:
+        """4xx 응답은 cold-start 아님 — native 폴백만 시도 후 즉시 raise (retry X)."""
+        sleep_mock = mocker.patch(
+            "gah.core.ollama_client.time.sleep", return_value=None,
+        )
+        oai = mock_ollama.post(
+            "http://127.0.0.1:11434/v1/chat/completions"
+        ).mock(return_value=httpx.Response(400, text="bad model"))
+        nat = mock_ollama.post(
+            "http://127.0.0.1:11434/api/chat"
+        ).mock(return_value=httpx.Response(400, text="bad model"))
+        client = _make_client(max_retries=3)
+        with pytest.raises(OllamaError):
+            client.chat([ChatMessage(role="user", content="hi")])
+        # 4xx 는 cold-start 분류 아님 → 한 attempt 만 시도 (OpenAI 1번, native 1번)
+        assert oai.call_count == 1
+        assert nat.call_count == 1
+        # backoff sleep 호출 안 됨
+        assert sleep_mock.call_count == 0
+
+    def test_cold_start_connect_error_then_native_succeeds(
+        self, mock_ollama, mocker,
+    ) -> None:
+        """OpenAI ConnectError → native 가 같은 attempt 안에서 성공하면 retry 없음."""
+        sleep_mock = mocker.patch(
+            "gah.core.ollama_client.time.sleep", return_value=None,
+        )
+        oai = mock_ollama.post(
+            "http://127.0.0.1:11434/v1/chat/completions"
+        ).mock(side_effect=httpx.ConnectError("no v1 endpoint"))
+        nat = mock_ollama.post(
+            "http://127.0.0.1:11434/api/chat"
+        ).mock(return_value=httpx.Response(200, json=_native_response({"ok": True})))
+        client = _make_client(max_retries=3)
+        result = client.chat([ChatMessage(role="user", content="hi")])
+        assert result == {"ok": True}
+        assert oai.call_count == 1
+        assert nat.call_count == 1
+        assert sleep_mock.call_count == 0  # 한 attempt 안에서 성공 — backoff 없음
+
+
 # ── embed ───────────────────────────────────────────────────────────
 
 

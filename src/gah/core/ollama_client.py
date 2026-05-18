@@ -88,15 +88,16 @@ class OllamaClient:
     ) -> dict:
         """Run a chat completion; return the parsed JSON content dict.
 
-        Two failure modes have very different costs and so are handled
-        differently:
+        Three failure modes:
 
-        * **Transport error / non-2xx**: try OpenAI-compatible first;
-          if it dies, fall back to native within the *same* attempt.
-          If both transports refuse the request we raise immediately
-          — repeated calls won't help, and our callers (the analyzers)
-          have their own fallback paths (e.g. spectrogram).  ``max_retries``
-          does *not* apply here.
+        * **Cold-start transport error** (ReadTimeout / ConnectError /
+          ConnectTimeout / RemoteProtocolError): 큰 모델이 처음 로드되는
+          동안에는 OpenAI/native 양쪽 모두 timeout 또는 connection 실패할
+          수 있다. 두 path 모두 시도 후 둘 다 위 분류의 에러로 실패하면
+          exponential backoff 후 통째로 재시도 (최대 ``max_retries`` 회).
+        * **Non-cold transport error** (4xx, 5xx, 다른 HTTP 에러): OpenAI
+          가 거절하면 native 폴백 1번만 시도. 둘 다 거절하면 즉시 raise —
+          retry 무의미.
         * **200 with non-JSON content**: the backend is responsive but
           confused.  Retry up to ``max_retries`` times on the same
           endpoint, with exponential backoff.
@@ -106,22 +107,10 @@ class OllamaClient:
         start 를 걸지 않게.
         """
         with self._sem:
-            # ── 1. Transport: 한 번만 시도. OpenAI → native 폴백. ──────
-            last_path: str | None = None
-            try:
-                raw = self._call_openai(messages, num_ctx=num_ctx,
-                                        force_json=force_json)
-                last_path = "openai"
-            except httpx.HTTPError as e:
-                log.debug("OpenAI path failed (%s); trying native", e)
-                try:
-                    raw = self._call_native(messages, num_ctx=num_ctx,
-                                            force_json=force_json)
-                    last_path = "native"
-                except httpx.HTTPError as e2:
-                    raise OllamaError(
-                        stage="chat", path="native", cause=e2,
-                    ) from e2
+            # ── 1. Transport: cold-start retry + OpenAI → native 폴백. ──
+            raw, last_path = self._call_transport_with_cold_start_retry(
+                messages, num_ctx=num_ctx, force_json=force_json,
+            )
 
             # ── 2. Parse: force_json invalid 면 같은 backend 에서 retry. ─
             last_exc: Exception | None = None
@@ -185,6 +174,58 @@ class OllamaClient:
                 raise OllamaError(stage="embed", path="native", cause=e) from e
 
     # -- internals ----------------------------------------------------
+
+    # cold-start 으로 분류되는 transport error — 모델이 처음 로드되는 동안
+    # 일시적이고, backoff 후 재시도하면 통과할 가능성이 높음.
+    _COLD_START_ERRORS: tuple[type[Exception], ...] = (
+        httpx.ReadTimeout,
+        httpx.ConnectTimeout,
+        httpx.ConnectError,
+        httpx.RemoteProtocolError,
+        httpx.PoolTimeout,
+    )
+
+    def _call_transport_with_cold_start_retry(
+        self, messages: list[ChatMessage],
+        *, num_ctx: int, force_json: bool,
+    ) -> tuple[dict, str]:
+        """OpenAI → native 폴백을 한 단위로 묶고 cold-start 류 에러에는
+        backoff 후 통째로 재시도. 비 cold-start 에러는 native 폴백만 시도
+        후 즉시 raise — 기존 동작 보존.
+
+        :return: ``(raw, "openai" | "native")``
+        :raises OllamaError: 모든 시도 실패 시.
+        """
+        last_exc: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            # OpenAI path
+            try:
+                raw = self._call_openai(messages, num_ctx=num_ctx,
+                                        force_json=force_json)
+                return raw, "openai"
+            except httpx.HTTPError as e:
+                last_exc = e
+                log.debug("OpenAI path failed (%s); trying native", e)
+            # Native fallback
+            try:
+                raw = self._call_native(messages, num_ctx=num_ctx,
+                                        force_json=force_json)
+                return raw, "native"
+            except httpx.HTTPError as e:
+                last_exc = e
+            # 둘 다 실패 — cold-start 류 에러면 backoff 후 재시도, 아니면 break
+            if not isinstance(last_exc, self._COLD_START_ERRORS):
+                break
+            if attempt >= self.max_retries:
+                break
+            wait = min(2 ** attempt * 1.0, 15.0)
+            log.info(
+                "chat transport cold-start retry %d/%d after %.1fs (%s: %s)",
+                attempt + 1, self.max_retries, wait,
+                type(last_exc).__name__, last_exc,
+            )
+            time.sleep(wait)
+        raise OllamaError(stage="chat", path="native", cause=last_exc) from last_exc
 
     def _call_openai(
         self, messages: list[ChatMessage], *, num_ctx: int, force_json: bool
