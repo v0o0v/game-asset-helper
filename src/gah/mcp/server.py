@@ -64,6 +64,21 @@ stable until users edit the vocabulary; refresh on change.
   로 프레임 인덱스 + fps_hint 를 받아 Unity AnimationClip 코드를 직접 만들 수 있다.
 - 사용 가능한 animation 이름은 자산의 animations_json 키.
   404_not_found 응답의 메시지에 available 목록이 포함됨.
+
+## Unity Asset Store 통합 (M7)
+
+GAH 는 Unity Asset Store 로컬 캐시(.unitypackage) 도 인덱싱한다. 사용자가
+이미 다운받아 둔 패키지 중 어떤 게 라이브러리에 임포트됐는지·아직 안 됐는지
+파악하려면:
+
+  scan_unity_asset_store_cache    — 캐시 디렉터리 재스캔.
+  list_unity_packages(state="discovered")
+                                   — 아직 임포트 안 된 패키지 목록.
+                                     각 row 의 import_url 로 사용자에게
+                                     "이 패키지 임포트하려면 <URL>" 안내.
+
+임포트(파일 추출) 자체는 사용자가 웹 UI 에서 직접 트리거해야 한다 — MCP
+도구로는 임포트할 수 없다(사용자 통제 보존).
 """
 
 
@@ -77,7 +92,7 @@ def build_server(
     config: Config,
     paths: Any | None = None,
 ) -> FastMCP:
-    """18 도구를 등록한 FastMCP 인스턴스 반환 (M3 12 + M4 saved_searches 4 + M5 request_user_pick 1 + M6 suggest_animation_frames 1)."""
+    """20 도구를 등록한 FastMCP 인스턴스 반환 (M3 12 + M4 saved_searches 4 + M5 request_user_pick 1 + M6 suggest_animation_frames 1 + M7 scan+list 2)."""
     server = FastMCP("game-asset-helper", instructions=INSTRUCTIONS)
     deps = t.ToolDeps(
         store=store, search=search, usage=usage,
@@ -163,6 +178,16 @@ def register_all_tools(server: FastMCP, deps: t.ToolDeps) -> None:
     def suggest_animation_frames(req: m.SuggestAnimationFramesRequest) -> m.SuggestAnimationFramesResult:
         return t.tool_suggest_animation_frames(deps, req)
 
+    # M7: 19번째 도구
+    @server.tool(description="Unity Asset Store 캐시 디렉터리를 스캔해 .unitypackage 목록을 DB 에 동기화한다.")
+    def scan_unity_asset_store_cache(req: m.ScanUnityAssetStoreCacheRequest) -> m.ScanUnityAssetStoreCacheResult:
+        return t.tool_scan_unity_asset_store_cache(deps, req)
+
+    # M7: 20번째 도구
+    @server.tool(description="unity_imports 목록을 반환한다. state/publisher/asset_name 필터, 페이지네이션, 미리보기 카운트 지원.")
+    def list_unity_packages(req: m.ListUnityPackagesRequest) -> m.ListUnityPackagesResult:
+        return t.tool_list_unity_packages(deps, req)
+
 
 def run_stdio() -> None:
     """``python -m gah --mcp`` 진입점.
@@ -199,7 +224,7 @@ def run_stdio() -> None:
         store=store, search=search, usage=usage,
         registry=registry, queue=None, config=cfg, paths=paths,
     )
-    log.info("MCP stdio server starting; tools=18 instructions_len=%d", len(INSTRUCTIONS))
+    log.info("MCP stdio server starting; tools=20 instructions_len=%d", len(INSTRUCTIONS))
     try:
         server.run(transport="stdio")
     except KeyboardInterrupt:
