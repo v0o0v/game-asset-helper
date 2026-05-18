@@ -1,17 +1,17 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-19 (M7 Phase 0~7 완료 + 수동 검증 통과 + 후속 patch 19건)
-**마지막 완료 마일스톤**: **M7 — Unity Asset Store 임포트 + 프로젝트 워크플로** — ✅ 완료 + 수동 검증 통과
-**현재 브랜치**: `feat/m7-unity-asset-store-import` (main 위 50+ commit, working tree clean)
-**다음 작업**: PR 생성 → main 머지 → **M8 — 패키징 + i18n**
+**마지막 인계 시각**: 2026-05-19 (M7 [PR #8](https://github.com/v0o0v/game-asset-helper/pull/8) main 머지 완료)
+**마지막 완료 마일스톤**: **M7 — Unity Asset Store 임포트 + 프로젝트 워크플로** — ✅ 완료 (사용자 수동 검증 통과)
+**현재 브랜치**: `main` (origin/main 과 sync, working tree clean)
+**다음 작업**: **M8 — 패키징 + i18n** (1주) — `superpowers:brainstorming` → spec/plan 부터 시작
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가"를 한 번에 파악하도록 작성된 스냅샷이다.
 
 ## 1. 한 줄 요약
 
-M7 (Unity Asset Store 임포트 + 프로젝트 워크플로) **전체 완료 + 사용자 수동 검증 통과**. 7 phase + 후속 patch 19건 (수동 검증 중 발견된 회귀/UX 개선) 누적. pytest **1000 passed + 3 skipped + 40 deselected** (M6 887 + M7 spec +124 → +사용자 의도 정리로 일부 테스트 폐기 -11). MCP 18 → **20 도구**. 격리 불변식 I-1~I-5 회귀 테스트 고정. 신규 의존성 0. 다음 = PR 머지 후 M8.
+M7 (Unity Asset Store 임포트 + 프로젝트 워크플로) **PR #8 main 머지 완료**. 7 phase + 후속 patch 19건 (수동 검증 중 발견된 회귀 / UX 개선) 누적. pytest **1002 passed + 1 skipped + 40 deselected** (M6 887 baseline + M7 +115). MCP 18 → **20 도구** (`scan_unity_asset_store_cache` + `list_unity_packages`). 격리 불변식 I-1~I-5 회귀 테스트 고정. 신규 의존성 0. 다음 = **M8 (패키징 + i18n)** spec/plan 부터.
 
-수동 검증 결과 + 후속 patch 19 목록은 [`milestones/M7_verification.md`](./milestones/M7_verification.md) 참고.
+수동 검증 결과 + 후속 patch 19 목록 + 시나리오는 [`milestones/M7_verification.md`](./milestones/M7_verification.md) §8~§9 참고.
 
 ## 2. 검증된 사실 (M7 완료)
 
@@ -86,39 +86,49 @@ git status
 pytest -q
 ```
 
-→ `1011 passed, 1 skipped, 40 deselected`.
+→ `1002 passed, 1 skipped, 40 deselected`.
 
 ## 5. 다음 세션 진입 절차 (M8 시작)
 
-### 5.1 M7 PR 머지 확인
-
-`feat/m7-unity-asset-store-import` 브랜치를 PR로 main 에 머지한 뒤 main 으로 복귀:
+### 5.1 환경 복원 + 회귀 검증
 
 ```powershell
-git checkout main
+& "$env:USERPROFILE\.venvs\gah\Scripts\Activate.ps1"
 ```
 
 ```powershell
-git pull origin main
+cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 ```
+
+```powershell
+git status
+```
+
+→ `On branch main` + `up to date with 'origin/main'` + working tree clean.
 
 ```powershell
 pytest -q
 ```
 
-→ `1011 passed, 1 skipped, 40 deselected`.
+→ `1002 passed, 1 skipped, 40 deselected` (M7 머지 결과).
 
 ### 5.2 M8 시작
 
 1. `superpowers:brainstorming` 으로 M8 옵션 비교
 2. `superpowers:writing-plans` 로 `milestones/M8_plan.md` 작성
-3. `superpowers:subagent-driven-development` 로 phase 별 진행
+3. `superpowers:subagent-driven-development` 로 phase 별 진행 (M5/M6/M7 검증된 패턴)
 
-M8 핵심:
-- 웹 UI i18n (Jinja2 + babel, `Config.ui_language`)
-- Pack/프로젝트 탭 풍부 UX (메타 수정, manual_override, 사용 분포 차트)
-- 다크/라이트 모드 토글 UI
-- PyInstaller 단일 exe
+M8 핵심 (DESIGN.md §11 Milestone 8):
+- **PyInstaller 단일 exe** — 일반 사용자 배포 (torch CUDA/CPU 통합 + 모든 의존성 단일 .exe)
+- **웹 UI i18n** — Jinja2 + babel, `Config.ui_language` (현재 한국어 hardcoded)
+- (선택) 다크/라이트 모드 토글 UI
+- (선택) 자동 동기화 스케줄러 (M7 의 부팅 1회 + 매일 자동 — M7 에서 v2 로 미룸)
+
+### 5.3 다음 세션이 자동 로드하는 메모리
+
+- [M8 시작 직전 상태 (2026-05-19)](./.claude/.../memory/project_m8_starting_state.md) — M7 PR #8 머지 완료, 1002 passed + 1 skipped + 40 deselected, MCP 20 도구. 다음 세션이 M8 spec/plan 부터.
+
+(메모리 인덱스의 `project_m7_*` 시리즈는 main 머지 완료라 stale — `project_m8_starting_state.md` 만 active.)
 
 ## 6. 마일스톤 재정렬 (M7 완료)
 
