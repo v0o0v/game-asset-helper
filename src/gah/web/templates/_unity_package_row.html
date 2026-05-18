@@ -17,25 +17,19 @@
     {% endif %}
   </td>
   <td class="unity-actions">
+    {# M7 patch — form method="post" 는 JSON 응답을 페이지로 렌더하는 회귀가 있어
+       vanilla fetch (app.js 의 gahUnityAction) 으로 통일. 응답 후 페이지 새로고침. #}
     {% if item.import_state in ("discovered", "previewed") %}
-      <form method="post" action="/api/unity-packages/{{ item.id }}/preview" style="display:inline">
-        <button type="submit">{{ _("미리보기") }}</button>
-      </form>
+      <button type="button" onclick="gahUnityAction(this, 'preview', {{ item.id }})">{{ _("미리보기") }}</button>
     {% endif %}
     {% if item.import_state in ("discovered", "previewed", "skipped") %}
-      <form method="post" action="/api/unity-packages/{{ item.id }}/import" style="display:inline">
-        <button type="submit">{{ _("임포트") }}</button>
-      </form>
+      <button type="button" onclick="gahUnityAction(this, 'import', {{ item.id }})">{{ _("임포트") }}</button>
     {% endif %}
     {% if item.import_state in ("discovered", "previewed") %}
-      <form method="post" action="/api/unity-packages/{{ item.id }}/skip" style="display:inline">
-        <button type="submit">{{ _("건너뜀") }}</button>
-      </form>
+      <button type="button" onclick="gahUnityAction(this, 'skip', {{ item.id }})">{{ _("건너뜀") }}</button>
     {% endif %}
     {% if item.import_state == "skipped" %}
-      <form method="post" action="/api/unity-packages/{{ item.id }}/restore" style="display:inline">
-        <button type="submit">{{ _("다시 후보로") }}</button>
-      </form>
+      <button type="button" onclick="gahUnityAction(this, 'restore', {{ item.id }})">{{ _("다시 후보로") }}</button>
     {% endif %}
   </td>
 </tr>

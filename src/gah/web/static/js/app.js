@@ -116,6 +116,37 @@ window.onPickResolved = function (evt) {
 };
 
 /**
+ * M7 — Unity Asset Store 페이지 row 액션 핸들러 (vanilla).
+ *
+ * action: 'preview' | 'import' | 'skip' | 'restore'
+ * 응답 OK → location.reload() 로 row 갱신. 'import' 는 큰 .unitypackage 면
+ * 수 초~수십 초 걸릴 수 있어 버튼을 "임포트 중..." 으로 잠시 변경.
+ */
+window.gahUnityAction = function (btn, action, uid) {
+  if (btn.disabled) return;
+  var origLabel = btn.textContent;
+  btn.disabled = true;
+  if (action === "import") {
+    btn.textContent = "임포트 중...";
+  }
+  fetch("/api/unity-packages/" + uid + "/" + action, { method: "POST" })
+    .then(function (r) {
+      if (!r.ok) {
+        console.warn("[GAH] unity " + action + " failed:", r.status);
+        btn.textContent = origLabel;
+        btn.disabled = false;
+        return;
+      }
+      location.reload();
+    })
+    .catch(function (e) {
+      console.warn("[GAH] unity " + action + " error:", e);
+      btn.textContent = origLabel;
+      btn.disabled = false;
+    });
+};
+
+/**
  * Native EventSource 직접 등록 — htmx-sse 우회.
  *
  * DOMContentLoaded 시점에 한 번 등록. 페이지 진입마다 새 EventSource 인스턴스
