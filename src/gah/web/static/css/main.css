@@ -209,10 +209,13 @@ html, body {
   align-items: center;
 }
 .card-list-thumb { width: 40px; height: 40px; flex-shrink: 0; }
-.card-list-body { display: flex; flex: 1; gap: 12px; align-items: baseline; min-width: 0; }
+.card-list-body { display: flex; flex: 1; gap: 12px; align-items: baseline; min-width: 0; flex-wrap: wrap; }
 .card-list .name { font-weight: 600; }
 .card-list .pack, .card-list .labels, .card-list .meta { opacity: 0.7; font-size: 0.85em; }
 .card-list .score { margin-left: auto; opacity: 0.6; }
+/* Phase 6 fix: audio-slot 가 채워지면 다음 줄로 풀폭 — 한 줄 flex 안에서
+   찌그러져 보이던 audio 컨트롤이 정상 노출. */
+.card-list .audio-slot:not(:empty) { flex-basis: 100%; width: 100%; }
 
 /* === 풋터 === */
 .app-footer {
