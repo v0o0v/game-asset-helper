@@ -107,7 +107,12 @@ async def api_scan(request: Request) -> dict[str, Any]:
 
 @router.post("/api/unity-packages/{uid}/import")
 async def api_import(uid: int, request: Request) -> dict[str, Any]:
-    """패키지를 GAH 라이브러리로 임포트한다."""
+    """패키지를 GAH 라이브러리로 임포트한다.
+
+    M7 patch — 임포트 성공 시 reconcile_library 즉시 호출. LibraryWatcher
+    가 신규 디렉터리를 실시간 감지 못 하는 케이스 (watchdog 의 일부 환경
+    edge case) 회피 + 사용자가 페이지 새로고침 직후 카드 확인 가능.
+    """
     deps = request.app.state.deps
     row = deps.store.get_unity_import_by_id(uid)
     if row is None:
@@ -117,6 +122,13 @@ async def api_import(uid: int, request: Request) -> dict[str, Any]:
     library_root = deps.library_root or deps.paths.library_dir
     importer = UnityImporter(store=deps.store, library_root=library_root)
     result = importer.import_package(uid)
+    if result.state == "imported":
+        from gah.core.scanner import reconcile_library
+        try:
+            report = reconcile_library(deps.store, library_root)
+            log.info("Unity 임포트 후 reconcile: %s", report)
+        except Exception as e:
+            log.warning("Unity 임포트 후 reconcile 실패: %s", e)
     return {
         "state": result.state,
         "pack_name": result.pack_name,
