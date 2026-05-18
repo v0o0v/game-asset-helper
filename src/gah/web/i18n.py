@@ -44,6 +44,24 @@ def _t(text: str, locale: str = "ko") -> str:
 
 
 def setup_jinja_i18n(env: Any) -> None:
-    """M5 호환 entry point — Task 3 에서 ContextVar 기반으로 재정의."""
-    # 호환을 위한 임시 placeholder — Task 3 에서 install_gettext_callables 로 교체.
-    env.globals["_"] = _t
+    """Jinja2 환경에 i18n 확장 + `{{ _("...") }}` 가 현재 request locale 로 동작.
+
+    M8: `jinja2.ext.i18n` 추가 + `install_gettext_callables` 로 gettext/ngettext
+    바인딩. callable 은 ContextVar `current_locale` 을 읽어 매 호출마다 현재
+    request 의 locale 을 적용.
+    """
+    from .locale_middleware import current_locale
+
+    env.add_extension("jinja2.ext.i18n")
+
+    def _gettext(msg: str) -> str:
+        return _t(msg, current_locale.get())
+
+    def _ngettext(singular: str, plural: str, n: int) -> str:
+        return _t(singular if n == 1 else plural, current_locale.get())
+
+    env.install_gettext_callables(  # type: ignore[attr-defined]
+        gettext=_gettext, ngettext=_ngettext, newstyle=True,
+    )
+    # M5 호환 — `env.globals["_"]` 도 등록 (일부 템플릿이 직접 사용).
+    env.globals["_"] = _gettext
