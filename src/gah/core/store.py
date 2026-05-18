@@ -747,11 +747,15 @@ class Store:
         return [_asset_row(r) for r in rows]
 
     def count_pending_assets(self) -> int:
-        return int(
-            self.conn.execute(
-                "SELECT COUNT(*) FROM assets WHERE analysis_state = 'pending'"
-            ).fetchone()[0]
-        )
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM assets WHERE analysis_state = 'pending'"
+        ).fetchone()
+        # SQLite 의 COUNT(*) 는 항상 row 1개 반환하지만, 트레이 부팅 직후
+        # 분석 워커 thread 가 conn 을 쓰는 동시에 main thread 가 schema
+        # migration 중이면 cursor 가 일시적으로 None 을 보낼 수 있어 방어.
+        if row is None or row[0] is None:
+            return 0
+        return int(row[0])
 
     # -- M2: meta writers ---------------------------------------------
 
