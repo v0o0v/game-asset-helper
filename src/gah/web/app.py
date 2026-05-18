@@ -31,6 +31,7 @@ from .routers import (
     picks,
     saved_searches,
     sse,
+    unity_asset_store,
 )
 
 log = logging.getLogger(__name__)
@@ -106,6 +107,7 @@ def build_app(deps: WebDeps) -> FastAPI:
     app.include_router(picks.router_ui)  # /ui/pick-card/{rid} HTML fragment
     app.include_router(sse.router)
     app.include_router(pages.router)  # HTML 페이지 라우트 (/, /library)
+    app.include_router(unity_asset_store.router)  # M7 Unity Asset Store
 
     # ── 전역 에러 핸들러 ──────────────────────────────────────────────
     # /api/* 경로는 JSON 응답 유지; 그 외 경로는 친절한 HTML 에러 페이지 반환.
