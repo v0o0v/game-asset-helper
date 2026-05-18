@@ -35,6 +35,14 @@
       {% if row.kind == "sprite" and row.width and row.height %}
         &middot; {{ row.width }}&times;{{ row.height }}
       {% endif %}
+      {% if row.kind == "spritesheet" and row.frame_count %}
+        &middot;
+        <span class="frame-badge"
+              aria-label="{{ row.frame_count }} frames"
+              title="{{ row.frame_count }} frames">
+          &#127902; {{ row.frame_count }} frames
+        </span>
+      {% endif %}
       <span x-show="$store.search.cardMeta.size">
         {% if row.size_kb %} &middot; {{ row.size_kb }}KB{% endif %}
       </span>

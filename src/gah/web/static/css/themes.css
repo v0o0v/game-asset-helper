@@ -13,6 +13,8 @@
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
+  --frame-badge-bg: #e6f0ff;
+  --frame-badge-fg: #1d4ed8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,5 +31,7 @@
     --success: #34d399;
     --warning: #fbbf24;
     --error: #f87171;
+    --frame-badge-bg: #1e3a8a;
+    --frame-badge-fg: #bfdbfe;
   }
 }
