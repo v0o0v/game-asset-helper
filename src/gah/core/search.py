@@ -520,6 +520,15 @@ class HybridSearcher:
                 if srow:
                     kind_meta["duration_ms"] = int(srow[0])
                     kind_meta["loopable"] = bool(srow[1]) if srow[1] is not None else None
+            elif k == "spritesheet":  # M6
+                srow = self.store.conn.execute(
+                    "SELECT frame_w, frame_h, frame_count FROM sprite_meta WHERE asset_id = ?",
+                    (int(aid),),
+                ).fetchone()
+                if srow:
+                    kind_meta["frame_w"] = int(srow[0]) if srow[0] is not None else None
+                    kind_meta["frame_h"] = int(srow[1]) if srow[1] is not None else None
+                    kind_meta["frame_count"] = int(srow[2]) if srow[2] is not None else None
             out[int(aid)] = {
                 "pack_id": int(pack_id),
                 "pack_name": pname,

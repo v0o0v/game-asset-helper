@@ -268,3 +268,16 @@ class RequestUserPickResult(_BaseModel):
     picked_asset_id: int
     picked_at: int
     user_note: str | None = None
+
+
+# ── M6 — Sheet animation frames ──────────────────────────────────────
+
+
+class SuggestAnimationFramesRequest(_BaseModel):
+    asset_id: int = Field(ge=1)
+    animation: str = Field(min_length=1, max_length=64)
+
+
+class SuggestAnimationFramesResult(_BaseModel):
+    frame_indices: list[int]
+    fps_hint: int

@@ -82,6 +82,10 @@ def _row_to_dict(row: Any) -> dict[str, Any]:
     d.setdefault("width", meta.get("width"))
     d.setdefault("height", meta.get("height"))
     d.setdefault("size_kb", meta.get("size_kb"))
+    # M6 — spritesheet 의 frame 정보를 top-level 로 flatten
+    d.setdefault("frame_count", meta.get("frame_count"))
+    d.setdefault("frame_w", meta.get("frame_w"))
+    d.setdefault("frame_h", meta.get("frame_h"))
 
     # matched_labels 는 list[dict] 이지만 asdict 이후 그대로 유지됨
     return d
@@ -132,6 +136,11 @@ def _asset_row_to_dict(row: Any) -> dict[str, Any]:
         "size_kb": row.file_size // 1024 if row.file_size else None,
         "added_at": row.added_at,
         "kind": row.kind,
+        # M6 — frame_count 는 sprite_meta JOIN 없이 빠르게 처리하지 않으므로 None.
+        # 시트 카드는 검색 경로에서만 배지 노출.
+        "frame_count": None,
+        "frame_w": None,
+        "frame_h": None,
     }
     return d
 
@@ -260,6 +269,27 @@ def _list_all_assets(deps: Any, body: SearchBody) -> dict[str, Any]:
         return {"query_id": None, "total": 0, "rows": [], "next_offset": None}
 
     all_rows = [_asset_row_to_dict(a) for a in all_assets]
+
+    # M6 — spritesheet 행에 frame_count 보충 (sprite_meta JOIN)
+    sheet_ids = [r["asset_id"] for r in all_rows if r["kind"] == "spritesheet"]
+    if sheet_ids:
+        placeholders = ",".join("?" * len(sheet_ids))
+        frame_rows = deps.store.conn.execute(
+            f"SELECT asset_id, frame_w, frame_h, frame_count FROM sprite_meta WHERE asset_id IN ({placeholders})",
+            sheet_ids,
+        ).fetchall()
+        frame_map = {
+            int(fr[0]): {
+                "frame_w": int(fr[1]) if fr[1] is not None else None,
+                "frame_h": int(fr[2]) if fr[2] is not None else None,
+                "frame_count": int(fr[3]) if fr[3] is not None else None,
+            }
+            for fr in frame_rows
+        }
+        for row in all_rows:
+            if row["kind"] == "spritesheet" and row["asset_id"] in frame_map:
+                row.update(frame_map[row["asset_id"]])
+
     all_rows = _apply_sort(all_rows, effective_sort)
 
     total = len(all_rows)

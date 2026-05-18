@@ -72,6 +72,23 @@ class _FakeSound(_FakeSprite):
         )
 
 
+class _FakeSpritesheet(_FakeSprite):
+    """M6 — SpritesheetAnalyzer mock. 기본은 _FakeSprite 위임 (시트 검출 실패 케이스).
+
+    calls 는 이 클래스 자신이 analyze() 를 받은 횟수를 샌다.
+    sprite 인자를 받으면 내부에서 sprite.analyze() 도 호출해 위임한다.
+    """
+
+    def __init__(self, *, sprite=None, fail: bool = False, delay: float = 0.0) -> None:
+        super().__init__(fail=fail, delay=delay)
+        self._sprite = sprite
+
+    def analyze(self, inp: AnalyzerInput) -> AnalyzerResult:
+        if self._sprite is not None:
+            return self._sprite.analyze(inp)
+        return super().analyze(inp)
+
+
 def _wait_until(predicate, *, timeout: float = 3.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -86,7 +103,8 @@ def _wait_until(predicate, *, timeout: float = 3.0) -> None:
 def test_enqueue_asset_processes_via_correct_analyzer(store, tmp_path) -> None:
     sprite, sound = _FakeSprite(), _FakeSound()
     pack_id, [a1] = _make_pack_with_assets(store, ["a.png"], kind="sprite")
-    q = AnalysisQueue(store, sprite=sprite, sound=sound, concurrency=1)
+    # M6: sprite kind 는 spritesheet analyzer 를 거쳐 sprite 로 위임
+    q = AnalysisQueue(store, sprite=sprite, spritesheet=_FakeSpritesheet(sprite=sprite), sound=sound, concurrency=1)
     q.start()
     try:
         q.enqueue_asset(a1)
@@ -100,7 +118,7 @@ def test_enqueue_asset_processes_via_correct_analyzer(store, tmp_path) -> None:
 def test_enqueue_pack_drains_all_pending_in_pack(store, tmp_path) -> None:
     sprite, sound = _FakeSprite(), _FakeSound()
     pack_id, ids = _make_pack_with_assets(store, ["a.png", "b.png", "c.png"])
-    q = AnalysisQueue(store, sprite=sprite, sound=sound, concurrency=1)
+    q = AnalysisQueue(store, sprite=sprite, spritesheet=_FakeSpritesheet(sprite=sprite), sound=sound, concurrency=1)
     q.start()
     try:
         q.enqueue_pack(pack_id)
@@ -115,7 +133,7 @@ def test_drain_pending_picks_up_existing_pending_rows_on_boot(
 ) -> None:
     sprite, sound = _FakeSprite(), _FakeSound()
     pack_id, ids = _make_pack_with_assets(store, ["a.png", "b.png"])
-    q = AnalysisQueue(store, sprite=sprite, sound=sound, concurrency=1)
+    q = AnalysisQueue(store, sprite=sprite, spritesheet=_FakeSpritesheet(sprite=sprite), sound=sound, concurrency=1)
     enqueued = q.drain_pending()
     assert enqueued == 2
     q.start()
@@ -130,7 +148,7 @@ def test_concurrency_one_processes_serially(store, tmp_path) -> None:
     sprite = _FakeSprite(delay=0.2)
     sound = _FakeSound()
     pack_id, ids = _make_pack_with_assets(store, ["a.png", "b.png", "c.png"])
-    q = AnalysisQueue(store, sprite=sprite, sound=sound, concurrency=1)
+    q = AnalysisQueue(store, sprite=sprite, spritesheet=_FakeSpritesheet(sprite=sprite), sound=sound, concurrency=1)
     q.start()
     try:
         start = time.monotonic()
@@ -151,7 +169,7 @@ def test_failed_analyzer_marks_state_failed_without_killing_worker(
     sprite = _FakeSprite(fail=True)
     sound = _FakeSound()
     pack_id, [a1, a2] = _make_pack_with_assets(store, ["a.png", "b.png"])
-    q = AnalysisQueue(store, sprite=sprite, sound=sound, concurrency=1)
+    q = AnalysisQueue(store, sprite=sprite, spritesheet=_FakeSpritesheet(sprite=sprite), sound=sound, concurrency=1)
     q.start()
     try:
         q.enqueue_pack(pack_id)
@@ -169,7 +187,7 @@ def test_signal_emitted_for_each_finished_asset(store, tmp_path) -> None:
 
     sprite, sound = _FakeSprite(), _FakeSound()
     pack_id, ids = _make_pack_with_assets(store, ["a.png", "b.png"])
-    q = AnalysisQueue(store, sprite=sprite, sound=sound, concurrency=1)
+    q = AnalysisQueue(store, sprite=sprite, spritesheet=_FakeSpritesheet(sprite=sprite), sound=sound, concurrency=1)
     finished: list[int] = []
     # 워커 스레드에서 emit 되는 시그널을 메인 스레드 이벤트 루프 없이 잡기 위해
     # DirectConnection 사용 — 실서비스는 GUI 의 QueuedConnection 으로 받는다.
@@ -189,7 +207,7 @@ def test_stop_waits_for_in_flight_analyzer_to_finish(store, tmp_path) -> None:
     sprite = _FakeSprite(delay=0.3)
     sound = _FakeSound()
     pack_id, [a1] = _make_pack_with_assets(store, ["a.png"])
-    q = AnalysisQueue(store, sprite=sprite, sound=sound, concurrency=1)
+    q = AnalysisQueue(store, sprite=sprite, spritesheet=_FakeSpritesheet(sprite=sprite), sound=sound, concurrency=1)
     q.start()
     q.enqueue_asset(a1)
     time.sleep(0.05)  # 워커가 일을 시작할 시간 확보
@@ -200,7 +218,7 @@ def test_stop_waits_for_in_flight_analyzer_to_finish(store, tmp_path) -> None:
 def test_pack_completion_triggers_aggregate_update(store, tmp_path) -> None:
     sprite, sound = _FakeSprite(), _FakeSound()
     pack_id, ids = _make_pack_with_assets(store, ["a.png", "b.png"])
-    q = AnalysisQueue(store, sprite=sprite, sound=sound, concurrency=1)
+    q = AnalysisQueue(store, sprite=sprite, spritesheet=_FakeSpritesheet(sprite=sprite), sound=sound, concurrency=1)
     q.start()
     try:
         q.enqueue_pack(pack_id)

@@ -19,6 +19,7 @@ from .config import AppPaths, Config
 from .core.analysis_queue import AnalysisQueue
 from .core.analyzer.sound import SoundAnalyzer
 from .core.analyzer.sprite import SpriteAnalyzer
+from .core.analyzer.spritesheet import SpritesheetAnalyzer  # M6
 from .core.clip_labeler import ClipLabeler, OpenClipBackend
 from .core.consistency import ConsistencyScorer
 from .core.embedding import EmbeddingEncoder
@@ -102,6 +103,10 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     sprite = SpriteAnalyzer(
         ollama=ollama, clip=clip, embedder=embedder, registry=registry,
     )
+    spritesheet = SpritesheetAnalyzer(  # M6
+        sprite=sprite, ollama=ollama,
+        registry=registry, embedder=embedder, clip=clip,
+    )
     sound = SoundAnalyzer(
         ollama=ollama, embedder=embedder, registry=registry,
         spectrogram_cache_dir=paths.cache_dir / "spectrograms",
@@ -109,7 +114,9 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
         chunk_strategy=config.audio_chunk_strategy,
     )
     queue = AnalysisQueue(
-        store, sprite=sprite, sound=sound,
+        store, sprite=sprite,
+        spritesheet=spritesheet,  # M6 신규 keyword
+        sound=sound,
         concurrency=config.analysis_concurrency,
         library_root=library_root,
     )

@@ -63,7 +63,8 @@ class SpriteMeta:
     frame_w: int | None = None
     frame_h: int | None = None
     frame_count: int | None = None
-    animation_tags: list[str] | None = None  # M5 가 채움
+    animation_tags: list[str] | None = None  # M5 가 채움 → M6 분석기가 채움
+    animations_json: dict | None = None  # M6 — {name: {start_frame, end_frame, fps_hint, source}}
 
 
 @dataclass(frozen=True)
@@ -372,6 +373,17 @@ class Store:
         self.conn.executescript(_M2_SCHEMA)
         self.conn.executescript(_M3_SCHEMA)
         self.conn.executescript(_M4_SCHEMA)
+        self._migrate_m6_animations_json()
+
+    def _migrate_m6_animations_json(self) -> None:
+        """M6 — sprite_meta.animations_json 컬럼 idempotent 추가."""
+        with self.write_lock:
+            cur = self.conn.execute("PRAGMA table_info(sprite_meta)")
+            cols = {r[1] for r in cur.fetchall()}
+            if "animations_json" not in cols:
+                self.conn.execute(
+                    "ALTER TABLE sprite_meta ADD COLUMN animations_json TEXT"
+                )
 
     def close(self) -> None:
         try:
@@ -751,8 +763,9 @@ class Store:
                 """
                 INSERT OR REPLACE INTO sprite_meta (
                   asset_id, width, height, has_alpha, is_pixel_art,
-                  dominant_colors, frame_w, frame_h, frame_count, animation_tags
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  dominant_colors, frame_w, frame_h, frame_count, animation_tags,
+                  animations_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     asset_id,
@@ -765,7 +778,57 @@ class Store:
                     meta.frame_h,
                     meta.frame_count,
                     json.dumps(meta.animation_tags) if meta.animation_tags else None,
+                    json.dumps(meta.animations_json) if meta.animations_json is not None else None,
                 ),
+            )
+
+    def get_sprite_meta(self, asset_id: int) -> "SpriteMeta | None":
+        """asset_id 의 sprite_meta 행을 SpriteMeta 로 반환. 없으면 None."""
+        import json
+
+        row = self.conn.execute(
+            """
+            SELECT width, height, has_alpha, is_pixel_art, dominant_colors,
+                   frame_w, frame_h, frame_count, animation_tags, animations_json
+              FROM sprite_meta WHERE asset_id = ?
+            """,
+            (asset_id,),
+        ).fetchone()
+        if row is None:
+            return None
+
+        # JSON 디코드 — 손상 데이터에 견고하게
+        try:
+            dominant_colors = json.loads(row[4]) if row[4] else []
+        except (json.JSONDecodeError, TypeError):
+            dominant_colors = []
+        try:
+            animation_tags = json.loads(row[8]) if row[8] else None
+        except (json.JSONDecodeError, TypeError):
+            animation_tags = None
+        try:
+            animations_json = json.loads(row[9]) if row[9] else None
+        except (json.JSONDecodeError, TypeError):
+            animations_json = None
+
+        return SpriteMeta(
+            width=int(row[0]), height=int(row[1]),
+            has_alpha=bool(row[2]), is_pixel_art=bool(row[3]),
+            dominant_colors=dominant_colors,
+            frame_w=int(row[5]) if row[5] is not None else None,
+            frame_h=int(row[6]) if row[6] is not None else None,
+            frame_count=int(row[7]) if row[7] is not None else None,
+            animation_tags=animation_tags,
+            animations_json=animations_json,
+        )
+
+    def update_asset_kind(self, asset_id: int, kind: str) -> None:
+        """분석기가 sprite → spritesheet 로 promote 할 때 호출."""
+        if kind not in ("sprite", "spritesheet", "sound"):
+            raise ValueError(f"invalid kind: {kind}")
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE assets SET kind = ? WHERE id = ?", (kind, asset_id)
             )
 
     def save_sound_meta(self, asset_id: int, meta: SoundMeta) -> None:

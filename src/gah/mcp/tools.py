@@ -48,6 +48,8 @@ from .models import (
     SaveSearchRequest,
     SaveSearchResult,
     SetProjectPinRequest,
+    SuggestAnimationFramesRequest,
+    SuggestAnimationFramesResult,
     SuggestPacksRequest,
     SuggestPacksResult,
 )
@@ -684,3 +686,53 @@ def _auto_record_asset_use(
         tool_record_asset_use(deps, record_req)
     except Exception as e:
         log.warning("자동 record_asset_use 실패: %s", e)
+
+
+# ── M6 — suggest_animation_frames ─────────────────────────────────────
+
+
+def tool_suggest_animation_frames(
+    deps: ToolDeps, req: SuggestAnimationFramesRequest,
+) -> SuggestAnimationFramesResult:
+    """asset_id 시트의 animation 라벨에 해당하는 프레임 인덱스 + fps_hint.
+
+    M6 spec §4.5. 에러:
+      - 404_not_found: asset_id 없음 / sprite_meta 없음 / animation 없음 / animations_json NULL
+      - 400_invalid_input: kind != spritesheet
+    """
+    # 자산 존재 확인 + kind 검사
+    row = deps.store.conn.execute(
+        "SELECT kind FROM assets WHERE id = ?", (req.asset_id,)
+    ).fetchone()
+    if row is None:
+        raise McpToolError(
+            "404_not_found", f"asset {req.asset_id} not found"
+        )
+    kind = str(row[0])
+    if kind != "spritesheet":
+        raise McpToolError(
+            "400_invalid_input",
+            f"asset {req.asset_id} is kind={kind}, not a spritesheet",
+        )
+
+    meta = deps.store.get_sprite_meta(req.asset_id)
+    if meta is None or not meta.animations_json:
+        raise McpToolError(
+            "404_not_found",
+            f"asset {req.asset_id} has no animations recorded",
+        )
+
+    anim_dict = meta.animations_json
+    if req.animation not in anim_dict:
+        available = sorted(anim_dict.keys())
+        raise McpToolError(
+            "404_not_found",
+            f"animation '{req.animation}' not found — available: {available}",
+        )
+
+    spec = anim_dict[req.animation]
+    start = int(spec.get("start_frame", 0))
+    end = int(spec.get("end_frame", start))
+    fps = int(spec.get("fps_hint", 12)) or 12
+    indices = list(range(start, end + 1))
+    return SuggestAnimationFramesResult(frame_indices=indices, fps_hint=fps)

@@ -57,6 +57,13 @@ diversity: "none" (default) / "mmr" (λ trade-off, 0.7 recommended) /
 Always pass the same project_id throughout a session — consistency and
 feedback penalty both depend on it.  The `signature` of list_labels stays
 stable until users edit the vocabulary; refresh on change.
+
+## 시트 + 애니메이션 (M6)
+- find_asset 결과 중 kind='spritesheet' 인 자산이 있고 사용자가
+  특정 애니메이션(예: walk) 을 요청했다면, suggest_animation_frames(asset_id, animation)
+  로 프레임 인덱스 + fps_hint 를 받아 Unity AnimationClip 코드를 직접 만들 수 있다.
+- 사용 가능한 animation 이름은 자산의 animations_json 키.
+  404_not_found 응답의 메시지에 available 목록이 포함됨.
 """
 
 
@@ -70,7 +77,7 @@ def build_server(
     config: Config,
     paths: Any | None = None,
 ) -> FastMCP:
-    """17 도구를 등록한 FastMCP 인스턴스 반환 (M3 12 + M4 saved_searches 4 + M5 request_user_pick 1)."""
+    """18 도구를 등록한 FastMCP 인스턴스 반환 (M3 12 + M4 saved_searches 4 + M5 request_user_pick 1 + M6 suggest_animation_frames 1)."""
     server = FastMCP("game-asset-helper", instructions=INSTRUCTIONS)
     deps = t.ToolDeps(
         store=store, search=search, usage=usage,
@@ -151,6 +158,11 @@ def register_all_tools(server: FastMCP, deps: t.ToolDeps) -> None:
     def request_user_pick(req: m.RequestUserPickRequest) -> m.RequestUserPickResult:
         return t.tool_request_user_pick(deps, req)
 
+    # M6 Phase 3: 18번째 도구
+    @server.tool(description="스프라이트 시트의 애니메이션(walk/idle/...)에 해당하는 frame_indices + fps_hint 를 반환한다 (Unity AnimationClip 직접 사용).")
+    def suggest_animation_frames(req: m.SuggestAnimationFramesRequest) -> m.SuggestAnimationFramesResult:
+        return t.tool_suggest_animation_frames(deps, req)
+
 
 def run_stdio() -> None:
     """``python -m gah --mcp`` 진입점.
@@ -187,7 +199,7 @@ def run_stdio() -> None:
         store=store, search=search, usage=usage,
         registry=registry, queue=None, config=cfg, paths=paths,
     )
-    log.info("MCP stdio server starting; tools=17 instructions_len=%d", len(INSTRUCTIONS))
+    log.info("MCP stdio server starting; tools=18 instructions_len=%d", len(INSTRUCTIONS))
     try:
         server.run(transport="stdio")
     except KeyboardInterrupt:

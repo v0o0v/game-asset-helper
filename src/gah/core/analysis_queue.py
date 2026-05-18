@@ -31,6 +31,7 @@ from .pack_aggregate import write_aggregate
 if TYPE_CHECKING:
     from .analyzer.sound import SoundAnalyzer
     from .analyzer.sprite import SpriteAnalyzer
+    from .analyzer.spritesheet import SpritesheetAnalyzer
     from .store import Store
 
 log = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ class AnalysisQueue(QObject):
         store: "Store",
         *,
         sprite: "SpriteAnalyzer",
+        spritesheet: "SpritesheetAnalyzer",  # M6 신규
         sound: "SoundAnalyzer",
         concurrency: int = 1,
         eta_window: int = 10,
@@ -86,6 +88,7 @@ class AnalysisQueue(QObject):
         super().__init__()
         self.store = store
         self.sprite = sprite
+        self.spritesheet = spritesheet  # M6
         self.sound = sound
         self.concurrency = max(1, int(concurrency))
         self.library_root = library_root
@@ -241,7 +244,11 @@ class AnalysisQueue(QObject):
         try:
             self.store.mark_asset_analyzing(asset_id)
             inp = self._build_input(row)
-            analyzer = self.sprite if row.kind == "sprite" else self.sound
+            # M6: sprite kind 는 SpritesheetAnalyzer 로 라우팅 (내부에서 폴백 처리)
+            analyzer = (
+                self.spritesheet if row.kind == "sprite"
+                else self.sound
+            )
             result = analyzer.analyze(inp)
             self._persist(asset_id, result)
         except Exception as e:  # noqa: BLE001 — 워커가 죽으면 안 됨
@@ -287,6 +294,9 @@ class AnalysisQueue(QObject):
                 result.embedding_vector, result.embedding_dim,
             )
         self.store.update_fts(asset_id, result.searchable.for_fts)
+        # M6 — SpritesheetAnalyzer 만 sprite → spritesheet promote (다른 analyzer 는 영향 X)
+        if result.kind == "spritesheet":
+            self.store.update_asset_kind(asset_id, "spritesheet")
         self.store.mark_asset_state(
             asset_id, result.state, error=result.error,
             analyzed_at=int(time.time()),

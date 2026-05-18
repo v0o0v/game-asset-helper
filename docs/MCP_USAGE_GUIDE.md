@@ -8,7 +8,7 @@
 python -m gah --mcp
 ```
 
-→ JSON-RPC over stdio. Claude Code 는 이 명령을 child process 로 spawn 하고 `tools/list` 로 **17 개** 도구를 발견한다 (M3 의 12 + M4 의 saved_searches 4 + **M5 의 request_user_pick 1**).
+→ JSON-RPC over stdio. Claude Code 는 이 명령을 child process 로 spawn 하고 `tools/list` 로 **18 개** 도구를 발견한다 (M3 의 12 + M4 의 saved_searches 4 + M5 의 request_user_pick 1 + **M6 의 suggest_animation_frames 1**).
 
 ## 1. 라벨 어휘는 "자기 기술" 한다
 
@@ -262,6 +262,31 @@ GAH 웹 UI 가 열려 있어야 동작한다.
 | `408_timeout` | `timeout_seconds` 내에 사용자 응답 없음 |
 | `499_user_cancelled` | 사용자가 [✕ 거부] 클릭 |
 | `503_too_many_pending` | 동시 요청 20건 한도 초과 (정상 흐름에서는 발생 안 함) |
+
+### 6.9 M6 신규 1 도구 — `suggest_animation_frames`
+
+스프라이트 시트 자산의 애니메이션 → 프레임 인덱스 매핑.
+
+```jsonc
+// input
+{ "asset_id": 88, "animation": "walk" }
+
+// output
+{ "frame_indices": [0,1,2,3,4,5,6,7], "fps_hint": 11 }
+```
+
+사용 예시 (Claude Code 가 Unity AnimationClip 생성):
+
+```csharp
+// Unity Editor 스크립트
+var clip = new AnimationClip { frameRate = 11 };
+// frame_indices = [0,1,2,3,4,5,6,7]
+// sprite_w=32, sprite_h=32 → 각 프레임의 Rect 계산
+```
+
+에러:
+- `404_not_found` — asset 없음 / sprite_meta 없음 / animation 미존재 (응답 메시지에 available 목록 포함).
+- `400_invalid_input` — `kind != "spritesheet"`.
 
 ## 7. `signature` 캐시 무효화 시나리오
 
