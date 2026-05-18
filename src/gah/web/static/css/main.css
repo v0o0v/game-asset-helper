@@ -1256,8 +1256,9 @@ html, body {
 .unity-cache-path code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
 .unity-empty { color: var(--text-muted); }
 .unity-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.unity-table th, .unity-table td { padding: 8px; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.9em; }
-.unity-table th { font-weight: 600; background: var(--chip-bg); }
+.unity-table th, .unity-table td { padding: 8px; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.unity-table th { font-weight: 600; background: var(--chip-bg); text-align: center; }
+.unity-table td { text-align: left; }
 .unity-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* M7 patch — Unity 표 컬럼 너비 + 정렬 헤더 */
