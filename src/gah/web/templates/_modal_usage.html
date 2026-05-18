@@ -1,0 +1,32 @@
+{# M5 — 통일성/페널티 상세 모달 fragment (Task 3.15).
+   HTMX 가 #usage-modal 에 swap. 오버레이 클릭 or 닫기 버튼으로 닫기. #}
+<div class="modal-overlay" @click.self="document.getElementById('usage-modal').innerHTML=''" x-data>
+  <div class="modal-content">
+    <button class="modal-close"
+            @click="document.getElementById('usage-modal').innerHTML=''"
+            aria-label="{{ _('닫기') }}">✕</button>
+
+    <h2>{{ _("통일성 / 페널티 상세") }}</h2>
+    <p class="usage-detail-window">
+      {{ _("최근") }} {{ (summary.window_seconds // 86400) }} {{ _("일 사용 요약") }}
+    </p>
+
+    {% if summary.top_packs %}
+      <h3>{{ _("채택 상위 팩") }}</h3>
+      <ul class="usage-pack-list">
+        {% for p in summary.top_packs %}
+          <li class="usage-pack-item">
+            <span class="usage-pack-name">{{ p.pack_name or p.pack_id }}</span>
+            <span class="usage-pack-count">{{ p.uses }} {{ _("회") }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="usage-empty">{{ _("아직 채택된 팩이 없습니다.") }}</p>
+    {% endif %}
+
+    <p class="usage-rejected">
+      {{ _("거부 횟수") }}: <strong>{{ summary.rejected_count }}</strong>
+    </p>
+  </div>
+</div>

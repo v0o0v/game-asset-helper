@@ -1,0 +1,32 @@
+{# M5 — 카드 전용 fragment.
+   초기 로드(_results_grid.html 에서 include) 와
+   페이지네이션 더 보기(offset>0, ui_search_results 직접 반환) 모두 사용.
+   더 보기 버튼은 hx-target="this" + hx-swap="outerHTML" 로 자기 자신을 교체 →
+   새 카드 batch + 새 더 보기 버튼(없으면 버튼 사라짐). #}
+
+{# Phase 6 fix: <template x-if> 는 DOM 에서 element 를 add/remove 하므로
+   htmx 의 attribute 스캔이 토글 시 누락 (재생 버튼 안 눌리는 버그). x-show 로
+   바꿔 둘 다 DOM 에 렌더 + visibility 만 토글 → htmx 가 초기에 양쪽 모두 process. #}
+<div class="cards-batch">
+  <div class="grid-container"
+       x-show="$store.search.viewMode === 'grid' || !$store.search.viewMode">
+    {% for row in rows %}
+      {% include "_card_wide.html" %}
+    {% endfor %}
+  </div>
+  <div class="list-container"
+       x-show="$store.search.viewMode === 'list'">
+    {% for row in rows %}
+      {% include "_card_list.html" %}
+    {% endfor %}
+  </div>
+</div>
+
+{% if next_offset is not none %}
+  <button class="load-more"
+          hx-post="/ui/search-results"
+          hx-target="this"
+          hx-swap="outerHTML"
+          hx-include="form.search-bar"
+          hx-vals='{"offset": {{ next_offset }}}'>{{ _("더 보기") }}</button>
+{% endif %}

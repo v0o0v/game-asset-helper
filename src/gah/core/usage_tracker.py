@@ -31,6 +31,7 @@ class UsageTracker:
         *,
         query_id: int | None = None,
         context: str | None = None,
+        source: str = "explicit",
     ) -> int:
         pack_id = self._pack_id_for_asset(asset_id)
         if pack_id is None:
@@ -38,7 +39,7 @@ class UsageTracker:
             log.warning("record_explicit: asset_id=%s has no pack row", asset_id)
             pack_id = 0
         return self.store.record_asset_use(
-            project_id, asset_id, pack_id, source="explicit", context=context,
+            project_id, asset_id, pack_id, source=source, context=context,
         )
 
     # ----- 암묵 top1 추정 ------------------------------------------

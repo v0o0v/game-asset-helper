@@ -238,8 +238,8 @@ def test_run_saved_search_404_when_name_missing(mcp_tool_deps) -> None:
 # ── 4. server 등록 회귀 가드 ─────────────────────────────────────────
 
 
-def test_register_all_tools_count_is_16(mcp_tool_deps) -> None:
-    """M3 의 12 → M4 의 16 (saved_searches 4 추가)."""
+def test_register_all_tools_count_is_17(mcp_tool_deps) -> None:
+    """M3 의 12 → M4 의 16 → M5 의 17 (request_user_pick 추가)."""
     from gah.mcp.server import build_server
 
     deps = mcp_tool_deps()
@@ -248,7 +248,7 @@ def test_register_all_tools_count_is_16(mcp_tool_deps) -> None:
         registry=deps.registry, queue=None, config=deps.config,
     )
     # FastMCP 의 도구 목록 접근법은 SDK 버전에 따라 다름 — `tool_manager._tools`
-    # 또는 `list_tools()` 어느 쪽이든 길이 16 이어야.
+    # 또는 `list_tools()` 어느 쪽이든 길이 17 이어야.
     names: set[str] = set()
     if hasattr(server, "_tool_manager"):
         names = set(server._tool_manager._tools.keys())
@@ -260,7 +260,8 @@ def test_register_all_tools_count_is_16(mcp_tool_deps) -> None:
             return {t.name for t in tools}
 
         names = asyncio.run(_names())
-    assert len(names) == 16
-    # 4 신규 도구 모두 등록되었는지 확인.
+    assert len(names) == 17
+    # M4 4 신규 도구 + M5 1 신규 도구 모두 등록되었는지 확인.
     assert {"save_search", "list_saved_searches",
-            "delete_saved_search", "run_saved_search"} <= names
+            "delete_saved_search", "run_saved_search",
+            "request_user_pick"} <= names

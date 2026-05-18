@@ -1,0 +1,69 @@
+{# M5 Phase 4B — Claude request_user_pick 결과 카드 fragment.
+   GET /ui/pick-card/{rid} 가 렌더.
+   SSE user_pick_request 이벤트 수신 시 htmx.ajax 로 #pick-cards 에 삽입됨.
+
+   컨텍스트 변수:
+     rid        — request_id (str)
+     reason     — 요청 이유 (str | None)
+     candidates — 후보 에셋 메타 dict 리스트
+                  각 dict: asset_id, name, kind, pack_name, width, height, size_kb
+#}
+<div class="pick-card-group" data-rid="{{ rid }}">
+  <div class="pick-header">
+    <span class="badge">🤖 {{ _('Claude 요청') }}</span>
+    <span class="reason">{{ reason or _('후보 중 골라줘') }}</span>
+    <button class="cancel-pick"
+            hx-post="/api/user-pick/{{ rid }}/cancel"
+            hx-target="closest .pick-card-group"
+            hx-swap="delete"
+            onclick="event.stopPropagation()">✕ {{ _('거부') }}</button>
+  </div>
+
+  <div class="pick-candidates">
+    {% for asset in candidates %}
+      <div class="card-wide pick-candidate purple-strip kind-{{ asset.kind }}"
+           data-asset-id="{{ asset.asset_id }}">
+        {# 썸네일 #}
+        <div class="card-thumb">
+          {% if asset.kind == "sprite" %}
+            <img src="/api/thumbnail/{{ asset.asset_id }}"
+                 loading="lazy" alt="{{ asset.name }}"
+                 width="60" height="60" />
+          {% elif asset.kind == "sound" %}
+            <span class="sound-icon" aria-hidden="true">&#128266;</span>
+          {% else %}
+            <span class="generic-icon" aria-hidden="true">&#128230;</span>
+          {% endif %}
+        </div>
+
+        {# 본문 — 이름 + 팩 + 크기 #}
+        <div class="card-body">
+          <div class="card-title">
+            <span class="name">{{ asset.name }}</span>
+          </div>
+          <div class="card-meta">
+            {{ asset.pack_name or "" }}
+            {% if asset.kind == "sprite" and asset.width and asset.height %}
+              &middot; {{ asset.width }}&times;{{ asset.height }}
+            {% endif %}
+            {% if asset.size_kb %}
+              &middot; {{ asset.size_kb }}KB
+            {% endif %}
+          </div>
+        </div>
+
+        {# [채택] 버튼 — hx-post 로 resolve.
+           hx-swap="delete" 가 응답 body 무시 + 카드 그룹 자동 삭제 (응답이
+           JSON {"ok": true} 인데 outerHTML 로 swap 하면 페이지에 raw text
+           노출되던 버그 fix). #}
+        <button class="adopt-pick"
+                hx-post="/api/user-pick/{{ rid }}"
+                hx-vals='{"picked_asset_id": {{ asset.asset_id }}}'
+                hx-ext="json-enc"
+                hx-target="closest .pick-card-group"
+                hx-swap="delete"
+                onclick="event.stopPropagation()">{{ _('채택') }}</button>
+      </div>
+    {% endfor %}
+  </div>
+</div>

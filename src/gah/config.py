@@ -12,6 +12,7 @@ import os
 import shutil
 import sys
 from dataclasses import asdict, dataclass, field
+from enum import Enum
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -82,6 +83,13 @@ _VALID_DESCRIPTION_LANGUAGES = ("ko", "en")
 _VALID_AUDIO_CHUNK_STRATEGIES = ("smart", "first", "rms_peak")
 
 
+class UsageSource(str, Enum):
+    """`record_asset_use` 의 source 값 — M5 에서 'claude_pick' 신규 추가."""
+    MANUAL = "manual"
+    MCP = "mcp"
+    CLAUDE_PICK = "claude_pick"
+
+
 @dataclass
 class Config:
     ollama_url: str = "http://127.0.0.1:11434"
@@ -150,6 +158,14 @@ class Config:
     feedback_pack_penalty: float = -0.1
     # 페널티 윈도우 (초). 윈도우 밖 행은 검색 가중치에 반영 안 함. 30일.
     feedback_window_seconds: int = 2_592_000
+    # M5 fields (web GUI transition)
+    web_host: str = "127.0.0.1"
+    web_port: int = 9874
+    web_port_max_attempts: int = 10
+    claude_pick_timeout_seconds: int = 300
+    claude_pick_max_pending: int = 20
+    web_open_browser_on_start: bool = True
+    web_log_requests: bool = False
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "Config":

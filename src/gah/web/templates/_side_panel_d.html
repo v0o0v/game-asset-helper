@@ -1,0 +1,262 @@
+{# D 탭 — 가중치 프리셋 + 슬라이더 (Task 3.12 / 3.13) #}
+<div class="side-panel-section">
+
+  {# ── 프리셋 3 버튼 (Task 3.12) ────────────────────────────── #}
+  <div class="preset-section">
+    <h4 class="section-heading">{{ _("가중치 프리셋") }}</h4>
+    <div class="preset-row">
+      <button type="button"
+              class="preset-btn"
+              @click="applyPreset('balanced')"
+              :class="{ active: $store.d.activePreset === 'balanced' }">
+        {{ _("균형") }}
+      </button>
+      <button type="button"
+              class="preset-btn"
+              @click="applyPreset('consistency')"
+              :class="{ active: $store.d.activePreset === 'consistency' }">
+        {{ _("통일성 우선") }}
+      </button>
+      <button type="button"
+              class="preset-btn"
+              @click="applyPreset('novelty')"
+              :class="{ active: $store.d.activePreset === 'novelty' }">
+        {{ _("참신성") }}
+      </button>
+    </div>
+    <p class="preset-desc" x-text="$store.d.presetDesc"></p>
+  </div>
+
+  {# ── 슬라이더 6개 (Task 3.13) — details 펼침 UI ───────────── #}
+  <details class="weights-section">
+    <summary class="weights-summary">{{ _("▶ 슬라이더 직접 조정…") }}</summary>
+    <div class="sliders">
+
+      <label class="slider-row">
+        <span class="slider-label">{{ _("의미 (semantic)") }}</span>
+        <input type="range" min="0" max="100"
+               x-model.number="$store.weights.semantic"
+               @change="syncWeights()" />
+        <output class="slider-output" x-text="$store.weights.semantic + '%'"></output>
+      </label>
+
+      <label class="slider-row">
+        <span class="slider-label">{{ _("키워드 (keyword)") }}</span>
+        <input type="range" min="0" max="100"
+               x-model.number="$store.weights.keyword"
+               @change="syncWeights()" />
+        <output class="slider-output" x-text="$store.weights.keyword + '%'"></output>
+      </label>
+
+      <label class="slider-row">
+        <span class="slider-label">{{ _("라벨 (label)") }}</span>
+        <input type="range" min="0" max="100"
+               x-model.number="$store.weights.label"
+               @change="syncWeights()" />
+        <output class="slider-output" x-text="$store.weights.label + '%'"></output>
+      </label>
+
+      <label class="slider-row">
+        <span class="slider-label">{{ _("통일성 (consistency)") }}</span>
+        <input type="range" min="0" max="100"
+               x-model.number="$store.weights.consistency"
+               @change="syncWeights()" />
+        <output class="slider-output" x-text="$store.weights.consistency + '%'"></output>
+      </label>
+
+      <label class="slider-row">
+        <span class="slider-label">{{ _("신선도 (recency)") }}</span>
+        <input type="range" min="0" max="100"
+               x-model.number="$store.weights.recency"
+               @change="syncWeights()" />
+        <output class="slider-output" x-text="$store.weights.recency + '%'"></output>
+      </label>
+
+      <label class="slider-row">
+        <span class="slider-label">{{ _("피드백 (feedback)") }}</span>
+        <input type="range" min="0" max="100"
+               x-model.number="$store.weights.feedback"
+               @change="syncWeights()" />
+        <output class="slider-output" x-text="$store.weights.feedback + '%'"></output>
+      </label>
+
+    </div>
+  </details>
+
+  {# ── 저장된 검색 (Task 3.14) ──────────────────────────────── #}
+  <div class="saved-section" x-data="savedSearches()" x-init="fetchSaved()">
+    <h4 class="section-heading">{{ _("저장된 검색") }}</h4>
+    <ul class="saved-list">
+      <template x-for="ss in items" :key="ss.id">
+        <li class="saved-item" @click="loadSaved(ss)">
+          <span class="saved-name" x-text="ss.name"></span>
+          <button type="button"
+                  class="saved-del-btn"
+                  @click.stop="deleteSaved(ss)"
+                  :title="'{{ _('삭제') }}'">×</button>
+        </li>
+      </template>
+      <li class="saved-empty" x-show="items.length === 0">
+        <span>{{ _("아직 저장된 검색이 없습니다.") }}</span>
+      </li>
+    </ul>
+    <div class="save-form">
+      <input type="text"
+             class="save-name-input"
+             x-model="newName"
+             placeholder="{{ _('새 검색 이름…') }}" />
+      <button type="button"
+              class="save-btn"
+              @click="saveCurrent()"
+              :disabled="!newName.trim()">
+        {{ _("+ 현재 검색 저장") }}
+      </button>
+    </div>
+  </div>
+
+  {# ── 통일성 / 페널티 요약 (Task 3.15) ─────────────────────── #}
+  <div class="usage-section" x-data="usageSummary()" x-init="fetchSummary()">
+    <h4 class="section-heading">{{ _("통일성 / 페널티") }}</h4>
+    <p class="usage-summary-line">
+      {{ _("채택 상위 팩") }}: <strong x-text="summary.top_packs.length"></strong>
+      {{ _("개") }} &nbsp;·&nbsp;
+      {{ _("거부") }}: <strong x-text="summary.rejected_count"></strong>
+    </p>
+    <button type="button"
+            class="usage-detail-btn"
+            hx-get="/ui/usage/detail"
+            hx-target="#usage-modal"
+            hx-swap="innerHTML">
+      {{ _("상세 보기") }}
+    </button>
+  </div>
+  <div id="usage-modal" class="modal-container"></div>
+
+</div>
+
+<script>
+  /**
+   * applyPreset(name) — 프리셋 버튼 클릭 시 서버에 POST 후 sliders + 검색 재실행.
+   * Alpine store 'weights' 와 'd' 를 동기화한다.
+   */
+  function applyPreset(name) {
+    const descs = {
+      balanced: '의미·키워드·라벨·통일성·신선도·피드백을 균형있게 (디폴트).',
+      consistency: '이미 채택한 팩을 강하게 우선합니다 (consistency 0.40).',
+      novelty: '통일성을 낮추고 의미 위주로 다양한 후보를 탐색합니다 (consistency 0.05).',
+    };
+    fetch('/api/preset/' + name, { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        Alpine.store('d').activePreset = name;
+        Alpine.store('d').presetDesc = descs[name] || '';
+        var w = d.weights;
+        Alpine.store('weights').semantic     = Math.round(w.semantic     * 100);
+        Alpine.store('weights').keyword      = Math.round(w.keyword      * 100);
+        Alpine.store('weights').label        = Math.round(w.label_match  * 100);
+        Alpine.store('weights').consistency  = Math.round(w.consistency  * 100);
+        Alpine.store('weights').recency      = Math.round(w.recency      * 100);
+        Alpine.store('weights').feedback     = Math.round(w.feedback     * 100);
+        var form = document.querySelector('form.search-bar');
+        if (form) { htmx.trigger(form, 'submit'); }
+      });
+  }
+
+  /**
+   * syncWeights() — 슬라이더 값 변경 시 정규화 후 서버에 POST + 검색 재실행.
+   * 6채널 합으로 0-1 정규화. preset active 상태 해제.
+   */
+  function syncWeights() {
+    var ws = Alpine.store('weights');
+    var total = ws.semantic + ws.keyword + ws.label + ws.consistency + ws.recency + ws.feedback;
+    if (total <= 0) { return; }
+    var norm = {
+      semantic:     ws.semantic     / total,
+      keyword:      ws.keyword      / total,
+      label_match:  ws.label        / total,
+      consistency:  ws.consistency  / total,
+      recency:      ws.recency      / total,
+      feedback:     ws.feedback     / total,
+    };
+    fetch('/api/weights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(norm),
+    }).then(function() {
+      Alpine.store('d').activePreset = null;
+      Alpine.store('d').presetDesc = '';
+      var form = document.querySelector('form.search-bar');
+      if (form) { htmx.trigger(form, 'submit'); }
+    });
+  }
+
+  /**
+   * savedSearches() — D 탭 저장된 검색 Alpine 컴포넌트.
+   * items: 서버 목록 / newName: 저장 이름 입력.
+   */
+  function savedSearches() {
+    return {
+      items: [],
+      newName: '',
+      fetchSaved: function() {
+        fetch('/api/saved-searches')
+          .then(function(r) { return r.json(); })
+          .then(function(d) { this.items = d; }.bind(this));
+      },
+      saveCurrent: function() {
+        if (!this.newName.trim()) { return; }
+        var query = {
+          query:     Alpine.store('search').query,
+          match_mode: Alpine.store('search').matchMode,
+          labels:    Alpine.store('b').selectedLabels,
+          pack_ids:  Alpine.store('b').selectedPackIds,
+          sort:      Alpine.store('search').sort,
+          view_mode: Alpine.store('search').viewMode,
+          card_size: Alpine.store('search').cardSize,
+        };
+        fetch('/api/saved-searches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: this.newName.trim(), query: query }),
+        })
+          .then(function() { this.newName = ''; this.fetchSaved(); }.bind(this));
+      },
+      deleteSaved: function(ss) {
+        if (!confirm('"' + ss.name + '" 을(를) 삭제할까요?')) { return; }
+        fetch('/api/saved-searches/' + encodeURIComponent(ss.name), { method: 'DELETE' })
+          .then(function() { this.fetchSaved(); }.bind(this));
+      },
+      loadSaved: function(ss) {
+        fetch('/api/saved-searches/run/' + ss.id, { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            var q = d.query;
+            if (q.query     !== undefined) { Alpine.store('search').query     = q.query; }
+            if (q.match_mode !== undefined) { Alpine.store('search').matchMode = q.match_mode; }
+            if (q.labels    !== undefined) { Alpine.store('b').selectedLabels   = q.labels; }
+            if (q.pack_ids  !== undefined) { Alpine.store('b').selectedPackIds  = q.pack_ids; }
+            if (q.sort      !== undefined) { Alpine.store('search').sort      = q.sort; }
+            if (q.view_mode !== undefined) { Alpine.store('search').viewMode  = q.view_mode; }
+            if (q.card_size !== undefined) { Alpine.store('search').cardSize  = q.card_size; }
+            var form = document.querySelector('form.search-bar');
+            if (form) { htmx.trigger(form, 'submit'); }
+            this.fetchSaved();
+          }.bind(this));
+      },
+    };
+  }
+
+  /**
+   * usageSummary() — D 탭 통일성/페널티 요약 Alpine 컴포넌트.
+   */
+  function usageSummary() {
+    return {
+      summary: { top_packs: [], rejected_count: 0, window_seconds: 0 },
+      fetchSummary: function() {
+        fetch('/api/usage/summary')
+          .then(function(r) { return r.json(); })
+          .then(function(d) { this.summary = d; }.bind(this));
+      },
+    };
+  }
+</script>

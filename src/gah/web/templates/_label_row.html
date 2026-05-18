@@ -1,0 +1,47 @@
+{# M5 Phase 5B — 라벨 행 partial.
+   POST /api/labels / PATCH /api/labels/{id} HTML fragment 응답 + _labels_admin_grid include 용.
+   label: dict 또는 LabelRow — id, axis, label, description, source, enabled
+#}
+<tr class="label-row{% if not label.enabled %} disabled{% endif %}"
+    data-label-id="{{ label.id }}">
+  <td class="label-token">
+    <span class="chip{% if label.enabled %} matched{% endif %}">{{ label.label }}</span>
+  </td>
+  <td class="label-desc">
+    <span class="desc-text" x-data="{ editing: false }">
+      <span x-show="!editing"
+            @dblclick="editing = true">{{ label.description or '' }}</span>
+      <form x-show="editing"
+            @submit.prevent="editing = false"
+            hx-patch="/api/labels/{{ label.id }}"
+            hx-ext="json-enc"
+            hx-target="closest tr"
+            hx-swap="outerHTML">
+        <input type="text"
+               name="description"
+               value="{{ label.description or '' }}"
+               @blur="editing = false">
+      </form>
+    </span>
+  </td>
+  <td class="label-source">{{ label.source }}</td>
+  <td class="label-enabled">
+    <button class="btn btn-sm{% if label.enabled %} btn-active{% else %} btn-inactive{% endif %}"
+            hx-patch="/api/labels/{{ label.id }}"
+            hx-ext="json-enc"
+            hx-vals='{"enabled": {{ "false" if label.enabled else "true" }}}'
+            hx-target="closest tr"
+            hx-swap="outerHTML">
+      {% if label.enabled %}{{ _('활성') }}{% else %}{{ _('비활성') }}{% endif %}
+    </button>
+  </td>
+  <td class="label-actions">
+    <button class="btn btn-sm btn-danger"
+            hx-delete="/api/labels/{{ label.id }}"
+            hx-confirm="{{ _('정말 삭제하시겠습니까?') }}"
+            hx-target="closest tr"
+            hx-swap="delete swap:0s">
+      {{ _('삭제') }}
+    </button>
+  </td>
+</tr>

@@ -173,3 +173,59 @@ def test_assets_for_pack_returns_in_path_order(store) -> None:
 
     paths = [r.path for r in store.assets_for_pack(pid)]
     assert paths == sorted(paths)
+
+
+# ─── get_pack_by_id (Phase 3 cleanup 항목 1) ─────────────────────────────
+
+
+def test_get_pack_by_id_returns_pack_row(store) -> None:
+    """존재하는 pack_id → PackRow 반환."""
+    from gah.core.manifest import PackManifest
+    from gah.core.store import PackRow
+
+    pid = store.upsert_pack(
+        "kenney_demo",
+        PackManifest(display_name="Kenney Demo", vendor="kenney", source_url=None, license="CC0", description=None),
+        scanned_at=5,
+    )
+    row = store.get_pack_by_id(pid)
+    assert row is not None
+    assert isinstance(row, PackRow)
+    assert row.id == pid
+    assert row.name == "kenney_demo"
+    assert row.vendor == "kenney"
+
+
+def test_get_pack_by_id_returns_none_for_missing(store) -> None:
+    """존재하지 않는 pack_id → None."""
+    assert store.get_pack_by_id(99999) is None
+
+
+# ─── get_saved_search_by_id (Phase 3 cleanup 항목 2) ─────────────────────
+
+
+def test_get_saved_search_by_id_returns_row(store) -> None:
+    """존재하는 saved_search id → SavedSearchRow 반환."""
+    import json
+    from gah.core.store import SavedSearchRow
+
+    store.upsert_saved_search(
+        project_id=None,
+        name="my_search",
+        query_json=json.dumps({"query": "hero", "count": 10}),
+    )
+    # id 는 list_saved_searches 로 조회
+    rows = store.list_saved_searches(project_id=None)
+    assert len(rows) == 1
+    ss_id = rows[0].id
+
+    result = store.get_saved_search_by_id(ss_id)
+    assert result is not None
+    assert isinstance(result, SavedSearchRow)
+    assert result.id == ss_id
+    assert result.name == "my_search"
+
+
+def test_get_saved_search_by_id_returns_none_for_missing(store) -> None:
+    """존재하지 않는 id → None."""
+    assert store.get_saved_search_by_id(99999) is None

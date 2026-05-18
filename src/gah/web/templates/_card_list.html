@@ -1,0 +1,41 @@
+{# M5 — 리스트 뷰 카드 (풀폭, 더 많은 메타). #}
+<div class="card-list kind-{{ row.kind }}"
+     data-asset-id="{{ row.asset_id }}"
+     hx-get="/ui/asset-detail/{{ row.asset_id }}"
+     hx-target="#asset-detail-modal"
+     hx-trigger="click, keydown[key==='Enter']"
+     role="button"
+     tabindex="0">
+  <div class="card-list-thumb">
+    {% if row.kind == "sprite" %}
+      <img src="/api/thumbnail/{{ row.asset_id }}"
+           loading="lazy" alt="{{ row.name }}" width="40" height="40" />
+    {% elif row.kind == "sound" %}
+      <span class="sound-icon">&#128266;</span>
+    {% else %}
+      <span class="generic-icon">&#128230;</span>
+    {% endif %}
+  </div>
+  <div class="card-list-body">
+    <span class="name">{{ row.name }}</span>
+    <span class="pack" x-show="$store.search.cardMeta.pack">{{ row.pack_name or "" }}</span>
+    <span class="labels" x-show="$store.search.cardMeta.labels">
+      {% if row.matched_labels %}{{ (row.matched_labels[:5] | map(attribute='label') | list) | join(", ") }}{% endif %}
+    </span>
+    <span class="meta">
+      {% if row.kind == "sprite" and row.width and row.height %}{{ row.width }}&times;{{ row.height }}{% endif %}
+      <span x-show="$store.search.cardMeta.size">
+        {% if row.size_kb %} &middot; {{ row.size_kb }}KB{% endif %}
+      </span>
+    </span>
+    <span class="score" x-show="$store.search.cardMeta.score">{{ "%.2f"|format(row.score or 0) }}</span>
+    {% if row.kind == "sound" %}
+      <button class="play-btn"
+              hx-get="/ui/audio-player/{{ row.asset_id }}"
+              hx-target="next .audio-slot"
+              hx-swap="innerHTML"
+              onclick="event.stopPropagation()">&#9654; 재생</button>
+      <div class="audio-slot"></div>
+    {% endif %}
+  </div>
+</div>

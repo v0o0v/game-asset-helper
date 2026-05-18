@@ -1,0 +1,1238 @@
+/* M5 — 라이브러리 페이지 + 결과 + 사이드 패널 + B 탭 필터 + 모바일 반응형. */
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+/* === 상단 네비 === */
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.nav-brand a { color: var(--fg); text-decoration: none; }
+.nav-links a {
+  color: var(--fg);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+.nav-links a.active,
+.nav-links a:hover {
+  background: var(--chip-bg);
+}
+.notif-badge {
+  background: var(--purple-strip);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85em;
+}
+
+/* === 검색 바 === */
+.search-bar {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+.search-bar input[type="search"] {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 1em;
+}
+.search-bar .advanced-toggle,
+.search-bar .search-submit {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.search-bar .search-submit {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.search-bar .advanced-toggle.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* === 라이브러리 본문 === */
+.library-body {
+  display: flex;
+  gap: 16px;
+  padding: 16px 24px;
+  min-height: calc(100vh - 200px);
+}
+.results-section { flex: 1; min-width: 0; }
+.side-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  position: sticky;
+  top: 80px;
+  align-self: flex-start;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+.resize-handle {
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 5;
+}
+.side-panel-placeholder {
+  color: var(--fg);
+  opacity: 0.7;
+}
+.side-panel-placeholder .hint { font-size: 0.85em; opacity: 0.7; }
+
+/* === 사이드 패널 B/C/D 탭 === */
+.side-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.side-tabs button {
+  flex: 1;
+  padding: 8px 4px;
+  background: var(--card-bg);
+  color: var(--fg);
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 500;
+  transition: background 0.1s;
+}
+.side-tabs button:last-child { border-right: none; }
+.side-tabs button.active {
+  background: var(--accent);
+  color: white;
+}
+.side-tabs button:hover:not(.active) { background: var(--chip-bg); }
+
+.side-tab-content { padding: 4px 0; }
+
+.placeholder-content { color: var(--fg); opacity: 0.7; padding: 8px 0; }
+.placeholder-content h3 { margin: 0 0 8px; font-size: 0.95em; }
+.placeholder-content p { margin: 0; font-size: 0.85em; line-height: 1.5; }
+
+/* === 사이드 패널 슬라이드 transition 유틸 === */
+.side-panel-enter { transition: transform 200ms ease, opacity 200ms ease; }
+.translate-x-full { transform: translateX(100%); opacity: 0; }
+.translate-x-0 { transform: translateX(0); opacity: 1; }
+
+/* === 결과 영역 (카드들) === */
+.results-meta {
+  margin-bottom: 12px;
+  color: var(--fg);
+  opacity: 0.8;
+}
+.results-cards.view-mode-grid .grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+/* Phase 6 fix: sound 카드의 audio 컨트롤은 좁은 240px 폭에서 timeline 이 너무
+   작게 표시 → grid 에서 2 column 차지로 폭 확보. 1 column 환경에선 자동 1. */
+.results-cards.view-mode-grid .grid-container > .card-wide.kind-sound {
+  grid-column: span 2;
+}
+.results-cards.view-mode-list .list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* === 와이드 카드 (그리드) === */
+.card-wide {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.card-wide:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.card-thumb {
+  width: 60px; height: 60px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--chip-bg);
+  border-radius: 6px;
+  font-size: 28px;
+}
+.card-thumb img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; }
+.card-body { flex: 1; min-width: 0; }
+.card-title { display: flex; justify-content: space-between; font-weight: 600; }
+.card-title .score { opacity: 0.6; font-weight: normal; font-size: 0.9em; }
+.card-labels, .card-meta { font-size: 0.85em; opacity: 0.7; }
+
+/* === 리스트 카드 === */
+.card-list {
+  display: flex;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  align-items: center;
+}
+.card-list-thumb { width: 40px; height: 40px; flex-shrink: 0; }
+.card-list-body { display: flex; flex: 1; gap: 12px; align-items: baseline; min-width: 0; flex-wrap: wrap; }
+.card-list .name { font-weight: 600; }
+.card-list .pack, .card-list .labels, .card-list .meta { opacity: 0.7; font-size: 0.85em; }
+.card-list .score { margin-left: auto; opacity: 0.6; }
+/* Phase 6 fix: audio-slot 가 채워지면 다음 줄로 풀폭 — 한 줄 flex 안에서
+   찌그러져 보이던 audio 컨트롤이 정상 노출. */
+.card-list .audio-slot:not(:empty) { flex-basis: 100%; width: 100%; }
+
+/* Phase 6 fix: 사이드 패널 ✕ 닫기 — 패널 우상단 corner. 탭과 시각적 분리
+   (탭처럼 보이지 않도록 absolute positioning). 좁은 화면 dead-end 해소. */
+.side-panel { position: relative; }
+.side-panel .side-panel-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 1.1em;
+  line-height: 1;
+}
+.side-panel .side-panel-close:hover { opacity: 1; }
+
+/* === 풋터 === */
+.app-footer {
+  padding: 16px 24px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  opacity: 0.5;
+}
+
+/* === 페이지네이션 === */
+.load-more {
+  display: block;
+  margin: 16px auto;
+  padding: 10px 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg);
+  cursor: pointer;
+}
+.load-more:hover { background: var(--chip-bg); }
+
+/* === 모바일 반응형 === */
+@media (max-width: 768px) {
+  .library-body { flex-direction: column; padding: 12px; }
+  .side-panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    height: 100%; width: 100% !important;
+    border-radius: 0;
+    z-index: 50;
+    box-shadow: -4px 0 16px rgba(0,0,0,0.2);
+    transform: translateX(100%);
+    transition: transform 200ms ease;
+  }
+  /* Alpine x-show 가 display:none → display:block 토글을 하므로
+     display:block 일 때 슬라이드 인. x-show 제거 전 transition 적용.  */
+  .side-panel:not([style*="display: none"]):not([style*="display:none"]) {
+    transform: translateX(0);
+  }
+  .results-cards.view-mode-grid .grid-container {
+    grid-template-columns: 1fr;
+  }
+  /* 모바일에서 리사이즈 핸들 숨김 */
+  .resize-handle { display: none; }
+}
+
+/* === 결과 영역 툴바 === */
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+.view-toggle, .size-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.view-btn, .size-btn {
+  padding: 6px 12px;
+  background: var(--card-bg);
+  color: var(--fg);
+  border: none;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+}
+.view-btn:last-child, .size-btn:last-child { border-right: none; }
+.view-btn.active, .size-btn.active {
+  background: var(--accent);
+  color: white;
+}
+.sort-control select {
+  padding: 6px 10px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.total-count {
+  margin-left: auto;
+  color: var(--fg);
+  opacity: 0.8;
+}
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); border: 0;
+}
+
+/* === 카드 크기 (S/M/L) === */
+.card-size-s .card-wide { padding: 8px; gap: 8px; }
+.card-size-s .card-thumb { width: 40px; height: 40px; }
+.card-size-s .card-thumb img { width: 40px; height: 40px; }
+.card-size-s .card-body { font-size: 0.85em; }
+
+.card-size-m .card-wide { padding: 12px; gap: 12px; }
+.card-size-m .card-thumb { width: 60px; height: 60px; }
+.card-size-m .card-thumb img { width: 60px; height: 60px; }
+
+.card-size-l .card-wide { padding: 16px; gap: 16px; }
+.card-size-l .card-thumb { width: 96px; height: 96px; font-size: 40px; }
+.card-size-l .card-thumb img { width: 96px; height: 96px; }
+.card-size-l .card-body { font-size: 1.05em; }
+
+.card-size-s .card-list-thumb { width: 32px; height: 32px; }
+.card-size-l .card-list-thumb { width: 56px; height: 56px; }
+
+/* === B 탭 — 매칭 모드 + 라벨 검색 + 종류 탭 === */
+.side-panel-heading {
+  margin: 0 0 12px;
+  font-size: 0.95em;
+  font-weight: 600;
+}
+
+.match-mode {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 0 0 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.match-mode-legend {
+  font-size: 0.8em;
+  opacity: 0.7;
+  padding: 0 4px;
+}
+.match-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.label-filter-wrap {
+  margin-bottom: 12px;
+}
+.label-filter-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.9em;
+}
+
+/* === 종류 탭 (B 탭 sub-tab) === */
+.kind-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.kind-tabs button {
+  flex: 1;
+  padding: 7px 4px;
+  background: var(--card-bg);
+  color: var(--fg);
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.82em;
+  font-weight: 500;
+  transition: background 0.1s;
+}
+.kind-tabs button:last-child { border-right: none; }
+.kind-tabs button.active {
+  background: var(--accent);
+  color: white;
+}
+.kind-tabs button:hover:not(.active) { background: var(--chip-bg); }
+
+/* === 칩 — axis 그룹 + FlowLayout === */
+.axis-chips-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.axis-group {
+  margin-bottom: 16px;
+}
+.axis-group h4 {
+  margin: 0 0 6px;
+  font-size: 0.9em;
+  opacity: 0.8;
+  font-weight: 600;
+}
+.chip-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow-x: hidden;  /* spec §4.4.1 — 좌우 스크롤 금지 */
+}
+.chip {
+  padding: 4px 10px;
+  background: var(--chip-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.chip.active {
+  background: var(--chip-active);
+  color: white;
+  border-color: var(--chip-active);
+}
+/* === 칩 — 라벨 검색 매칭 강조 (box-shadow 만 — background 변경 없음) === */
+.chip.matched {
+  box-shadow: 0 0 0 2px var(--chip-matched);
+}
+
+/* === B 탭 다축 필터 (Task 3.8) === */
+.multi-filters {
+  margin-bottom: 12px;
+}
+.filter-group {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+.filter-group summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.88em;
+  font-weight: 600;
+  user-select: none;
+  background: var(--card-bg);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.filter-group summary::-webkit-details-marker { display: none; }
+.filter-group summary::before {
+  content: "▶";
+  font-size: 0.7em;
+  opacity: 0.6;
+  transition: transform 0.15s;
+}
+.filter-group[open] summary::before { transform: rotate(90deg); }
+.filter-group-body {
+  padding: 6px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.filter-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.filter-label input { cursor: pointer; }
+.filter-empty {
+  margin: 0;
+  font-size: 0.82em;
+  opacity: 0.5;
+}
+
+/* === 모달 === */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal-content {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.modal-close {
+  position: absolute; top: 12px; right: 12px;
+  background: transparent; border: none;
+  color: var(--fg); font-size: 1.5em; cursor: pointer;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.modal-header h2 { margin: 0; font-size: 1.2em; word-break: break-all; }
+.kind-badge {
+  padding: 4px 10px; border-radius: 4px;
+  background: var(--chip-bg); font-size: 0.85em; white-space: nowrap;
+}
+.detail-thumb img {
+  max-width: 100%; max-height: 320px;
+  object-fit: contain; display: block; margin: 0 auto;
+}
+.detail-audio { margin: 12px 0; }
+.detail-meta {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 8px 16px; margin: 16px 0;
+}
+.detail-meta dt { font-weight: 600; opacity: 0.7; }
+.detail-meta dd { margin: 0; word-break: break-all; }
+.detail-meta dd.path { font-family: monospace; font-size: 0.85em; }
+.detail-labels { margin-top: 16px; }
+.detail-labels h3 { margin: 0 0 8px; font-size: 0.95em; opacity: 0.8; }
+.label-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.label-chips .chip {
+  padding: 4px 10px; background: var(--chip-bg);
+  border-radius: 12px; font-size: 0.85em;
+}
+.modal-footer {
+  display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;
+}
+.btn-adopt, .btn-reject {
+  padding: 8px 20px; border-radius: 6px;
+  border: none; cursor: pointer; font-weight: 600;
+}
+.btn-adopt { background: var(--accent); color: white; }
+.btn-reject {
+  background: var(--card-bg); color: var(--fg);
+  border: 1px solid var(--border);
+}
+
+/* === C 탭 표시 옵션 === */
+.opt-group {
+  margin-bottom: 20px;
+}
+.opt-group h4 {
+  font-size: 0.85em;
+  font-weight: 600;
+  opacity: 0.7;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.opt-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.opt-select {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--fg);
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.opt-check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.opt-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+/* === D 탭 — 프리셋 + 슬라이더 === */
+.side-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section-heading {
+  font-size: 0.85em;
+  font-weight: 600;
+  opacity: 0.7;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg);
+}
+
+/* 프리셋 섹션 */
+.preset-section {
+  margin-bottom: 4px;
+}
+
+.preset-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.preset-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--fg);
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.preset-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.preset-desc {
+  margin: 0;
+  font-size: 0.8em;
+  color: var(--fg);
+  opacity: 0.7;
+  line-height: 1.4;
+  min-height: 1.4em;
+}
+
+/* 슬라이더 섹션 */
+.weights-section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.weights-summary {
+  padding: 8px 12px;
+  font-size: 0.85em;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  color: var(--fg);
+  opacity: 0.8;
+}
+
+.weights-summary:hover {
+  opacity: 1;
+}
+
+.sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 14px;
+}
+
+.slider-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.slider-label {
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slider-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.slider-output {
+  min-width: 36px;
+  text-align: right;
+  font-size: 0.8em;
+  color: var(--fg);
+  opacity: 0.7;
+}
+
+/* === D 탭 — 저장된 검색 (Task 3.14) === */
+.saved-section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.saved-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.saved-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 0.88em;
+  border-bottom: 1px solid var(--border);
+  transition: background 120ms;
+}
+
+.saved-item:last-child { border-bottom: none; }
+.saved-item:hover { background: var(--chip-bg); }
+
+.saved-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-del-btn {
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  opacity: 0.5;
+  cursor: pointer;
+  font-size: 1em;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.saved-del-btn:hover { opacity: 1; color: #e74c3c; }
+
+.saved-empty {
+  padding: 10px 12px;
+  font-size: 0.82em;
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.save-form {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--card-bg);
+}
+
+.save-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.85em;
+}
+
+.save-btn {
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.82em;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.save-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* === D 탭 — 통일성 / 페널티 요약 (Task 3.15) === */
+.usage-section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.usage-summary-line {
+  margin: 0 0 10px;
+  font-size: 0.88em;
+}
+
+.usage-detail-btn {
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--fg);
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.usage-detail-btn:hover { background: var(--chip-bg); }
+
+/* === M5 Phase 4B — Claude pick 요청 카드 === */
+
+/* 컨테이너 — 여러 pick-card-group 이 #pick-cards 에 쌓임 */
+#pick-cards {
+  padding: 0 0 8px;
+}
+
+/* pick 요청 그룹 전체 */
+.pick-card-group {
+  background: var(--card-bg);
+  border: 2px solid var(--purple-strip);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+/* 헤더 — 배지 + reason + 거부 버튼 */
+.pick-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--purple-strip) 12%, var(--card-bg));
+  border-bottom: 1px solid var(--purple-strip);
+  flex-wrap: wrap;
+}
+
+.pick-header .badge {
+  background: var(--purple-strip);
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.82em;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pick-header .reason {
+  flex: 1;
+  font-size: 0.9em;
+  font-style: italic;
+  color: var(--fg);
+  opacity: 0.85;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* [✕ 거부] 버튼 */
+.cancel-pick {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--purple-strip);
+  background: transparent;
+  color: var(--purple-strip);
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+.cancel-pick:hover {
+  background: var(--purple-strip);
+  color: #fff;
+}
+
+/* 후보 카드 목록 — 세로 스택 */
+.pick-candidates {
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* purple-strip — card-wide 에 보라색 왼쪽 테두리 추가 */
+.card-wide.purple-strip {
+  border-left: 4px solid var(--purple-strip);
+  cursor: default;  /* pick-candidate 는 모달 클릭 비활성 */
+  position: relative;
+  align-items: center;
+}
+
+/* [채택] 버튼 */
+.adopt-pick {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: none;
+  background: var(--purple-strip);
+  color: #fff;
+  font-size: 0.88em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.1s;
+  white-space: nowrap;
+}
+.adopt-pick:hover { opacity: 0.85; }
+.adopt-pick:active { opacity: 0.7; }
+
+/* 모바일: pick-header 에서 reason 을 두 번째 줄로 */
+@media (max-width: 600px) {
+  .pick-header { gap: 6px; }
+  .pick-header .reason { min-width: 100%; order: 3; white-space: normal; }
+}
+
+/* === Phase 5A — 팩 관리 페이지 === */
+.packs-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.packs-header { margin-bottom: 24px; }
+.packs-title { margin: 0 0 8px; font-size: 1.5em; }
+.packs-subtitle { margin: 0; opacity: 0.7; font-size: 0.95em; }
+
+.pack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.pack-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: opacity 0.2s ease;
+}
+.pack-card.disabled {
+  opacity: 0.5;
+}
+
+.pack-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pack-card-name {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.pack-card-meta {
+  font-size: 0.85em;
+  opacity: 0.75;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.pack-sep { opacity: 0.4; }
+
+.pack-card-stats {
+  font-size: 0.85em;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pack-asset-count { font-weight: 500; }
+.pack-kinds { opacity: 0.75; font-family: monospace; font-size: 0.9em; }
+
+.pack-toggle-btn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  color: var(--fg);
+  font-size: 0.8em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pack-toggle-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.pack-toggle-btn.btn-activate { border-color: var(--success); color: var(--success); }
+.pack-toggle-btn.btn-activate:hover { background: var(--success); color: #fff; }
+
+.pack-empty {
+  opacity: 0.6;
+  font-size: 0.95em;
+  padding: 16px 0;
+}
+
+/* === Phase 5B — 라벨 관리 페이지 === */
+.labels-admin-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* axis 탭 헤더 */
+.axis-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.axis-tab {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card-bg);
+  color: var(--fg);
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.axis-tab:hover { background: var(--chip-bg); }
+.axis-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* axis 별 패널 */
+.axis-panel {
+  margin-top: 8px;
+  padding: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+/* 라벨 목록 테이블 */
+.label-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+.label-table thead th {
+  text-align: left;
+  padding: 8px 12px;
+  font-weight: 600;
+  opacity: 0.75;
+  border-bottom: 2px solid var(--border);
+}
+.label-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.label-table tbody tr:last-child { border-bottom: none; }
+.label-table tbody tr:hover { background: var(--chip-bg); }
+/* 비활성 라벨 행 */
+.label-table tbody tr.disabled { opacity: 0.45; }
+.label-table td { padding: 8px 12px; vertical-align: middle; }
+
+/* 라벨 추가 폼 */
+.label-add-form {
+  margin-bottom: 16px;
+}
+.label-add-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.label-input {
+  flex: 1;
+  min-width: 160px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.9em;
+}
+.desc-input {
+  flex: 2;
+  min-width: 200px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.9em;
+}
+
+/* import / export 영역 */
+.labels-io {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+
+/* M5 Phase 6A — 라벨 변경 토스트 알림 */
+.labels-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9em;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  pointer-events: none;
+}
+
+/* M5 Phase 6A — 에러 페이지 */
+.error-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  text-align: center;
+}
+.error-code {
+  font-size: 6rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+.error-message {
+  font-size: 1.2rem;
+  color: var(--fg);
+  opacity: 0.8;
+}
+.btn-back {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 10px 24px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.95em;
+}
+.btn-back:hover {
+  opacity: 0.85;
+}
+
+/* M5 — 검색 실패 친화 메시지 (Ollama 미가용 등) */
+.search-error {
+  padding: 24px;
+  text-align: center;
+  color: var(--fg);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 16px 0;
+}
+.search-error-icon {
+  font-size: 32px;
+  margin: 0 0 8px 0;
+}
+.search-error-title {
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+.search-error-message {
+  color: var(--fg);
+  opacity: 0.85;
+  margin: 0 0 8px 0;
+}
+.search-error-hint {
+  font-size: 0.9em;
+  opacity: 0.7;
+  margin: 0;
+}

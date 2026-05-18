@@ -21,10 +21,6 @@ MODULES = [
     "gah.core.pack_manager",
     "gah.core.scanner",
     "gah.core.watcher",
-    "gah.ui",
-    "gah.ui.main_window",
-    "gah.ui.pack_view",
-    "gah.ui.library_view",
     # M3 신규 모듈
     "gah.core.search",
     "gah.core.consistency",

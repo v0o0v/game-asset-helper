@@ -136,6 +136,22 @@ def test_record_asset_use_persists(mcp_tool_deps, populated_store):
     assert n == 1
 
 
+def test_record_asset_use_default_source_is_manual(mcp_tool_deps, populated_store):
+    """MCP 경로의 디폴트 source 는 'manual' (M5 plan §4.4 Task 4.8 — auto-record 와 구분)."""
+    from gah.mcp.models import RecordAssetUseRequest
+    from gah.mcp.tools import tool_record_asset_use
+
+    store, ids = populated_store
+    deps = mcp_tool_deps()
+    res = tool_record_asset_use(deps, RecordAssetUseRequest(
+        project_id="proj1", asset_id=ids["hero"],
+    ))
+    row = store.conn.execute(
+        "SELECT source FROM asset_usage WHERE id=?", (res.usage_id,)
+    ).fetchone()
+    assert row[0] == "manual"
+
+
 def test_record_asset_use_affects_next_consistency(mcp_tool_deps, populated_store):
     from gah.mcp.models import RecordAssetUseRequest
     from gah.mcp.tools import tool_record_asset_use

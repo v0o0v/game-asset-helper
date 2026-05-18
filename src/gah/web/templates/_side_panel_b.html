@@ -1,0 +1,191 @@
+<div class="b-panel-content"
+     x-init="
+       fetch('/api/filters/labels')
+         .then(function(r){ return r.json(); })
+         .then(function(d){ $store.b.labelsByKind = d; })
+     ">
+  <h3 class="side-panel-heading">{{ _("B 필터") }}</h3>
+
+  {# ── 매칭 모드 (Task 3.4) ──────────────────────────────── #}
+  <fieldset class="match-mode">
+    <legend class="match-mode-legend">{{ _("매칭 모드") }}</legend>
+    <label class="match-mode-option">
+      <input type="radio" name="match_mode" value="all"
+             x-model="$store.search.matchMode"
+             @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+      {{ _("AND") }}
+    </label>
+    <label class="match-mode-option">
+      <input type="radio" name="match_mode" value="any"
+             x-model="$store.search.matchMode"
+             @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+      {{ _("OR") }}
+    </label>
+    <label class="match-mode-option">
+      <input type="radio" name="match_mode" value="none"
+             x-model="$store.search.matchMode"
+             @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+      {{ _("NOT") }}
+    </label>
+  </fieldset>
+
+  {# ── 라벨 검색 input (Task 3.5) ───────────────────────── #}
+  <div class="label-filter-wrap">
+    <input type="search"
+           class="label-filter-input"
+           x-model="$store.b.labelFilter"
+           placeholder="{{ _('🔍 라벨 검색…') }}" />
+  </div>
+
+  {# ── 종류 탭 (Task 3.6) ───────────────────────────────── #}
+  <nav class="kind-tabs">
+    <button
+      @click="$store.b.kindTab = 'sprite'"
+      :class="{ active: $store.b.kindTab === 'sprite' }">
+      {{ _("스프라이트") }}
+    </button>
+    <button
+      @click="$store.b.kindTab = 'sheet'"
+      :class="{ active: $store.b.kindTab === 'sheet' }">
+      {{ _("시트") }}
+    </button>
+    <button
+      @click="$store.b.kindTab = 'sound'"
+      :class="{ active: $store.b.kindTab === 'sound' }">
+      {{ _("사운드") }}
+    </button>
+  </nav>
+
+  {# ── 다축 필터 (Task 3.8) ──────────────────────────────── #}
+  <div class="multi-filters"
+       x-data="{ packs: [], vendors: [], licenses: [] }"
+       x-init="
+         fetch('/api/filters/packs')
+           .then(function(r){ return r.json(); })
+           .then(function(d){
+             packs = d.packs;
+             vendors = d.vendors;
+             licenses = d.licenses;
+           })
+       ">
+
+    {# 팩 다중 선택 #}
+    <details class="filter-group">
+      <summary>{{ _("팩") }}</summary>
+      <div class="filter-group-body">
+        <template x-for="p in packs" :key="p.id">
+          <label class="filter-label">
+            <input type="checkbox"
+                   :value="p.id"
+                   x-model.number="$store.b.selectedPackIds"
+                   @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+            <span x-text="p.display_name + ' (' + p.asset_count + ')'"></span>
+          </label>
+        </template>
+        <p x-show="packs.length === 0" class="filter-empty">{{ _("팩 없음") }}</p>
+      </div>
+    </details>
+
+    {# 벤더 다중 선택 #}
+    <details class="filter-group">
+      <summary>{{ _("벤더") }}</summary>
+      <div class="filter-group-body">
+        <template x-for="v in vendors" :key="v">
+          <label class="filter-label">
+            <input type="checkbox"
+                   :value="v"
+                   x-model="$store.b.selectedVendors"
+                   @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+            <span x-text="v"></span>
+          </label>
+        </template>
+        <p x-show="vendors.length === 0" class="filter-empty">{{ _("벤더 없음") }}</p>
+      </div>
+    </details>
+
+    {# 라이선스 다중 선택 #}
+    <details class="filter-group">
+      <summary>{{ _("라이선스") }}</summary>
+      <div class="filter-group-body">
+        <template x-for="lic in licenses" :key="lic">
+          <label class="filter-label">
+            <input type="checkbox"
+                   :value="lic"
+                   x-model="$store.b.selectedLicenses"
+                   @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+            <span x-text="lic"></span>
+          </label>
+        </template>
+        <p x-show="licenses.length === 0" class="filter-empty">{{ _("라이선스 없음") }}</p>
+      </div>
+    </details>
+
+    {# 상태 단일 선택 — v1 서버 매핑 없음, frontend state 만 #}
+    <details class="filter-group">
+      <summary>{{ _("상태") }}</summary>
+      <div class="filter-group-body">
+        <label class="filter-label">
+          <input type="radio" name="state_filter" value="all"
+                 x-model="$store.b.selectedState"
+                 @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+          {{ _("전체") }}
+        </label>
+        <label class="filter-label">
+          <input type="radio" name="state_filter" value="ok"
+                 x-model="$store.b.selectedState"
+                 @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+          {{ _("완료") }}
+        </label>
+        <label class="filter-label">
+          <input type="radio" name="state_filter" value="pending"
+                 x-model="$store.b.selectedState"
+                 @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+          {{ _("대기") }}
+        </label>
+        <label class="filter-label">
+          <input type="radio" name="state_filter" value="error"
+                 x-model="$store.b.selectedState"
+                 @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')" />
+          {{ _("실패") }}
+        </label>
+      </div>
+    </details>
+  </div>
+
+  {# ── axis 칩 FlowLayout (Task 3.7) ───────────────────── #}
+  <div class="axis-chips-area" id="axis-chips">
+    <template x-for="axis in ($store.b.labelsByKind[$store.b.kindTab] || [])" :key="axis.axis">
+      <div class="axis-group">
+        <h4 x-text="axis.label_ko"></h4>
+        <div class="chip-flow">
+          <template x-for="label in axis.labels" :key="label.id">
+            <button
+              type="button"
+              class="chip"
+              :class="{
+                active: $store.b.selectedLabels.includes(label.id),
+                matched: $store.b.labelFilter && label.label_ko.toLowerCase().includes($store.b.labelFilter.toLowerCase())
+              }"
+              @click="toggleLabel(label.id)"
+              x-text="label.label_ko">
+            </button>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<script>
+  function toggleLabel(id) {
+    var sel = Alpine.store('b').selectedLabels;
+    var i = sel.indexOf(id);
+    if (i >= 0) {
+      sel.splice(i, 1);
+    } else {
+      sel.push(id);
+    }
+    // 즉시 검색 재호출
+    htmx.trigger(document.querySelector('form.search-bar'), 'submit');
+  }
+</script>

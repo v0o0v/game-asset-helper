@@ -1,0 +1,33 @@
+/* M5 — CSS 변수 (light/dark via prefers-color-scheme). */
+
+:root {
+  --bg: #fafafa;
+  --fg: #1a1a1a;
+  --card-bg: #ffffff;
+  --border: #e0e0e0;
+  --accent: #3b82f6;
+  --chip-bg: #f0f0f0;
+  --chip-active: #3b82f6;
+  --chip-matched: #fef3c7;  /* 노란 강조 (B 탭 라벨 검색) */
+  --purple-strip: #8b5cf6;  /* Claude 요청 카드 */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a1a;
+    --fg: #fafafa;
+    --card-bg: #2a2a2a;
+    --border: #3a3a3a;
+    --accent: #60a5fa;
+    --chip-bg: #2f2f2f;
+    --chip-active: #60a5fa;
+    --chip-matched: #78350f;
+    --purple-strip: #a78bfa;
+    --success: #34d399;
+    --warning: #fbbf24;
+    --error: #f87171;
+  }
+}

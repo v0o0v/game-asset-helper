@@ -1,0 +1,18 @@
+{# M5 — 상단 네비게이션 + 알림 배지.
+   Phase 6 fix: x-data 없으면 Alpine 이 directive 스캔 안 함 → 배지의
+   x-show/x-text 가 매핑되지 않아 빈 괄호로 표시된다. 빈 객체로 컨텍스트 생성. #}
+<nav class="top-nav" x-data="{}">
+  <div class="nav-brand">
+    <a href="/library"><strong>{{ _("Game Asset Helper") }}</strong></a>
+  </div>
+  <div class="nav-links">
+    <a href="/library"{% if page == "library" %} class="active"{% endif %}>{{ _("라이브러리") }}</a>
+    <a href="/packs"{% if page == "packs" %} class="active"{% endif %}>{{ _("팩") }}</a>
+    <a href="/labels/admin"{% if page == "labels" %} class="active"{% endif %}>{{ _("라벨 관리") }}</a>
+  </div>
+  <div class="nav-notifications">
+    <span class="notif-badge" x-show="$store.notifications.pickCount > 0">
+      🤖 {{ _("Claude 요청") }} (<span x-text="$store.notifications.pickCount"></span>)
+    </span>
+  </div>
+</nav>

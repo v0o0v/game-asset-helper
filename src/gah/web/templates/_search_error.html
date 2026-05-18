@@ -1,0 +1,11 @@
+{# M5 — Ollama 미가용 등 검색 실패 시 결과 영역에 표시되는 친화 메시지. #}
+<div class="search-error">
+  <p class="search-error-icon" aria-hidden="true">⚠️</p>
+  <p class="search-error-title">{{ _("검색 서비스를 사용할 수 없습니다") }}</p>
+  <p class="search-error-message">
+    {{ error_message or _("검색 서비스 (Ollama) 가 사용 가능하지 않습니다. Ollama 서버가 떠 있는지 확인하세요.") }}
+  </p>
+  <p class="search-error-hint">
+    {{ _("Ollama 부팅 후 다시 검색을 시도하거나, 검색 바를 비워 라이브러리 전체를 탐색할 수 있습니다.") }}
+  </p>
+</div>

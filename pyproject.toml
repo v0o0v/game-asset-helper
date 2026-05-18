@@ -29,6 +29,12 @@ dependencies = [
   "matplotlib>=3.8",
   # M3: 검색 백엔드 + MCP stdio 서버
   "mcp>=1.27,<2",
+  # M5: 웹 GUI (FastAPI + HTMX + Alpine)
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.27",
+  "jinja2>=3.1",
+  "python-multipart>=0.0.9",
+  "sse-starlette>=2",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +44,8 @@ dev = [
   # M2: HTTP 모킹 + 비동기 테스트
   "pytest-asyncio>=0.23",
   "respx>=0.20",
+  # M5 Phase 6+: Playwright e2e 브라우저 자동화
+  "pytest-playwright>=0.4",
 ]
 
 [project.scripts]
@@ -48,10 +56,11 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra -m 'not clip_integration and not mcp_integration'"
+addopts = "-ra -m 'not clip_integration and not mcp_integration and not e2e'"
 markers = [
   "clip_integration: 실제 CLIP 모델 다운로드(~600 MB) 필요. 기본 실행에서 제외 — `pytest -m clip_integration` 으로 옵트인.",
   "mcp_integration: 실제 MCP stdio subprocess 기동 필요(`python -m gah --mcp`). 기본 실행에서 제외 — `pytest -m mcp_integration` 으로 옵트인.",
+  "e2e: Playwright 헤드리스 Chromium 필요. 기본 실행에서 제외 — `pytest -m e2e` 으로 옵트인.",
 ]
 filterwarnings = [
   "ignore::DeprecationWarning",

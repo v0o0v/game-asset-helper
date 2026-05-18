@@ -1,0 +1,60 @@
+{# M5 — 결과 영역 전체 fragment (초기 로드, offset=0 전용).
+   상단 툴바 (그리드/리스트/카드 크기/정렬/카운트) + 카드 영역 wrapper.
+   카드 및 더 보기 버튼은 _results_cards_only.html 에서 렌더.
+   페이지네이션(offset>0) 시에는 이 파일을 반환하지 않고
+   _results_cards_only.html 만 반환해 toolbar 중복을 방지한다. #}
+
+<div class="results-toolbar">
+  <div class="view-toggle">
+    <button type="button"
+            class="view-btn"
+            :class="{ active: $store.search.viewMode === 'grid' }"
+            @click="$store.search.viewMode = 'grid'"
+            aria-label="{{ _('그리드') }}">
+      🖼 <span>{{ _("그리드") }}</span>
+    </button>
+    <button type="button"
+            class="view-btn"
+            :class="{ active: $store.search.viewMode === 'list' }"
+            @click="$store.search.viewMode = 'list'"
+            aria-label="{{ _('리스트') }}">
+      ≡ <span>{{ _("리스트") }}</span>
+    </button>
+  </div>
+
+  <div class="size-toggle">
+    <button type="button" class="size-btn"
+            :class="{ active: $store.search.cardSize === 's' }"
+            @click="$store.search.cardSize = 's'">S</button>
+    <button type="button" class="size-btn"
+            :class="{ active: $store.search.cardSize === 'm' }"
+            @click="$store.search.cardSize = 'm'">M</button>
+    <button type="button" class="size-btn"
+            :class="{ active: $store.search.cardSize === 'l' }"
+            @click="$store.search.cardSize = 'l'">L</button>
+  </div>
+
+  <div class="sort-control">
+    <label for="sort-select" class="sr-only">{{ _("정렬") }}</label>
+    <select id="sort-select"
+            x-model="$store.search.sort"
+            @change="htmx.trigger(document.querySelector('form.search-bar'), 'submit')">
+      <option value="score">{{ _("점수↓") }}</option>
+      <option value="added_desc">{{ _("추가일↓") }}</option>
+      <option value="added_asc">{{ _("추가일↑") }}</option>
+      <option value="name_asc">{{ _("이름↑") }}</option>
+      <option value="name_desc">{{ _("이름↓") }}</option>
+      <option value="size_desc">{{ _("크기↓") }}</option>
+      <option value="size_asc">{{ _("크기↑") }}</option>
+    </select>
+  </div>
+
+  <div class="total-count">
+    <strong>{{ total }}</strong> {{ _("자산") }}
+  </div>
+</div>
+
+<div class="results-cards"
+     :class="['view-mode-' + $store.search.viewMode, 'card-size-' + $store.search.cardSize]">
+  {% include "_results_cards_only.html" %}
+</div>

@@ -1,0 +1,95 @@
+{# M5 Phase 5B — 라벨 관리 그리드 partial.
+   GET /ui/labels/admin 응답 + labels_admin.html include 용.
+   axes: list[str], labels_by_axis: dict[str, list[LabelRow]], signature: str
+#}
+<div class="labels-admin-grid"
+     data-signature="{{ signature }}"
+     x-data="{ activeAxis: '{{ axes[0] if axes else '' }}' }">
+
+  {# ── axis 탭 헤더 ── #}
+  <div class="axis-tabs" role="tablist">
+    {% for axis in axes %}
+    <button class="axis-tab"
+            :class="{ active: activeAxis === '{{ axis }}' }"
+            @click="activeAxis = '{{ axis }}'"
+            role="tab"
+            :aria-selected="activeAxis === '{{ axis }}'">
+      {{ axis }}
+    </button>
+    {% endfor %}
+  </div>
+
+  {# ── axis 별 라벨 테이블 ── #}
+  {% for axis in axes %}
+  <div class="axis-panel"
+       x-show="activeAxis === '{{ axis }}'"
+       role="tabpanel">
+
+    {# 라벨 추가 폼 #}
+    <form class="label-add-form"
+          hx-post="/api/labels"
+          hx-ext="json-enc"
+          hx-target="#axis-tbody-{{ axis }}"
+          hx-swap="beforeend">
+      <input type="hidden" name="axis" value="{{ axis }}">
+      <div class="label-add-row">
+        <input type="text"
+               name="label"
+               placeholder="{{ _('라벨 토큰 (소문자 + 숫자 + _)') }}"
+               class="label-input"
+               required
+               pattern="[a-z][a-z0-9_]{0,31}">
+        <input type="text"
+               name="description"
+               placeholder="{{ _('설명 (선택)') }}"
+               class="desc-input">
+        <button type="submit" class="btn btn-primary">{{ _('추가') }}</button>
+      </div>
+    </form>
+
+    {# 라벨 목록 테이블 #}
+    <table class="label-table">
+      <thead>
+        <tr>
+          <th>{{ _('라벨') }}</th>
+          <th>{{ _('설명') }}</th>
+          <th>{{ _('출처') }}</th>
+          <th>{{ _('상태') }}</th>
+          <th>{{ _('작업') }}</th>
+        </tr>
+      </thead>
+      <tbody id="axis-tbody-{{ axis }}">
+        {% for lb in labels_by_axis[axis] %}
+        {% set label = lb %}
+        {% include "_label_row.html" %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+
+  {# ── import / export ── #}
+  <div class="labels-io">
+    <a href="/api/labels/export"
+       class="btn btn-secondary"
+       download="labels.json">
+      {{ _('내보내기 (JSON)') }}
+    </a>
+
+    <form class="import-form"
+          hx-post="/api/labels/import"
+          hx-target=".labels-admin-grid"
+          hx-swap="outerHTML"
+          hx-encoding="multipart/form-data">
+      <label class="btn btn-secondary" for="import-file">
+        {{ _('가져오기 (JSON)') }}
+      </label>
+      <input type="file"
+             id="import-file"
+             name="file"
+             accept=".json"
+             style="display:none"
+             @change="this.form.requestSubmit()">
+    </form>
+  </div>
+</div>

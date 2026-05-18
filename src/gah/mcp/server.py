@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 INSTRUCTIONS = """\
 GAH MCP server — find and adopt 2D sprites, sheets, and sounds for game projects.
 
-Recommended workflow (DESIGN §13.1 + M4 update):
+Recommended workflow (DESIGN §13.1 + M4 + M5 update):
   1. Session start: call list_labels(with_description=true) once; cache by `signature`.
   2. User request: call suggest_packs(query, project_id, kind). Use the
      `samples[].thumbnail_path` (sprite) and `preview_blurb` to show previews.
@@ -42,6 +42,10 @@ Recommended workflow (DESIGN §13.1 + M4 update):
      penalizes the asset/pack in subsequent searches for this project.
   6. Save reusable queries: save_search(project_id, name, ...) + later
      run_saved_search(project_id, name).
+  7. User pick (uncertain): if you have ~5 candidates and are unsure which fits best,
+     call request_user_pick(candidates=[id1,id2,...], project_id, reason="...").
+     The GAH web UI must be running (tray mode). The call blocks up to 5 minutes while
+     the user selects in the browser; the picked asset is auto-recorded as used.
 
 label_query grammar (M4): `axis:label`, `AND`/`OR`/`NOT` (uppercase only),
 `(...)` grouping; bare labels auto-resolve via the registry. Pure AND or
@@ -66,7 +70,7 @@ def build_server(
     config: Config,
     paths: Any | None = None,
 ) -> FastMCP:
-    """16 도구를 등록한 FastMCP 인스턴스 반환 (M3 12 + M4 saved_searches 4)."""
+    """17 도구를 등록한 FastMCP 인스턴스 반환 (M3 12 + M4 saved_searches 4 + M5 request_user_pick 1)."""
     server = FastMCP("game-asset-helper", instructions=INSTRUCTIONS)
     deps = t.ToolDeps(
         store=store, search=search, usage=usage,
@@ -142,6 +146,11 @@ def register_all_tools(server: FastMCP, deps: t.ToolDeps) -> None:
     def run_saved_search(req: m.RunSavedSearchRequest) -> m.FindAssetResult:
         return t.tool_run_saved_search(deps, req)
 
+    # M5 Phase 4C: 17번째 도구
+    @server.tool(description="후보 자산들 중 사용자가 직접 고르도록 요청한다. 5분 long-poll. GAH 의 웹 UI 가 떠 있어야 동작.")
+    def request_user_pick(req: m.RequestUserPickRequest) -> m.RequestUserPickResult:
+        return t.tool_request_user_pick(deps, req)
+
 
 def run_stdio() -> None:
     """``python -m gah --mcp`` 진입점.
@@ -178,7 +187,7 @@ def run_stdio() -> None:
         store=store, search=search, usage=usage,
         registry=registry, queue=None, config=cfg, paths=paths,
     )
-    log.info("MCP stdio server starting; tools=16 instructions_len=%d", len(INSTRUCTIONS))
+    log.info("MCP stdio server starting; tools=17 instructions_len=%d", len(INSTRUCTIONS))
     try:
         server.run(transport="stdio")
     except KeyboardInterrupt:

@@ -140,6 +140,7 @@ class RecordAssetUseRequest(_BaseModel):
     asset_id: int
     query_id: int | None = None
     context: str | None = None
+    source: str = "manual"  # "manual" | "mcp" | "claude_pick" | "implicit_top1"
 
 
 class RecordAssetUseResult(_BaseModel):
@@ -251,3 +252,19 @@ class RunSavedSearchRequest(_BaseModel):
     project_id: str | None = None
     name: str
     overrides: dict[str, Any] = Field(default_factory=dict)
+
+
+# ── M5 Phase 4C: request_user_pick ───────────────────────────────────
+
+
+class RequestUserPickRequest(_BaseModel):
+    candidates: list[int] = Field(min_length=1, max_length=10)
+    reason: str | None = None
+    project_id: str | None = None
+    timeout_seconds: int = Field(default=300, ge=10, le=1800)
+
+
+class RequestUserPickResult(_BaseModel):
+    picked_asset_id: int
+    picked_at: int
+    user_note: str | None = None

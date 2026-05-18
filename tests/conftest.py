@@ -625,3 +625,131 @@ def mcp_tool_deps(populated_store, fake_embedder):
         return ToolDeps(**kwargs)
 
     return _build
+
+
+# ─────────────────────────────────────────────────────────────────────
+# M5 fixtures — WebDeps + PendingPickQueue (Phase 1B)
+# ─────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def deps_fixture(tmp_path):
+    """M5 WebDeps — in-memory store + paths in tmp_path + 빈 PendingPickQueue.
+
+    Phase 1B / 1C 의 FastAPI app factory + WebServer 테스트에서 사용.
+    Ollama 네트워크 호출 없이 동작하도록 fake_embedder 패턴 재사용.
+    """
+    from gah.config import AppPaths, Config
+    from gah.core.store import Store
+    from gah.core.labels import LabelRegistry
+    from gah.core.consistency import ConsistencyScorer
+    from gah.core.usage_tracker import UsageTracker
+    from gah.core.search import HybridSearcher
+    from gah.web.deps import WebDeps
+    from gah.web.pending import PendingPickQueue
+
+    paths = AppPaths(
+        data_dir=tmp_path,
+        library_dir=tmp_path / "library",
+        cache_dir=tmp_path / "cache",
+        db_path=tmp_path / "metadata.db",
+        config_path=tmp_path / "config.toml",
+        log_path=tmp_path / "logs" / "gah.log",
+        lock_path=tmp_path / "gah.lock",
+    )
+    paths.ensure_dirs()
+
+    cfg = Config()
+    s = Store(paths.db_path)
+    s.initialize()
+    registry = LabelRegistry(s)
+    # 빈 registry — Phase 1B 의 health/server 테스트는 시드 불필요
+
+    # 네트워크 없이 동작하는 fake embedder (conftest._fake_embed_vec 재사용)
+    import numpy as np
+
+    class _FakeEmbedder:
+        def __init__(self, dim: int = 768) -> None:
+            self.dim = dim
+            self.model = "fake-embed"
+
+        def encode_text(self, text: str) -> tuple[bytes, int]:
+            return _fake_embed_vec(text, self.dim), self.dim
+
+        def decode_vector(self, blob: bytes, dim: int) -> np.ndarray:
+            return np.frombuffer(blob, dtype="<f4", count=dim).copy()
+
+    embedder = _FakeEmbedder()
+    consistency = ConsistencyScorer(s, cfg)
+    usage = UsageTracker(s, cfg)
+    searcher = HybridSearcher(s, embedder, consistency, registry, cfg)
+    pending = PendingPickQueue(max_pending=cfg.claude_pick_max_pending)
+    deps = WebDeps(
+        store=s,
+        search=searcher,
+        usage=usage,
+        registry=registry,
+        queue=None,
+        config=cfg,
+        paths=paths,
+        pending_picks=pending,
+        library_root=paths.library_dir,  # M5 bugfix: assets.path 상대경로 해석용
+    )
+    yield deps
+    s.close()
+
+
+@pytest.fixture
+def populated_deps(tmp_path, populated_store, fake_embedder):
+    """에셋이 채워진 WebDeps — 라이브러리/검색/모달/오디오/사이드패널 테스트 공통.
+
+    populated_store (2 packs × 3 assets, bootstrap 포함) 를 WebDeps 로 래핑.
+    6개 test_web_*.py 파일이 동일하게 정의하던 fixture 를 conftest 로 통합.
+    """
+    from gah.config import AppPaths, Config
+    from gah.core.labels import LabelRegistry
+    from gah.core.consistency import ConsistencyScorer
+    from gah.core.usage_tracker import UsageTracker
+    from gah.core.search import HybridSearcher
+    from gah.web.deps import WebDeps
+    from gah.web.pending import PendingPickQueue
+
+    store, _ids = populated_store
+    cfg = Config()
+    paths = AppPaths(
+        data_dir=tmp_path,
+        library_dir=tmp_path / "library",
+        cache_dir=tmp_path / "cache",
+        db_path=tmp_path / "metadata.db",
+        config_path=tmp_path / "config.toml",
+        log_path=tmp_path / "logs" / "gah.log",
+        lock_path=tmp_path / "gah.lock",
+    )
+    paths.ensure_dirs()
+    registry = LabelRegistry(store)
+    registry.bootstrap()
+    consistency = ConsistencyScorer(store, cfg)
+    usage = UsageTracker(store, cfg)
+    searcher = HybridSearcher(store, fake_embedder, consistency, registry, cfg)
+    pending = PendingPickQueue(max_pending=cfg.claude_pick_max_pending)
+    return WebDeps(
+        store=store,
+        search=searcher,
+        usage=usage,
+        registry=registry,
+        queue=None,
+        config=cfg,
+        paths=paths,
+        pending_picks=pending,
+        library_root=paths.library_dir,  # M5 bugfix: assets.path 상대경로 해석용
+    )
+
+
+@pytest.fixture
+def populated_client(populated_deps):
+    """populated_deps 를 기반으로 한 TestClient — HTTP 레벨 통합 테스트용."""
+    from fastapi.testclient import TestClient
+    from gah.web.app import build_app
+
+    with TestClient(build_app(populated_deps)) as c:
+        yield c

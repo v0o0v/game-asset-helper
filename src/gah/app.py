@@ -1,10 +1,7 @@
 """QApplication wiring for tray mode.
 
-M2 layers the analysis stack on top of M1:
-  store → label registry (seeded) → ollama / embedder / clip
-       → sprite + sound analyzers → analysis queue
-       → wired into watcher callbacks and into the main window's
-         progress slot + tray tooltip.
+M5: main_window / library_view / labels_admin Qt UI 의존성 제거.
+트레이 + 분석 큐 + 워처는 그대로, GUI 는 FastAPI 웹서버 + 시스템 브라우저로.
 
 PySide6 imports remain function-scoped so importing ``gah.app`` in a
 non-GUI context (CLI ``--version``, unit tests) does not require a Qt
@@ -32,6 +29,7 @@ from .core.search import HybridSearcher
 from .core.store import Store
 from .core.usage_tracker import UsageTracker
 from .core.watcher import LibraryWatcher
+from .web.server import WebServer
 
 log = logging.getLogger(__name__)
 
@@ -43,13 +41,21 @@ def _resolve_library_root(paths: AppPaths, config: Config) -> Path:
 
 
 def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None) -> int:
-    """Boot the tray application. Returns the QApplication exit code."""
+    """Boot the tray application. Returns the QApplication exit code.
+
+    M5: main_window/library_view/labels_admin Qt 의존성 제거. 트레이 +
+    분석 큐 + 워처는 그대로, GUI 는 FastAPI 웹서버 + 시스템 브라우저로.
+    """
     from PySide6.QtWidgets import QApplication
+    import webbrowser
 
-    from .tray import make_tray_icon, update_tray_tooltip
-    from .ui.main_window import MainWindow
+    from .tray import make_tray_icon, notify_user_pick_request, update_tray_tooltip
+    from .web.deps import WebDeps
+    from .web.pending import PendingPickQueue
+    from .web.sse_bus import broadcast as sse_broadcast
+    from .web.tray_bridge import TrayBridge
 
-    qapp = QApplication(list(argv or sys.argv))
+    qapp = QApplication.instance() or QApplication(list(argv or sys.argv))
     qapp.setQuitOnLastWindowClosed(False)
 
     library_root = _resolve_library_root(paths, config)
@@ -65,9 +71,7 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     report = reconcile_library(store, library_root)
     log.info(
         "library reconciled: +%d / -%d / =%d",
-        len(report.added),
-        len(report.removed),
-        len(report.rescanned),
+        len(report.added), len(report.removed), len(report.rescanned),
     )
 
     # ── M2: analysis pipeline ──────────────────────────────────────
@@ -117,24 +121,28 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     usage = UsageTracker(store, config)
     searcher = HybridSearcher(store, embedder, consistency, registry, config)
 
-    # ── GUI 연결 ────────────────────────────────────────────────────
-    main_window = MainWindow(store)
-    main_window.set_library_root(library_root)
-    main_window.set_label_registry(registry)
-    main_window.library_view.set_searcher(searcher)
-    # M4: LibraryView 의 좌·중·우 QSplitter 풍부 위젯 (LabelChipPanel /
-    # FilterBar / SearchSidePanel) 이 lazy 인스턴스화되도록 두 setter 호출.
-    main_window.library_view.set_label_registry(registry)
-    main_window.library_view.set_config(config)
-    main_window.refresh()
+    # ── M5: 웹 서버 ────────────────────────────────────────────────
+    pending = PendingPickQueue(max_pending=config.claude_pick_max_pending)
 
-    # 워처 이벤트는 GUI 스레드로 마샬링되어 _on_pack_changed 가 인테이크를 마치고
-    # refresh 한 다음, pack 별 pending 을 분석 큐로 흘려보낸다.
+    # Phase 4D: TrayBridge — uvicorn worker thread → Qt main thread 마샬링
+    bridge = TrayBridge()
+
+    deps = WebDeps(
+        store=store, search=searcher, usage=usage, registry=registry,
+        queue=queue, config=config, paths=paths, pending_picks=pending,
+        tray_bridge=bridge,
+        library_root=library_root,  # M5 bugfix: assets.path 상대경로 해석용
+    )
+    web = WebServer(deps)
+    web.start()
+    url = f"http://{config.web_host}:{web.actual_port}"
+
+    # ── 워처 ───────────────────────────────────────────────────────
     def _on_pack_changed(pack_name: str) -> None:
-        main_window.packChanged.emit(pack_name)
         pack_row = store.get_pack_by_name(pack_name)
         if pack_row is not None:
             queue.enqueue_pack(pack_row.id)
+        sse_broadcast("pack_changed", {"pack": pack_name})
 
     watcher = LibraryWatcher(
         window_seconds=config.watch_debounce_seconds,
@@ -142,30 +150,43 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     )
     watcher.start(library_root)
 
-    # ── 큐 → GUI 시그널 라우팅 ──────────────────────────────────────
-    queue.analysisFinished.connect(main_window.on_asset_analyzed)
-    queue.progressChanged.connect(main_window.update_progress)
-
-    tray = make_tray_icon(
-        qapp,
-        on_open_main=main_window.show_and_raise,
-        on_open_labels=main_window.open_labels_admin,
-    )
+    # ── 트레이 + 분석 큐 시그널 라우팅 ─────────────────────────────
+    tray = make_tray_icon(qapp, on_open_main=lambda: webbrowser.open(url))
     queue.progressChanged.connect(lambda snap: update_tray_tooltip(tray, snap))
+    queue.progressChanged.connect(
+        lambda snap: sse_broadcast("analysis_progress", _snap_to_dict(snap))
+    )
+    # Phase 4D: bridge → tray 툴팁 갱신 (AutoConnection → main thread 마샬링)
+    bridge.pickCountChanged.connect(lambda n: notify_user_pick_request(tray, n))
 
+    # ── 브라우저 자동 진입 ─────────────────────────────────────────
+    if config.web_open_browser_on_start:
+        webbrowser.open(url)
+
+    # state 보존 (디버그)
     qapp._gah_tray = tray  # type: ignore[attr-defined]
     qapp._gah_store = store  # type: ignore[attr-defined]
     qapp._gah_watcher = watcher  # type: ignore[attr-defined]
-    qapp._gah_main_window = main_window  # type: ignore[attr-defined]
     qapp._gah_queue = queue  # type: ignore[attr-defined]
     qapp._gah_registry = registry  # type: ignore[attr-defined]
     qapp._gah_searcher = searcher  # type: ignore[attr-defined]
     qapp._gah_usage = usage  # type: ignore[attr-defined]
+    qapp._gah_web = web  # type: ignore[attr-defined]
 
-    log.info("GAH tray ready (data_dir=%s, library=%s)", paths.data_dir, library_root)
+    log.info("GAH tray ready (url=%s, library=%s)", url, library_root)
     rc = qapp.exec()
 
+    web.stop()
     queue.stop()
     watcher.stop()
     store.close()
     return rc
+
+
+def _snap_to_dict(snap) -> dict:
+    """AnalysisProgress 를 SSE 페이로드용 dict 로 변환."""
+    from dataclasses import asdict
+    d = asdict(snap)
+    if d.get("in_flight_path") is not None:
+        d["in_flight_path"] = str(d["in_flight_path"])
+    return d

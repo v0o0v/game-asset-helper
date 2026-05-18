@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{# M5 Phase 5B — 라벨 관리 페이지.
+   axes: list[str], labels_by_axis: dict[str, list[LabelRow]], signature: str
+#}
+
+{% block title %}{{ _("라벨 관리") }} — {{ _("Game Asset Helper") }}{% endblock %}
+
+{% block content %}
+<div class="labels-admin-page">
+  <div class="labels-admin-header">
+    <h2 class="labels-admin-title">{{ _("라벨 관리") }}</h2>
+    <p class="labels-admin-subtitle">
+      {{ _("24개 축(axis)별 라벨 어휘를 추가·수정·비활성화할 수 있습니다.") }}
+      <small class="signature-hint">{{ _("서명:") }} <code>{{ signature }}</code></small>
+    </p>
+  </div>
+
+  <div id="labels-admin-container">
+    {% include "_labels_admin_grid.html" %}
+  </div>
+</div>
+{% endblock %}
