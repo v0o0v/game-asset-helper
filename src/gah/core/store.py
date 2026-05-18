@@ -144,6 +144,68 @@ class SavedSearchRow:
     last_used_at: int | None
 
 
+# ── M7 dataclasses ────────────────────────────────────────────────────
+
+
+@dataclass
+class ProjectSummary:
+    """M7: 프로젝트 목록 뷰 — 통계 포함."""
+
+    id: int
+    external_id: str
+    display_name: str | None
+    first_seen: int
+    last_seen: int
+    asset_count: int
+    top_pack_id: int | None
+    top_pack_name: str | None
+    top_pack_uses: int
+    pinned_pack_id: int | None
+    pinned_pack_name: str | None
+    blocked_count: int
+
+
+@dataclass
+class AssetUsageRow:
+    """M7: 프로젝트 단위 사용 이력 행."""
+
+    asset_id: int
+    asset_path: str
+    pack_id: int
+    pack_name: str | None
+    used_at: int
+    source: str
+    context: str | None
+    kind: str
+
+
+@dataclass
+class PackDistRow:
+    """M7: 프로젝트 팩 분포 행."""
+
+    pack_id: int
+    pack_name: str | None
+    uses: int
+
+
+@dataclass
+class PreferenceRow:
+    """M7: 프로젝트 자산 선호도 행 — 피드백 + 사용 복합 점수."""
+
+    asset_id: int
+    asset_path: str
+    pack_id: int
+    pack_name: str | None
+    kind: str
+    composite_score: float
+    signed_weight_sum: float
+    positive_count: int
+    negative_count: int
+    irrelevant_count: int
+    usage_count: int
+    last_activity_at: int | None
+
+
 # ── schemas ──────────────────────────────────────────────────────────
 
 
@@ -1095,6 +1157,292 @@ class Store:
         assert got is not None
         return got
 
+    def upsert_project_id(
+        self, *, external_id: str, display_name: str | None = None
+    ) -> int:
+        """M7: upsert_project 의 int-반환 variant.
+
+        기존 upsert_project(ProjectRow 반환) 와 동일 로직이지만
+        project_id (int) 만 반환해 테스트·MCP 등에서 편리하게 쓸 수 있다.
+        """
+        return self.upsert_project(external_id, display_name=display_name).id
+
+    # -- M7: projects 쿼리 --------------------------------------------------
+
+    def list_projects_with_summary(self) -> "list[ProjectSummary]":
+        """projects 목록 + asset_usage 통계 JOIN.
+
+        ProjectSummary.asset_count — project 에 사용된 asset 고유 수.
+        top_pack_* — 가장 많이 쓰인 팩.
+        """
+        rows = self.conn.execute(
+            """
+            SELECT
+                p.id,
+                p.external_id,
+                p.display_name,
+                p.first_seen,
+                p.last_seen,
+                p.pinned_pack_id,
+                COALESCE(stats.asset_count, 0) AS asset_count,
+                stats.top_pack_id,
+                pk_top.name          AS top_pack_name,
+                COALESCE(stats.top_pack_uses, 0) AS top_pack_uses,
+                pk_pin.name          AS pinned_pack_name,
+                COALESCE(stats.blocked_count, 0) AS blocked_count
+            FROM projects p
+            LEFT JOIN (
+                SELECT
+                    project_id,
+                    COUNT(DISTINCT asset_id) AS asset_count,
+                    pack_id                  AS top_pack_id,
+                    COUNT(*)                 AS top_pack_uses,
+                    0                        AS blocked_count
+                FROM (
+                    SELECT
+                        au.project_id,
+                        au.asset_id,
+                        au.pack_id,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY au.project_id
+                            ORDER BY cnt DESC
+                        ) AS rn
+                    FROM asset_usage au
+                    JOIN (
+                        SELECT project_id, pack_id, COUNT(*) AS cnt
+                        FROM asset_usage
+                        GROUP BY project_id, pack_id
+                    ) agg ON agg.project_id = au.project_id
+                           AND agg.pack_id = au.pack_id
+                )
+                WHERE rn = 1
+                GROUP BY project_id
+            ) stats ON stats.project_id = p.id
+            LEFT JOIN packs pk_top ON pk_top.id = stats.top_pack_id
+            LEFT JOIN packs pk_pin ON pk_pin.id = p.pinned_pack_id
+            ORDER BY p.last_seen DESC
+            """
+        ).fetchall()
+        result = []
+        for r in rows:
+            (pid, ext_id, dname, first_seen, last_seen, pinned_pack_id,
+             asset_count, top_pack_id, top_pack_name, top_pack_uses,
+             pinned_pack_name, blocked_count) = r
+            result.append(ProjectSummary(
+                id=int(pid),
+                external_id=str(ext_id),
+                display_name=dname,
+                first_seen=int(first_seen),
+                last_seen=int(last_seen),
+                asset_count=int(asset_count),
+                top_pack_id=int(top_pack_id) if top_pack_id is not None else None,
+                top_pack_name=top_pack_name,
+                top_pack_uses=int(top_pack_uses),
+                pinned_pack_id=int(pinned_pack_id) if pinned_pack_id is not None else None,
+                pinned_pack_name=pinned_pack_name,
+                blocked_count=int(blocked_count),
+            ))
+        return result
+
+    def get_project_asset_usage(
+        self,
+        *,
+        project_id: int,
+        offset: int = 0,
+        limit: int | None = None,
+    ) -> "list[AssetUsageRow]":
+        """asset_usage JOIN assets, 최근 used_at DESC."""
+        sql = (
+            "SELECT au.asset_id, a.path, au.pack_id, p.name, "
+            "au.used_at, au.source, au.context, a.kind "
+            "FROM asset_usage au "
+            "JOIN assets a ON a.id = au.asset_id "
+            "LEFT JOIN packs p ON p.id = au.pack_id "
+            "WHERE au.project_id = ? "
+            "ORDER BY au.used_at DESC "
+        )
+        params: list = [int(project_id)]
+        if limit is not None:
+            sql += "LIMIT ? OFFSET ?"
+            params += [int(limit), int(offset)]
+        elif offset:
+            sql += "LIMIT -1 OFFSET ?"
+            params.append(int(offset))
+        rows = self.conn.execute(sql, params).fetchall()
+        return [
+            AssetUsageRow(
+                asset_id=int(r[0]), asset_path=str(r[1]),
+                pack_id=int(r[2]), pack_name=r[3],
+                used_at=int(r[4]), source=str(r[5]),
+                context=r[6], kind=str(r[7]),
+            )
+            for r in rows
+        ]
+
+    def get_project_pack_distribution(
+        self,
+        *,
+        project_id: int,
+        top_n: int = 5,
+    ) -> "list[PackDistRow]":
+        """asset_usage GROUP BY pack_id, top_n."""
+        rows = self.conn.execute(
+            "SELECT au.pack_id, p.name, COUNT(*) AS uses "
+            "FROM asset_usage au "
+            "LEFT JOIN packs p ON p.id = au.pack_id "
+            "WHERE au.project_id = ? "
+            "GROUP BY au.pack_id "
+            "ORDER BY uses DESC "
+            "LIMIT ?",
+            (int(project_id), int(top_n)),
+        ).fetchall()
+        return [
+            PackDistRow(pack_id=int(r[0]), pack_name=r[1], uses=int(r[2]))
+            for r in rows
+        ]
+
+    def get_project_asset_preferences(
+        self,
+        *,
+        project_id: int,
+        sort: str = "score_desc",
+        search: str | None = None,
+        offset: int = 0,
+        limit: int | None = None,
+        preference_usage_weight: float = 0.1,
+    ) -> "list[PreferenceRow]":
+        """feedback_records + asset_usage 종합 → composite_score.
+
+        composite_score = SUM(feedback.weight) + preference_usage_weight * usage_count
+        I-5 격리: project_id 별 필터 적용.
+        """
+        # 피드백 집계
+        fb_rows = self.conn.execute(
+            "SELECT f.asset_id, "
+            "SUM(f.weight) AS wsum, "
+            "SUM(CASE WHEN f.weight > 0 THEN 1 ELSE 0 END) AS pos, "
+            "SUM(CASE WHEN f.weight < 0 THEN 1 ELSE 0 END) AS neg, "
+            "SUM(CASE WHEN f.weight = 0 THEN 1 ELSE 0 END) AS irr "
+            "FROM feedback_records f "
+            "WHERE f.project_id = ? "
+            "GROUP BY f.asset_id",
+            (int(project_id),),
+        ).fetchall()
+        fb_map: dict[int, tuple] = {
+            int(r[0]): (float(r[1] or 0), int(r[2] or 0), int(r[3] or 0), int(r[4] or 0))
+            for r in fb_rows
+        }
+
+        # 사용 집계
+        usage_rows = self.conn.execute(
+            "SELECT asset_id, COUNT(*) AS cnt, MAX(used_at) AS last_at "
+            "FROM asset_usage "
+            "WHERE project_id = ? "
+            "GROUP BY asset_id",
+            (int(project_id),),
+        ).fetchall()
+        usage_map: dict[int, tuple] = {
+            int(r[0]): (int(r[1]), int(r[2]) if r[2] is not None else None)
+            for r in usage_rows
+        }
+
+        # 유니언 asset id
+        all_ids = set(fb_map) | set(usage_map)
+        if not all_ids:
+            return []
+
+        # asset 정보 조회
+        placeholders = ",".join("?" * len(all_ids))
+        asset_rows = self.conn.execute(
+            f"SELECT a.id, a.path, a.pack_id, p.name, a.kind "
+            f"FROM assets a "
+            f"LEFT JOIN packs p ON p.id = a.pack_id "
+            f"WHERE a.id IN ({placeholders})",
+            list(all_ids),
+        ).fetchall()
+        asset_info = {
+            int(r[0]): (str(r[1]), int(r[2]) if r[2] else 0, r[3], str(r[4]))
+            for r in asset_rows
+        }
+
+        # 검색 필터
+        if search:
+            lo = search.lower()
+            asset_info = {
+                aid: info for aid, info in asset_info.items()
+                if lo in info[0].lower() or (info[2] and lo in info[2].lower())
+            }
+            all_ids = set(asset_info)
+
+        rows_out: list[PreferenceRow] = []
+        for aid in all_ids:
+            if aid not in asset_info:
+                continue
+            path, pack_id, pack_name, kind = asset_info[aid]
+            wsum, pos, neg, irr = fb_map.get(aid, (0.0, 0, 0, 0))
+            usage_cnt, last_used = usage_map.get(aid, (0, None))
+            # feedback의 last created_at
+            fb_last = self.conn.execute(
+                "SELECT MAX(created_at) FROM feedback_records "
+                "WHERE project_id = ? AND asset_id = ?",
+                (int(project_id), int(aid)),
+            ).fetchone()[0]
+            last_act = None
+            if fb_last is not None and last_used is not None:
+                last_act = max(int(fb_last), int(last_used))
+            elif fb_last is not None:
+                last_act = int(fb_last)
+            elif last_used is not None:
+                last_act = int(last_used)
+
+            composite = float(wsum) + preference_usage_weight * float(usage_cnt)
+            rows_out.append(PreferenceRow(
+                asset_id=int(aid),
+                asset_path=path,
+                pack_id=pack_id,
+                pack_name=pack_name,
+                kind=kind,
+                composite_score=composite,
+                signed_weight_sum=float(wsum),
+                positive_count=int(pos),
+                negative_count=int(neg),
+                irrelevant_count=int(irr),
+                usage_count=int(usage_cnt),
+                last_activity_at=last_act,
+            ))
+
+        # 정렬
+        if sort == "score_desc":
+            rows_out.sort(key=lambda r: r.composite_score, reverse=True)
+        elif sort == "score_asc":
+            rows_out.sort(key=lambda r: r.composite_score)
+        elif sort == "usage_desc":
+            rows_out.sort(key=lambda r: r.usage_count, reverse=True)
+        elif sort == "recent_desc":
+            rows_out.sort(
+                key=lambda r: r.last_activity_at if r.last_activity_at is not None else 0,
+                reverse=True,
+            )
+
+        # 페이지네이션
+        if limit is not None:
+            rows_out = rows_out[offset: offset + limit]
+        elif offset:
+            rows_out = rows_out[offset:]
+
+        return rows_out
+
+    def count_project_asset_preferences(
+        self,
+        *,
+        project_id: int,
+        search: str | None = None,
+    ) -> int:
+        """페이지네이션용 total count."""
+        return len(self.get_project_asset_preferences(
+            project_id=project_id, search=search,
+        ))
+
     def get_project(self, external_id: str) -> ProjectRow | None:
         row = self.conn.execute(
             "SELECT id, external_id, display_name, first_seen, last_seen, "
@@ -1142,14 +1490,22 @@ class Store:
         *,
         source: str = "explicit",
         context: str | None = None,
+        used_at: int | None = None,
     ) -> int:
+        """asset 사용 기록 INSERT.
+
+        source 허용 값: "explicit" | "implicit_top1" | "manual" |
+        "claude_pick" | "user_web" (M7 신규).
+        used_at 이 None 이면 현재 시각 사용.
+        """
         import time as _time
 
+        ts = used_at if used_at is not None else int(_time.time())
         with self.write_lock:
             self.conn.execute(
                 "INSERT INTO asset_usage (project_id, asset_id, pack_id, used_at, "
                 "source, context) VALUES (?, ?, ?, ?, ?, ?)",
-                (project_id, asset_id, pack_id, int(_time.time()), source, context),
+                (project_id, asset_id, pack_id, ts, source, context),
             )
             return int(self.conn.execute("SELECT last_insert_rowid()").fetchone()[0])
 
