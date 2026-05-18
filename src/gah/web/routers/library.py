@@ -398,7 +398,9 @@ async def ui_search_results(request: Request) -> HTMLResponse:
             status_code=200,
         )
 
-    ctx = {"request": request, **result}
+    # M7 Phase 5 — 활성 프로젝트 ID 를 카드 템플릿에 전달 (채택 버튼 disabled 처리)
+    active_project_id = deps.config.active_project_id
+    ctx = {"request": request, "active_project_id": active_project_id, **result}
     # offset>0 은 페이지네이션 — toolbar 없이 카드만 반환해 중복을 방지한다.
     template_name = "_results_grid.html" if body.offset == 0 else "_results_cards_only.html"
     return templates.TemplateResponse(request=request, name=template_name, context=ctx)

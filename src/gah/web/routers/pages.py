@@ -24,10 +24,12 @@ def page_library(request: Request) -> HTMLResponse:
     """라이브러리 페이지 — 검색 바 + 결과 영역 + 사이드 패널 placeholder."""
     templates = request.app.state.templates
     deps = request.app.state.deps
+    # M7 Phase 5 — 활성 프로젝트 ID 전달 (채택 버튼 disabled 처리)
+    active_project_id = deps.config.active_project_id
     return templates.TemplateResponse(
         request=request,
         name="library.html",
-        context={"deps": deps, "page": "library"},
+        context={"deps": deps, "page": "library", "active_project_id": active_project_id},
     )
 
 
