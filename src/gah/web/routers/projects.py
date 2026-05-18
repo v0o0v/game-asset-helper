@@ -1,11 +1,18 @@
-"""M7 Phase 5.1 — 활성 프로젝트 API + SSE broadcast + 채택 endpoint.
+"""M7 Phase 5.1 + Phase 6 — 활성 프로젝트 API + SSE broadcast + 채택 endpoint +
+프로젝트 목록/상세 HTML 페이지 + 선호도 패널 JSON API.
 
-4 endpoints + SSE stream:
+Phase 5 endpoints:
   GET  /api/active-project          현재 활성 → {active: {id, external_id, display_name}|null}
   PUT  /api/active-project          body {project_id: int|null} → config 갱신 + SSE broadcast
   POST /api/projects                body {external_id, display_name?} → upsert + 응답 {id, ...}
+  GET  /api/projects                프로젝트 목록 반환 (헤더 드롭다운용)
   POST /api/assets/{asset_id}/adopt body {context?, query_id?} → record_asset_use(source="user_web")
   GET  /api/active-project/stream   SSE long-poll, event: active_project_changed
+
+Phase 6 endpoints:
+  GET  /projects                    프로젝트 목록 HTML 페이지
+  GET  /projects/{pid}              프로젝트 상세 HTML 페이지
+  GET  /projects/{pid}/preferences.json  선호도 패널 JSON API
 """
 from __future__ import annotations
 
@@ -15,11 +22,15 @@ import logging
 import time
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from sse_starlette.sse import EventSourceResponse
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["projects"])
+
+# Phase 6 — HTML 페이지 전용 라우터 (prefix 없음)
+router_pages = APIRouter(tags=["projects-pages"])
 
 # SSE 구독자 큐 (single-process, M5 의 pending-pick 패턴 따라)
 _subscribers: list[asyncio.Queue] = []
@@ -203,3 +214,92 @@ async def active_stream(request: Request):
                 _subscribers.remove(q)
 
     return EventSourceResponse(gen())
+
+
+# ── GET /projects (HTML 페이지) ──────────────────────────────────────────────
+
+
+@router_pages.get("/projects", response_class=HTMLResponse)
+async def projects_list_page(request: Request):
+    """프로젝트 목록 HTML 페이지 — 활성 강조, 새 프로젝트 버튼, 통계."""
+    deps = request.app.state.deps
+    templates = request.app.state.templates
+    rows = deps.store.list_projects_with_summary()
+    active = deps.config.active_project_id
+    return templates.TemplateResponse(
+        request=request,
+        name="projects_list.html",
+        context={
+            "rows": rows,
+            "active_project_id": active,
+            "page": "projects",
+        },
+    )
+
+
+# ── GET /projects/{pid} (HTML 페이지) ────────────────────────────────────────
+
+
+@router_pages.get("/projects/{pid}", response_class=HTMLResponse)
+async def project_detail_page(pid: int, request: Request):
+    """프로젝트 상세 HTML 페이지 — 헤더 + 사용 이력 + 팩 분포 + 선호도 패널."""
+    deps = request.app.state.deps
+    templates = request.app.state.templates
+    project = deps.store.get_project_by_id(pid)
+    if project is None:
+        raise HTTPException(404, "project not found")
+    usage = deps.store.get_project_asset_usage(project_id=pid, limit=100)
+    distribution = deps.store.get_project_pack_distribution(project_id=pid, top_n=5)
+    preferences = deps.store.get_project_asset_preferences(
+        project_id=pid, sort="score_desc", limit=50
+    )
+    active = deps.config.active_project_id
+    return templates.TemplateResponse(
+        request=request,
+        name="project_detail.html",
+        context={
+            "project": project,
+            "usage": usage,
+            "distribution": distribution,
+            "preferences": preferences,
+            "is_active": project.id == active,
+            "page": "projects",
+        },
+    )
+
+
+# ── GET /projects/{pid}/preferences.json ─────────────────────────────────────
+
+
+@router_pages.get("/projects/{pid}/preferences.json")
+async def project_preferences_json(
+    pid: int,
+    request: Request,
+    sort: str = "score_desc",
+    search: str | None = None,
+    offset: int = 0,
+    limit: int = 25,
+):
+    """자산별 선호도 패널 JSON API — 정렬/검색/페이지네이션 지원."""
+    deps = request.app.state.deps
+    rows = deps.store.get_project_asset_preferences(
+        project_id=pid, sort=sort, search=search,
+        offset=offset, limit=limit,
+    )
+    total = deps.store.count_project_asset_preferences(project_id=pid, search=search)
+    items = []
+    for r in rows:
+        bar_value = max(-2.0, min(2.0, r.composite_score))
+        items.append({
+            "asset_id": r.asset_id,
+            "asset_path": r.asset_path,
+            "pack_name": r.pack_name,
+            "composite_score": r.composite_score,
+            "bar_value": bar_value,
+            "positive_count": r.positive_count,
+            "negative_count": r.negative_count,
+            "irrelevant_count": r.irrelevant_count,
+            "usage_count": r.usage_count,
+            "last_activity_at": r.last_activity_at,
+        })
+    return {"items": items, "total": total}
