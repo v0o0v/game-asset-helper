@@ -1409,6 +1409,13 @@ html, body {
 }
 .adopt-btn:hover:not(:disabled) { background: var(--purple-strip, #7c3aed); color: white; border-color: transparent; }
 .adopt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.adopt-btn.adopted {
+  background: var(--score-pos, #28a745);
+  color: white;
+  border-color: transparent;
+  opacity: 1;
+  cursor: default;
+}
 
 /* M7 Phase 6 — 프로젝트 목록 + 상세 페이지 */
 .projects-page { padding: 24px; max-width: 1200px; margin: 0 auto; }
