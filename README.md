@@ -183,9 +183,9 @@ pybabel init -i src/gah/web/locale/messages.pot -d src/gah/web/locale -l ja
 pybabel compile -d src/gah/web/locale
 ```
 
-추가로 `src/gah/web/locale_middleware.py` 의 `SUPPORTED` 튜플과
-`src/gah/web/i18n.py` 의 `SUPPORTED_LOCALES` 에 새 언어 코드를 추가하고,
-`Config` 의 `_VALID_UI_LANGUAGES` 도 확장.
+추가로 `src/gah/web/i18n.py` 의 `SUPPORTED_LOCALES` 튜플
+(`locale_middleware.py` 가 같은 값을 alias import) 과
+`Config` 의 `_VALID_UI_LANGUAGES` 에 새 언어 코드를 추가.
 
 ## 라이선스
 

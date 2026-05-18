@@ -88,6 +88,12 @@ function settingsForm() {
                     this.error = data.error || `HTTP ${r.status}`;
                     return;
                 }
+                // localStorage 동기화 — theme.js 와 anti-flash 스크립트가 이 값을 본다.
+                if (this.form.ui_theme === 'auto') {
+                    localStorage.removeItem('gah_theme');
+                } else {
+                    localStorage.setItem('gah_theme', this.form.ui_theme);
+                }
                 window.location.reload();
             } catch (e) {
                 this.error = String(e);
