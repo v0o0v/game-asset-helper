@@ -1,15 +1,16 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-18 (M6 머지 + 후속 patch 8 적용 완료)
-**마지막 완료 마일스톤**: **M6 — 시트 분석 + 애니메이션** — ✅ 완료, [PR #7](https://github.com/v0o0v/game-asset-helper/pull/7) main 머지됨 + 수동 검증 중 발견된 회귀 8건도 main 에 반영 완료
-**현재 브랜치**: `main` (origin/main 과 sync), working tree clean
-**다음 작업**: **M7 — Unity Asset Store 임포트** (~1주) — spec/plan/todo 부터 시작
+**마지막 인계 시각**: 2026-05-18 (M7 in-flight — Phase 0/1A/1B + Task 2.1/2.2 끝)
+**마지막 완료 마일스톤**: **M6 — 시트 분석 + 애니메이션** — ✅ 완료 ([PR #7](https://github.com/v0o0v/game-asset-helper/pull/7) main 머지됨)
+**진행 중 마일스톤**: **M7 — Unity Asset Store 임포트 + 프로젝트 워크플로** (~1.5주, 7 phase 중 ~3.5 phase 끝)
+**현재 브랜치**: `feat/m7-unity-asset-store-import` (main 위 ~12 commit, working tree clean)
+**다음 작업**: **Phase 1C (scanner.py)** 부터 이어가기 — `milestones/M7_plan.md` §4.3 Task 1.3
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가" 를 한 번에 파악하도록 작성된 스냅샷이다. 마일스톤 또는 phase 가 하나 끝날 때마다 이 문서를 갱신한다.
 
 ## 1. 한 줄 요약
 
-M6 (시트 분석 + 애니메이션) 가 1 세션 안에 전 phase 완료 → [PR #7](https://github.com/v0o0v/game-asset-helper/pull/7) main 머지. 그 후 사용자 수동 검증 중 회귀 8건 (썸네일 분기/모달/큐 라우팅/aggregate 레이스/Gemma str split/Ollama cold-start 등) 발견 → 모두 fix + 회귀 테스트 추가 후 main 에 누적. 최종 **887 passed + 1 skipped + 40 deselected** (M6 spec 결정 +84 + 후속 patch test +7). MCP 18 도구. 신규 의존성 0. 다음 작업 = M7 (Unity Asset Store 임포트) spec/plan 부터.
+M7 (Unity Asset Store 임포트 + 프로젝트 워크플로) spec/plan/todo 작성 완료 + backend 핵심 4 모듈 (`unity_import/types`, `cache_paths`, `unitypackage`, Store `unity_imports` CRUD) + Config 5 신규 필드 구현 완료. **927 passed + 1 skipped + 40 deselected** (M6 887 + M7 in-flight +40). subagent-driven-development 패턴 진행 중. 다음 = Phase 1C (scanner.py state 머신) → 1D (importer.py) → Task 2.3 (record_asset_use enum) → 2B (Store projects 쿼리 + 트레이 + 부팅 자동 스캔) → 3A/3B (MCP 18→20) → 4A/4B (Unity 라우터 + UI) → 5 (활성 프로젝트 + 채택, cross-cutting) → 6A/6B/6C (`/projects` 페이지 + 선호도 패널) → 7 (격리 invariant + 문서 + verification). 남은 +~85 테스트 → M7 종료 ~1012 passed 목표.
 
 ## 2. 검증된 사실 (M6 완료 + 후속 patch 적용)
 
@@ -112,11 +113,71 @@ python -m gah --tray
 
 → 브라우저로 라이브러리 페이지 진입. M6 시트 PNG + JSON 드롭 → 카드 배지 + 모달 라벨 칩 확인.
 
-## 5. 다음 세션 진입 절차 (M7 시작)
+## 5. 다음 세션 진입 절차 (M7 Phase 1C 이어가기)
 
 ### 5.1 환경 복원 + 회귀 검증
 
-§4 의 명령 (Activate.ps1 / cd / git status / pytest -q) 실행. **887 passed** 확인.
+```powershell
+& "$env:USERPROFILE\.venvs\gah\Scripts\Activate.ps1"
+```
+
+```powershell
+cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
+```
+
+```powershell
+git checkout feat/m7-unity-asset-store-import
+```
+
+```powershell
+git status
+```
+
+→ `On branch feat/m7-unity-asset-store-import`, working tree clean, main 위 ~12 commit.
+
+```powershell
+pytest -q
+```
+
+→ **927 passed, 1 skipped, 40 deselected**.
+
+### 5.1.1 진행 완료된 M7 commit 목록 (참고)
+
+```
+4fde5cb feat(m7): Store unity_imports 테이블 + CRUD API
+3840781 feat(m7): unity_import/unitypackage — tarfile+gzip 파서 + 물리 복사
+6010b9d feat(m7): unity_import/cache_paths — 4단계 우선순위 검출
+906dcc4 feat(m7): Config 신규 5 필드 (unity + active_project + preference_usage_weight)
+3b4df04 refactor(m7): types Optional → X|None + sample_pathnames bare tuple default
+2ef3ad2 test(m7): conftest asset_factory fixture
+8593cee test(m7): .unitypackage fixture helper
+d0a661c feat(m7): unity_import 데이터클래스 7종
+923ecc9 scaffold(m7): core/unity_import 패키지 마커
+4d6c5bb docs(m7): M7_plan.md + M7_todo.md — 7 phase / ~125 신규 테스트 / MCP 18→20
+b0f7a2b docs(m7): spec 작성 — Unity Asset Store 임포트 + 프로젝트 워크플로
+1797eab (main) docs(m6): HANDOFF + CLAUDE M7 시작 준비 + .gitignore tmp/
+```
+
+### 5.2 M7 Phase 1C 이어가기 절차
+
+1. **읽기**: `milestones/M7_plan.md` §4.3 Task 1.3 (Phase 1C — scanner.py).
+2. **subagent-driven-development 패턴 그대로**:
+   - `superpowers:subagent-driven-development` 스킬 invoke 후 implementer (sonnet) 디스패치
+   - Phase 1C, 1D, 2A.3 까지 한 번에 (의존성 chain — Task 2.3 만 빨라서 합치기 가능)
+   - 각 phase 끝마다 spec + quality reviewer (haiku 합쳐서)
+3. **Phase 1C scanner.py 핵심**:
+   - `UnityAssetStoreScanner.run_once(cache_path, force, publisher_glob, asset_name_glob) -> UnityScanResult`
+   - 캐시 디렉터리 `*.unitypackage` walk + Store CRUD 호출 + state 머신 (D17: mtime 변경 시 imported/skipped → discovered 되돌림)
+   - +10 테스트 → 937 passed
+4. **Phase 1D importer.py + remote_optin.py skeleton**:
+   - `UnityImporter.import_package(unity_import_id) -> UnityImportResult` — tarfile.extract + pack.json 자동 생성
+   - `UnityRemoteOptInClient` skeleton (v2, NotImplementedError)
+   - +11 테스트 → 948 passed
+5. 그 후 Phase 2A Task 2.3 (record_asset_use enum) → Phase 2B → 3A/3B → 4A/4B → 5 → 6 → 7.
+
+### 5.3 다음 세션이 자동 로드하는 메모리
+
+본 시점부터 자동 로드: `project_m7_inflight_phase2a.md` (M7 진행 스냅샷).
 
 ### 5.2 M7 spec 작성
 
