@@ -6,17 +6,17 @@
     <a href="/library"><strong>{{ _("Game Asset Helper") }}</strong></a>
   </div>
   <div class="nav-links">
-    <a href="/library"{% if page == "library" %} class="active"{% endif %}>{{ _("라이브러리") }}</a>
-    <a href="/packs"{% if page == "packs" %} class="active"{% endif %}>{{ _("팩") }}</a>
-    <a href="/labels/admin"{% if page == "labels" %} class="active"{% endif %}>{{ _("라벨 관리") }}</a>
+    <a href="/library"{% if page == "library" %} class="active"{% endif %}>{{ _("Library") }}</a>
+    <a href="/packs"{% if page == "packs" %} class="active"{% endif %}>{{ _("Packs") }}</a>
+    <a href="/labels/admin"{% if page == "labels" %} class="active"{% endif %}>{{ _("Label management") }}</a>
     <span class="nav-divider">|</span>
-    <a href="/projects"{% if page == "projects" %} class="active"{% endif %}>{{ _("프로젝트") }}</a>
+    <a href="/projects"{% if page == "projects" %} class="active"{% endif %}>{{ _("Projects") }}</a>
     <a href="/unity-asset-store"{% if page == "unity_asset_store" %} class="active"{% endif %}>{{ _("Unity Asset Store") }}</a>
   </div>
   <div class="nav-notifications">
     {% include "_header_project_dropdown.html" %}
     <span class="notif-badge" x-show="$store.notifications.pickCount > 0">
-      🤖 {{ _("Claude 요청") }} (<span x-text="$store.notifications.pickCount"></span>)
+      🤖 {{ _("Claude request") }} (<span x-text="$store.notifications.pickCount"></span>)
     </span>
   </div>
 </nav>

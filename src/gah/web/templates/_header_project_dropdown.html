@@ -5,10 +5,10 @@
 <div class="header-project" x-data="headerProject()">
   <button class="header-project-chip" @click="open = !open" type="button">
     <template x-if="active">
-      <span>{{ _("현재 프로젝트") }}: <strong x-text="active.display_name || active.external_id"></strong></span>
+      <span>{{ _("Current project") }}: <strong x-text="active.display_name || active.external_id"></strong></span>
     </template>
     <template x-if="!active">
-      <span class="no-active-project">{{ _("프로젝트 선택") }}</span>
+      <span class="no-active-project">{{ _("Select project") }}</span>
     </template>
     <span class="caret">&#9662;</span>
   </button>
@@ -22,11 +22,11 @@
       </button>
     </template>
     <template x-if="projects.length === 0">
-      <span class="menu-empty">{{ _("프로젝트 없음") }}</span>
+      <span class="menu-empty">{{ _("No projects") }}</span>
     </template>
     <hr>
-    <button class="menu-item" @click="openNew()" type="button">{{ _("+ 새 프로젝트") }}</button>
-    <button class="menu-item" @click="setActive(null)" x-show="active" type="button">{{ _("선택 해제") }}</button>
+    <button class="menu-item" @click="openNew()" type="button">{{ _("+ New project") }}</button>
+    <button class="menu-item" @click="setActive(null)" x-show="active" type="button">{{ _("Deselect") }}</button>
   </div>
   {% include "_modal_new_project.html" %}
 </div>

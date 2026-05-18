@@ -1,18 +1,18 @@
 {# M7 Phase 5.2 — 새 프로젝트 생성 모달 (헤더 드롭다운 내부 포함) #}
 <div class="modal-overlay" x-show="showModal" @click.self="showModal = false" x-cloak>
   <div class="modal-content">
-    <h2>{{ _("새 프로젝트") }}</h2>
+    <h2>{{ _("New project") }}</h2>
     <label>
-      {{ _("프로젝트 폴더 경로") }}
+      {{ _("Project folder path") }}
       <input type="text" x-model="newExternal" placeholder="D:/Unity/MyGame">
     </label>
     <label>
-      {{ _("표시 이름 (선택)") }}
+      {{ _("Display name (optional)") }}
       <input type="text" x-model="newDisplay" placeholder="MyGame">
     </label>
     <div class="modal-actions">
-      <button @click="showModal = false" type="button">{{ _("취소") }}</button>
-      <button @click="createNew()" :disabled="!newExternal" type="button">{{ _("생성") }}</button>
+      <button @click="showModal = false" type="button">{{ _("Cancel") }}</button>
+      <button @click="createNew()" :disabled="!newExternal" type="button">{{ _("Create") }}</button>
     </div>
   </div>
 </div>
