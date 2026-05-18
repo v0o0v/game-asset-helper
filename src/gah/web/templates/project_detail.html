@@ -12,32 +12,32 @@
     <h1>{{ project.display_name or project.external_id }}</h1>
     <p class="project-meta">
       <code>{{ project.external_id }}</code>
-      {% if is_active %}<span class="active-chip">{{ _("현재 활성") }}</span>{% endif %}
+      {% if is_active %}<span class="active-chip">{{ _("Currently active") }}</span>{% endif %}
     </p>
     <div class="project-actions">
-      <a href="/projects" class="link-back">← {{ _("목록으로") }}</a>
+      <a href="/projects" class="link-back">← {{ _("Back to list") }}</a>
       {% if not is_active %}
         <button hx-put="/api/active-project"
                 hx-vals='{"project_id": {{ project.id }}}'
                 hx-ext="json-enc"
                 hx-on::after-request="location.reload()"
                 type="button" class="btn-primary">
-          {{ _("활성 프로젝트로 설정") }}
+          {{ _("Set as active project") }}
         </button>
       {% endif %}
     </div>
   </header>
 
   <section class="project-usage">
-    <h2>{{ _("자산 사용 이력") }}</h2>
+    <h2>{{ _("Asset usage history") }}</h2>
     {% if usage %}
     <table class="usage-table">
       <thead>
         <tr>
-          <th>{{ _("자산") }}</th>
-          <th>{{ _("팩") }}</th>
+          <th>{{ _("Asset") }}</th>
+          <th>{{ _("Packs") }}</th>
           <th>{{ _("source") }}</th>
-          <th>{{ _("사용 시점") }}</th>
+          <th>{{ _("Used at") }}</th>
           <th>{{ _("context") }}</th>
         </tr>
       </thead>
@@ -54,12 +54,12 @@
       </tbody>
     </table>
     {% else %}
-    <p class="usage-empty">{{ _("아직 채택된 자산이 없습니다.") }}</p>
+    <p class="usage-empty">{{ _("No assets adopted yet.") }}</p>
     {% endif %}
   </section>
 
   <section class="project-distribution">
-    <h2>{{ _("채택 팩 분포") }}</h2>
+    <h2>{{ _("Adopted pack distribution") }}</h2>
     {% if distribution %}
     <ul class="pack-distribution">
       {% set total_uses = namespace(value=0) %}
@@ -76,7 +76,7 @@
       {% endfor %}
     </ul>
     {% else %}
-    <p class="distribution-empty">{{ _("팩 분포 데이터가 없습니다.") }}</p>
+    <p class="distribution-empty">{{ _("No pack distribution data.") }}</p>
     {% endif %}
   </section>
 

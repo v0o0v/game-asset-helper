@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ _("라이브러리") }} · {{ _("Game Asset Helper") }}{% endblock %}
+{% block title %}{{ _("Library") }} · {{ _("Game Asset Helper") }}{% endblock %}
 
 {% block content %}
 <div class="library-page" x-data="{}">
@@ -12,7 +12,7 @@
         x-data="{}"
         @submit.prevent>
     <input type="search" name="query"
-           placeholder="{{ _('자연어 검색…  (엔터 또는 🔍 버튼)') }}"
+           placeholder="{{ _('Natural language search…  (Enter or 🔍 button)') }}"
            x-model="$store.search.query"
            autocomplete="off" />
     <input type="hidden" name="count" value="20" />
@@ -24,15 +24,15 @@
     <input type="hidden" name="pack_ids" :value="JSON.stringify($store.b.selectedPackIds)" />
     <button type="submit"
             class="search-submit"
-            aria-label="{{ _('검색') }}">
-      🔍 <span class="label">{{ _("검색") }}</span>
+            aria-label="{{ _('Search') }}">
+      🔍 <span class="label">{{ _("Search") }}</span>
     </button>
     <button type="button"
             class="advanced-toggle"
             :class="{ active: $store.advanced.open }"
             @click="$store.advanced.open = !$store.advanced.open"
-            aria-label="{{ _('고급') }}">
-      ⚙ <span class="label">{{ _("고급") }}</span>
+            aria-label="{{ _('Advanced') }}">
+      ⚙ <span class="label">{{ _("Advanced") }}</span>
     </button>
   </form>
 
@@ -65,16 +65,16 @@
          상태에서도 dead-end 회피. #}
       <button class="side-panel-close"
               @click="$store.advanced.open = false"
-              aria-label="{{ _('닫기') }}">✕</button>
+              aria-label="{{ _('Close') }}">✕</button>
 
       {# B/C/D 탭 헤더 #}
       <nav class="side-tabs">
         <button @click="$store.advanced.activeTab='b'"
-                :class="{ active: $store.advanced.activeTab === 'b' }">{{ _("B 필터") }}</button>
+                :class="{ active: $store.advanced.activeTab === 'b' }">{{ _("B Filters") }}</button>
         <button @click="$store.advanced.activeTab='c'"
-                :class="{ active: $store.advanced.activeTab === 'c' }">{{ _("C 표시") }}</button>
+                :class="{ active: $store.advanced.activeTab === 'c' }">{{ _("C Display") }}</button>
         <button @click="$store.advanced.activeTab='d'"
-                :class="{ active: $store.advanced.activeTab === 'd' }">{{ _("D 조정") }}</button>
+                :class="{ active: $store.advanced.activeTab === 'd' }">{{ _("D Adjust") }}</button>
       </nav>
 
       {# B/C/D 탭 컨테이너 — Jinja include 로 모두 렌더, Alpine x-show 로 가시성 제어 #}

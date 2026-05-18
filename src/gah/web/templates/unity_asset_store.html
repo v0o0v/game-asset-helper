@@ -7,14 +7,14 @@
     <h1>{{ _("Unity Asset Store") }}</h1>
     {% if cache_path %}
       <p class="unity-cache-path">
-        {{ _("캐시 경로") }}: <code>{{ cache_path }}</code>
+        {{ _("Cache path") }}: <code>{{ cache_path }}</code>
       </p>
     {% else %}
-      <p class="unity-empty">{{ _("캐시 경로가 비어 있습니다. 설정에서 Unity Asset Store 캐시 경로를 입력하세요.") }}</p>
+      <p class="unity-empty">{{ _("The cache path is empty. Please enter the Unity Asset Store cache path in settings.") }}</p>
     {% endif %}
     <button @click="scan()" :disabled="scanning">
-      <span x-show="!scanning">{{ _("캐시 스캔") }}</span>
-      <span x-show="scanning">{{ _("스캔 중...") }}</span>
+      <span x-show="!scanning">{{ _("Scan cache") }}</span>
+      <span x-show="scanning">{{ _("Scanning…") }}</span>
     </button>
   </header>
   {% if items %}
@@ -35,7 +35,7 @@
         {{ sort_th("package_size", _("Size"), "col-size") }}
         {{ sort_th("import_state", _("State"), "col-state") }}
         {{ sort_th("preview_asset_count", _("Preview"), "col-preview") }}
-        {{ sort_th("first_seen_at", _("추가된 시간"), "col-added") }}
+        {{ sort_th("first_seen_at", _("Added at"), "col-added") }}
         <th class="col-actions">{{ _("Actions") }}</th>
       </tr>
     </thead>
@@ -46,7 +46,7 @@
     </tbody>
   </table>
   {% else %}
-  <p class="unity-empty">{{ _("스캔된 패키지가 없습니다. '캐시 스캔' 버튼을 눌러 패키지를 검색하세요.") }}</p>
+  <p class="unity-empty">{{ _("No scanned packages. Click 'Scan cache' to search for packages.") }}</p>
   {% endif %}
 </section>
 <script>

@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 {# M7 Phase 6A — 프로젝트 목록 페이지. #}
 
-{% block title %}{{ _("프로젝트") }} — {{ _("Game Asset Helper") }}{% endblock %}
+{% block title %}{{ _("Projects") }} — {{ _("Game Asset Helper") }}{% endblock %}
 
 {% block content %}
 <section class="projects-page" x-data="projectsPage()">
   <header class="projects-header">
-    <h1>{{ _("프로젝트") }}</h1>
-    <button @click="showModal = true" type="button" class="btn-primary">{{ _("➕ 새 프로젝트") }}</button>
+    <h1>{{ _("Projects") }}</h1>
+    <button @click="showModal = true" type="button" class="btn-primary">{{ _("➕ New project") }}</button>
   </header>
 
   {% if rows %}
   <table class="projects-table">
     <thead>
       <tr>
-        <th>{{ _("표시 이름") }}</th>
-        <th>{{ _("경로") }}</th>
-        <th>{{ _("첫 발견") }}</th>
-        <th>{{ _("마지막 활동") }}</th>
-        <th>{{ _("채택 자산") }}</th>
-        <th>{{ _("주력 팩") }}</th>
-        <th>{{ _("핀/블록") }}</th>
+        <th>{{ _("Display name") }}</th>
+        <th>{{ _("Path") }}</th>
+        <th>{{ _("First seen") }}</th>
+        <th>{{ _("Last activity") }}</th>
+        <th>{{ _("Adopted assets") }}</th>
+        <th>{{ _("Primary pack") }}</th>
+        <th>{{ _("Pin/block") }}</th>
         <th></th>
       </tr>
     </thead>
@@ -37,13 +37,13 @@
             {% if r.pinned_pack_id %}📌 {{ r.pinned_pack_name or r.pinned_pack_id }}{% endif %}
             {% if r.blocked_count %}🚫 {{ r.blocked_count }}{% endif %}
           </td>
-          <td><a href="/projects/{{ r.id }}" class="link-detail">{{ _("상세") }}</a></td>
+          <td><a href="/projects/{{ r.id }}" class="link-detail">{{ _("Details") }}</a></td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p class="projects-empty">{{ _("등록된 프로젝트가 없습니다. 새 프로젝트를 만들거나, Claude Code 가 작업 중인 Unity 프로젝트의 자산을 채택하면 자동으로 등록됩니다.") }}</p>
+  <p class="projects-empty">{{ _("No projects registered. Create a new project or adopt assets from a Unity project to register one automatically.") }}</p>
   {% endif %}
 
   {% include "_modal_new_project.html" %}

@@ -49,8 +49,8 @@ def test_library_page_initializes_alpine_stores(client):
 
 def test_library_page_has_advanced_toggle(client):
     r = client.get("/library")
-    # ⚙ 고급 버튼 존재
-    assert "고급" in r.text  # Korean label
+    # ⚙ Advanced 버튼 존재 (Task 6 이후 영어 msgid)
+    assert "Advanced" in r.text
 
 
 def test_search_bar_triggers_only_on_submit_and_load(client):
@@ -257,11 +257,11 @@ def test_library_page_has_side_tabs(client):
 
 
 def test_library_page_has_tab_labels(client):
-    """탭 헤더에 B 필터, C 표시, D 조정 레이블이 존재한다."""
+    """탭 헤더에 B Filters, C Display, D Adjust 레이블이 존재한다 (Task 6 이후 영어 msgid)."""
     r = client.get("/library")
-    assert "B 필터" in r.text
-    assert "C 표시" in r.text
-    assert "D 조정" in r.text
+    assert "B Filters" in r.text
+    assert "C Display" in r.text
+    assert "D Adjust" in r.text
 
 
 def test_library_page_has_b_match_mode(client):
@@ -403,8 +403,8 @@ def test_page_labels_admin_renders_axes(populated_client):
 
 
 def test_page_labels_admin_has_correct_nav_active(populated_client):
-    """라벨 관리 페이지에서 nav 의 '라벨 관리' 링크가 active 클래스를 갖는다."""
+    """라벨 관리 페이지에서 nav 의 'Label management' 링크가 active 클래스를 갖는다 (Task 6 이후 영어 msgid)."""
     r = populated_client.get("/labels/admin")
     assert r.status_code == 200
     assert "active" in r.text
-    assert "라벨 관리" in r.text
+    assert "Label management" in r.text
