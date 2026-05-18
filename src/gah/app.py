@@ -35,6 +35,33 @@ from .web.server import WebServer
 log = logging.getLogger(__name__)
 
 
+def _boot_unity_scan(config: Config, store: "Store") -> None:
+    """M7 Task 2.5 D6: 부팅 직후 자동 스캔 (별도 스레드).
+
+    ASSETSTORE_CACHE_PATH 환경변수 또는 Config 에서 캐시 경로를 탐지한다.
+    경로가 없거나 임포트 실패 시 조용히 종료.
+    """
+    try:
+        from gah.core.unity_import.cache_paths import detect_cache_path
+        from gah.core.unity_import.scanner import UnityAssetStoreScanner
+    except ImportError:
+        log.debug("unity_import 모듈 없음 — 부팅 자동 스캔 skip")
+        return
+    cache = detect_cache_path(config)
+    if cache is None:
+        log.debug("Unity 캐시 경로 없음 — 부팅 자동 스캔 skip")
+        return
+    try:
+        scanner = UnityAssetStoreScanner(store=store)
+        result = scanner.run_once(cache_path=cache)
+        if result.new > 0:
+            log.info("Unity 캐시 스캔 완료: 새 패키지 %d개", result.new)
+        else:
+            log.debug("Unity 캐시 스캔 완료: 변경 없음")
+    except Exception:
+        log.exception("Unity 부팅 자동 스캔 오류")
+
+
 def _resolve_library_root(paths: AppPaths, config: Config) -> Path:
     if config.library_dir_override:
         return Path(config.library_dir_override).expanduser().resolve()
@@ -67,6 +94,12 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     store.initialize()
     registry = LabelRegistry(store)
     registry.bootstrap()
+
+    # ── M7: 부팅 자동 스캔 (Unity Asset Store) ────────────────────────
+    import threading
+    threading.Thread(
+        target=_boot_unity_scan, args=(config, store), daemon=True,
+    ).start()
 
     # ── M1: reconcile library state ─────────────────────────────────
     report = reconcile_library(store, library_root)

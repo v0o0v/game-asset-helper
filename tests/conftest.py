@@ -117,6 +117,63 @@ def store(tmp_appdata: Path) -> Iterator["object"]:
 
 
 @pytest.fixture
+def asset_factory(store, make_pack):
+    """테스트에서 asset row 를 빠르게 만드는 factory fixture.
+
+    Usage::
+
+        aid = asset_factory()                    # 기본: pack 자동 생성
+        aid = asset_factory(path="hero.png")     # 경로 지정
+        aid = asset_factory(pack_id=42)          # 기존 pack 재사용
+
+    반환값: assets.id (int).
+
+    pack 이 새로 생성될 때는 ``make_pack`` 을 통해 디렉터리를 만들고
+    ``store.upsert_pack`` 으로 DB 에 등록한다.  kind 기본값은 'sprite'.
+    """
+    import time
+
+    from gah.core.manifest import PackManifest
+
+    counter = {"n": 0}
+
+    def _factory(
+        *,
+        path: str | None = None,
+        pack_id: int | None = None,
+        kind: str = "sprite",
+    ) -> int:
+        counter["n"] += 1
+        n = counter["n"]
+
+        if pack_id is None:
+            pack_name = f"pack_for_asset_{n}"
+            _pack_dir = make_pack(name=pack_name)
+            manifest = PackManifest(
+                display_name=pack_name,
+                vendor=None,
+                source_url=None,
+                license=None,
+                description=None,
+            )
+            pack_id = store.upsert_pack(
+                pack_name, manifest, scanned_at=int(time.time())
+            )
+
+        rel_path = path or f"asset_{n}.png"
+        return store.upsert_asset(
+            pack_id,
+            rel_path,
+            kind,
+            file_hash=f"hash_{n}",
+            file_size=1024,
+            added_at=int(time.time()),
+        )
+
+    return _factory
+
+
+@pytest.fixture
 def clean_root_logger():
     """Snapshot and restore the root logger so logging tests don't bleed."""
     import logging

@@ -29,9 +29,12 @@ from .routers import (
     packs,
     pages,
     picks,
+    projects,
     saved_searches,
     sse,
+    unity_asset_store,
 )
+from .routers.projects import router_pages as projects_pages_router
 
 log = logging.getLogger(__name__)
 
@@ -89,6 +92,32 @@ def build_app(deps: WebDeps) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     templates = Jinja2Templates(directory=str(templates_dir))
     setup_jinja_i18n(templates.env)
+
+    # M7 patch — Unity Asset Store 표의 byte size 를 인간 가독 단위로.
+    def _humansize(n: int | None) -> str:
+        if n is None:
+            return "—"
+        f = float(n)
+        for unit in ("B", "KB", "MB", "GB"):
+            if f < 1024 or unit == "GB":
+                return f"{f:.0f} {unit}" if unit == "B" else f"{f:.1f} {unit}"
+            f /= 1024
+        return f"{f:.1f} GB"
+
+    templates.env.filters["humansize"] = _humansize
+
+    # M7 patch — Unity Asset Store 표의 first_seen_at 등 unix timestamp →
+    # "YYYY-MM-DD HH:MM" 표시.
+    def _datetime_fmt(ts) -> str:
+        if ts is None:
+            return "—"
+        from datetime import datetime
+        try:
+            return datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M")
+        except (ValueError, OSError):
+            return "—"
+
+    templates.env.filters["datetime"] = _datetime_fmt
     app.state.templates = templates
 
     # 10 라우터 등록 (library 는 /api + /ui 두 라우터, pages 는 HTML 페이지)
@@ -106,6 +135,9 @@ def build_app(deps: WebDeps) -> FastAPI:
     app.include_router(picks.router_ui)  # /ui/pick-card/{rid} HTML fragment
     app.include_router(sse.router)
     app.include_router(pages.router)  # HTML 페이지 라우트 (/, /library)
+    app.include_router(unity_asset_store.router)    # M7 Unity Asset Store
+    app.include_router(projects.router)             # M7 Phase 5 — 활성 프로젝트 API
+    app.include_router(projects_pages_router)       # M7 Phase 6 — 프로젝트 HTML 페이지
 
     # ── 전역 에러 핸들러 ──────────────────────────────────────────────
     # /api/* 경로는 JSON 응답 유지; 그 외 경로는 친절한 HTML 에러 페이지 반환.

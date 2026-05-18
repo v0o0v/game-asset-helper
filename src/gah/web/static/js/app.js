@@ -116,6 +116,37 @@ window.onPickResolved = function (evt) {
 };
 
 /**
+ * M7 — Unity Asset Store 페이지 row 액션 핸들러 (vanilla).
+ *
+ * action: 'preview' | 'import' | 'skip' | 'restore'
+ * 응답 OK → location.reload() 로 row 갱신. 'import' 는 큰 .unitypackage 면
+ * 수 초~수십 초 걸릴 수 있어 버튼을 "임포트 중..." 으로 잠시 변경.
+ */
+window.gahUnityAction = function (btn, action, uid) {
+  if (btn.disabled) return;
+  var origLabel = btn.textContent;
+  btn.disabled = true;
+  if (action === "import") {
+    btn.textContent = "임포트 중...";
+  }
+  fetch("/api/unity-packages/" + uid + "/" + action, { method: "POST" })
+    .then(function (r) {
+      if (!r.ok) {
+        console.warn("[GAH] unity " + action + " failed:", r.status);
+        btn.textContent = origLabel;
+        btn.disabled = false;
+        return;
+      }
+      location.reload();
+    })
+    .catch(function (e) {
+      console.warn("[GAH] unity " + action + " error:", e);
+      btn.textContent = origLabel;
+      btn.disabled = false;
+    });
+};
+
+/**
  * Native EventSource 직접 등록 — htmx-sse 우회.
  *
  * DOMContentLoaded 시점에 한 번 등록. 페이지 진입마다 새 EventSource 인스턴스
@@ -139,4 +170,17 @@ window.onPickResolved = function (evt) {
   } else {
     _attach();
   }
+
+  // M7 patch: 페이지 unload 시 SSE 명시 close.
+  // MPA 라 페이지 전환마다 새 EventSource 가 만들어지는데, 브라우저의
+  // 자동 close 신호가 서버에 도달하는 timing 이 느려 HTTP/1.1 도메인당
+  // 6 connection 한계에 잔존 SSE 가 누적 → 다음 페이지의 fetch (썸네일,
+  // active-project, 등) 가 connection 못 받아 pending. pagehide 에서
+  // 직접 close() 하면 TCP RST 가 즉시 서버에 도달.
+  window.addEventListener("pagehide", function () {
+    if (window._gahSse) {
+      try { window._gahSse.close(); } catch (e) {}
+      window._gahSse = null;
+    }
+  });
 })();

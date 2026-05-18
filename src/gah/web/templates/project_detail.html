@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{# M7 Phase 6B — 프로젝트 상세 페이지.
+   project: ProjectRow, usage: list[AssetUsageRow], distribution: list[PackDistRow],
+   preferences: list[PreferenceRow], is_active: bool
+#}
+
+{% block title %}{{ project.display_name or project.external_id }} — {{ _("Game Asset Helper") }}{% endblock %}
+
+{% block content %}
+<section class="project-detail">
+  <header class="project-header">
+    <h1>{{ project.display_name or project.external_id }}</h1>
+    <p class="project-meta">
+      <code>{{ project.external_id }}</code>
+      {% if is_active %}<span class="active-chip">{{ _("현재 활성") }}</span>{% endif %}
+    </p>
+    <div class="project-actions">
+      <a href="/projects" class="link-back">← {{ _("목록으로") }}</a>
+      {% if not is_active %}
+        <button hx-put="/api/active-project"
+                hx-vals='{"project_id": {{ project.id }}}'
+                hx-ext="json-enc"
+                hx-on::after-request="location.reload()"
+                type="button" class="btn-primary">
+          {{ _("활성 프로젝트로 설정") }}
+        </button>
+      {% endif %}
+    </div>
+  </header>
+
+  <section class="project-usage">
+    <h2>{{ _("자산 사용 이력") }}</h2>
+    {% if usage %}
+    <table class="usage-table">
+      <thead>
+        <tr>
+          <th>{{ _("자산") }}</th>
+          <th>{{ _("팩") }}</th>
+          <th>{{ _("source") }}</th>
+          <th>{{ _("사용 시점") }}</th>
+          <th>{{ _("context") }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in usage %}
+          <tr>
+            <td><a href="/asset/{{ u.asset_id }}">{{ u.asset_path }}</a></td>
+            <td>{{ u.pack_name }}</td>
+            <td>{{ u.source }}</td>
+            <td>{{ u.used_at | datetime }}</td>
+            <td>{{ u.context or "" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="usage-empty">{{ _("아직 채택된 자산이 없습니다.") }}</p>
+    {% endif %}
+  </section>
+
+  <section class="project-distribution">
+    <h2>{{ _("채택 팩 분포") }}</h2>
+    {% if distribution %}
+    <ul class="pack-distribution">
+      {% set total_uses = namespace(value=0) %}
+      {% for d in distribution %}{% set total_uses.value = total_uses.value + d.uses %}{% endfor %}
+      {% set total_denom = total_uses.value if total_uses.value > 0 else 1 %}
+      {% for d in distribution %}
+        <li>
+          <span class="pack-name">{{ d.pack_name }}</span>
+          <div class="pack-bar-track">
+            <div class="pack-bar" style="width: {{ (d.uses * 100 / total_denom) | round(1) }}%"></div>
+          </div>
+          <span class="pack-uses">{{ d.uses }} ({{ (d.uses * 100 / total_denom) | round(1) }}%)</span>
+        </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="distribution-empty">{{ _("팩 분포 데이터가 없습니다.") }}</p>
+    {% endif %}
+  </section>
+
+  {% include "_preference_panel.html" %}
+</section>
+{% endblock %}

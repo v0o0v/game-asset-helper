@@ -38,6 +38,8 @@ from .models import (
     ListLabelsResult,
     ListPacksResult,
     ListSavedSearchesResult,
+    ListUnityPackagesRequest,
+    ListUnityPackagesResult,
     RecordAssetUseRequest,
     RecordAssetUseResult,
     ReportFeedbackRequest,
@@ -47,11 +49,14 @@ from .models import (
     RunSavedSearchRequest,
     SaveSearchRequest,
     SaveSearchResult,
+    ScanUnityAssetStoreCacheRequest,
+    ScanUnityAssetStoreCacheResult,
     SetProjectPinRequest,
     SuggestAnimationFramesRequest,
     SuggestAnimationFramesResult,
     SuggestPacksRequest,
     SuggestPacksResult,
+    UnityPackageItem,
 )
 
 log = logging.getLogger(__name__)
@@ -736,3 +741,113 @@ def tool_suggest_animation_frames(
     fps = int(spec.get("fps_hint", 12)) or 12
     indices = list(range(start, end + 1))
     return SuggestAnimationFramesResult(frame_indices=indices, fps_hint=fps)
+
+
+# ── M7 — Unity Asset Store 임포트 ────────────────────────────────────
+
+
+def tool_scan_unity_asset_store_cache(
+    deps: ToolDeps, req: ScanUnityAssetStoreCacheRequest,
+) -> ScanUnityAssetStoreCacheResult:
+    """Unity Asset Store 캐시 디렉터리를 스캔해 unity_imports DB 동기화.
+
+    에러:
+      - 503_cache_not_found: 캐시 경로 검출 실패
+    """
+    from ..core.unity_import.cache_paths import detect_cache_path
+    from ..core.unity_import.scanner import UnityAssetStoreScanner
+
+    cache = detect_cache_path(deps.config)
+    if cache is None:
+        raise McpToolError("503_cache_not_found", "Unity 캐시 경로를 찾을 수 없음")
+
+    scanner = UnityAssetStoreScanner(store=deps.store)
+    publisher_glob = req.filter.publisher_glob if req.filter else None
+    asset_name_glob = req.filter.asset_name_glob if req.filter else None
+    result = scanner.run_once(
+        cache_path=cache,
+        force=req.force,
+        publisher_glob=publisher_glob,
+        asset_name_glob=asset_name_glob,
+    )
+    return ScanUnityAssetStoreCacheResult(
+        scanned=result.scanned,
+        new=result.new,
+        updated=result.updated,
+        unchanged=result.unchanged,
+        removed=result.removed,
+        cache_path=str(result.cache_path),
+        warnings=list(result.warnings),
+    )
+
+
+def tool_list_unity_packages(
+    deps: ToolDeps, req: ListUnityPackagesRequest,
+) -> ListUnityPackagesResult:
+    """unity_imports 목록 반환 — 필터/페이지네이션/미리보기 채움 지원."""
+    publisher_glob = req.filter.publisher_glob if req.filter else None
+    asset_name_glob = req.filter.asset_name_glob if req.filter else None
+
+    rows = deps.store.list_unity_imports(
+        state=req.state,
+        publisher_glob=publisher_glob,
+        asset_name_glob=asset_name_glob,
+        offset=req.offset,
+        limit=req.limit,
+    )
+    total = deps.store.count_unity_imports(
+        state=req.state,
+        publisher_glob=publisher_glob,
+        asset_name_glob=asset_name_glob,
+    )
+
+    if req.include_preview:
+        from ..core.unity_import.unitypackage import parse_pathnames
+        for r in rows:
+            if r.preview_asset_count is None:
+                try:
+                    entries = parse_pathnames(r.package_path)
+                    deps.store.update_unity_preview(
+                        r.id,
+                        asset_count=len(entries),
+                        image_count=sum(
+                            1 for e in entries.values() if e.internal_kind == "image"
+                        ),
+                        sound_count=sum(
+                            1 for e in entries.values() if e.internal_kind == "sound"
+                        ),
+                    )
+                except Exception:
+                    pass
+        # preview 갱신 후 재조회
+        rows = deps.store.list_unity_imports(
+            state=req.state,
+            publisher_glob=publisher_glob,
+            asset_name_glob=asset_name_glob,
+            offset=req.offset,
+            limit=req.limit,
+        )
+
+    base_url = getattr(deps.config, "web_base_url", None) or (
+        f"http://{getattr(deps.config, 'web_host', '127.0.0.1')}:9874"
+    )
+    items = [
+        UnityPackageItem(
+            id=r.id,
+            package_path=str(r.package_path),
+            publisher=r.publisher,
+            category=r.category,
+            asset_name=r.asset_name,
+            package_size=r.package_size,
+            package_mtime=r.package_mtime,
+            import_state=r.import_state,
+            preview_asset_count=r.preview_asset_count,
+            preview_image_count=r.preview_image_count,
+            preview_sound_count=r.preview_sound_count,
+            pack_id=r.pack_id,
+            imported_at=r.imported_at,
+            import_url=f"{base_url}/unity-asset-store?focus={r.id}",
+        )
+        for r in rows
+    ]
+    return ListUnityPackagesResult(total=total, items=items)

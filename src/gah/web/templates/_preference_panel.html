@@ -1,0 +1,86 @@
+{# M7 Phase 6C — 자산별 선호도 패널 (D14) #}
+<section class="preference-panel" x-data="preferencePanel({{ project.id }})" x-init="init()">
+  <h2>{{ _("자산별 선호도") }}</h2>
+  <div class="preference-controls">
+    <select x-model="sort" @change="offset = 0; refresh()">
+      <option value="score_desc">{{ _("선호도 높은 순") }}</option>
+      <option value="score_asc">{{ _("선호도 낮은 순") }}</option>
+      <option value="usage_desc">{{ _("채택 많은 순") }}</option>
+      <option value="recent_desc">{{ _("최근 활동 순") }}</option>
+    </select>
+    <input type="text" x-model.debounce.300ms="search" @input="offset = 0; refresh()"
+           placeholder="{{ _('자산 검색') }}">
+  </div>
+  <template x-if="items.length > 0">
+    <table class="preference-table">
+      <thead>
+        <tr>
+          <th>{{ _("자산") }}</th>
+          <th>{{ _("팩") }}</th>
+          <th>{{ _("선호도") }}</th>
+          <th>{{ _("feedback") }}</th>
+          <th>{{ _("채택") }}</th>
+          <th>{{ _("마지막 활동") }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="item in items" :key="item.asset_id">
+          <tr>
+            <td><a :href="'/asset/' + item.asset_id" x-text="item.asset_path"></a></td>
+            <td x-text="item.pack_name"></td>
+            <td>
+              <div class="score-bar"
+                   :class="item.bar_value < 0 ? 'neg' : (item.bar_value > 0 ? 'pos' : 'zero')">
+                <div class="score-bar-fill" :style="`width: ${Math.abs(item.bar_value) * 50}%`"></div>
+              </div>
+              <span class="score-value" x-text="item.composite_score.toFixed(2)"></span>
+            </td>
+            <td>
+              <span class="fb-positive" x-text="item.positive_count"></span> /
+              <span class="fb-negative" x-text="item.negative_count"></span> /
+              <span class="fb-irrelevant" x-text="item.irrelevant_count"></span>
+            </td>
+            <td x-text="item.usage_count"></td>
+            <td x-text="fmtTs(item.last_activity_at)"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </template>
+  <template x-if="items.length === 0">
+    <p class="preference-empty">{{ _("선호도 데이터가 없습니다.") }}</p>
+  </template>
+  <nav class="pager" x-show="total > 0">
+    <button @click="prev()" :disabled="offset === 0" type="button">{{ _("◀") }}</button>
+    <span x-text="`${offset+1}-${Math.min(offset+items.length, total)} / ${total}`"></span>
+    <button @click="next()" :disabled="offset + items.length >= total" type="button">{{ _("▶") }}</button>
+  </nav>
+</section>
+<script>
+function preferencePanel(pid) {
+  return {
+    items: [], total: 0, offset: 0, limit: 25,
+    sort: "score_desc", search: "",
+    async init() { await this.refresh(); },
+    async refresh() {
+      const url = new URL(`/projects/${pid}/preferences.json`, location.origin);
+      url.searchParams.set("sort", this.sort);
+      url.searchParams.set("offset", this.offset);
+      url.searchParams.set("limit", this.limit);
+      if (this.search) url.searchParams.set("search", this.search);
+      const r = await fetch(url);
+      const body = await r.json();
+      this.items = body.items;
+      this.total = body.total;
+    },
+    prev() { this.offset = Math.max(0, this.offset - this.limit); this.refresh(); },
+    next() { this.offset += this.limit; this.refresh(); },
+    fmtTs(ts) {
+      if (!ts) return "";
+      const d = new Date(ts * 1000);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    },
+  };
+}
+</script>

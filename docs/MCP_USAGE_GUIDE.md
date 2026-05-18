@@ -8,7 +8,7 @@
 python -m gah --mcp
 ```
 
-→ JSON-RPC over stdio. Claude Code 는 이 명령을 child process 로 spawn 하고 `tools/list` 로 **18 개** 도구를 발견한다 (M3 의 12 + M4 의 saved_searches 4 + M5 의 request_user_pick 1 + **M6 의 suggest_animation_frames 1**).
+→ JSON-RPC over stdio. Claude Code 는 이 명령을 child process 로 spawn 하고 `tools/list` 로 **20 개** 도구를 발견한다 (M3 의 12 + M4 의 saved_searches 4 + M5 의 request_user_pick 1 + M6 의 suggest_animation_frames 1 + **M7 의 scan_unity_asset_store_cache + list_unity_packages 2**).
 
 ## 1. 라벨 어휘는 "자기 기술" 한다
 
@@ -305,7 +305,7 @@ var clip = new AnimationClip { frameRate = 11 };
 |---|---|---|
 | `400_invalid_input` | Pydantic 검증 실패 또는 label_query 모호/혼합 표현 | 모든 도구 + M4 `find_asset(label_query=...)` / `save_search(name=중복)` |
 | `404_not_found` | `asset_id`/`path`/`pack_id` 미존재, M4 saved_search 미존재 | get_asset 등 + M4 `delete_saved_search` / `run_saved_search` |
-| `403_remote_disabled` | 비공식 경로 비활성 (M6) | sync_unity_asset_store |
+| `403_remote_disabled` | 비공식 경로 비활성 | scan_unity_asset_store_cache (remote_optin 미활성 시) |
 | `408_timeout` | 사용자가 `timeout_seconds` 내에 응답하지 않음 | M5 `request_user_pick` |
 | `499_user_cancelled` | 사용자가 [✕ 거부] 클릭 | M5 `request_user_pick` |
 | `503_no_ui_available` | GAH 웹 UI 미실행 또는 포트 미기록 | M5 `request_user_pick` |
@@ -430,3 +430,92 @@ GAH 웹 UI 의 라이브러리 페이지 상단에 **보라색 줄무늬 카드 
 | `408_timeout` | 5분(`timeout_seconds`) 내 응답 없음 | 자동 top-1 픽 또는 "시간이 지났어요, 나중에 다시 시도하세요" 안내 |
 | `499_user_cancelled` | 사용자 명시 거부 | 나머지 후보에서 재시도 또는 쿼리 변경 후 재검색 |
 | `503_too_many_pending` | 동시 20건 한도 초과 | 잠시 후 재시도 (정상 단일 사용 환경에서는 사실상 발생하지 않음) |
+
+## 13. M7 신규 2 도구 — Unity Asset Store 탐색
+
+M7에서 MCP 18 → **20 도구**로 확장됐다. 핵심 원칙: **임포트(파일 복사)는 사용자가 웹 UI에서 직접 수행** — MCP 도구는 탐색과 안내만 담당한다.
+
+### 13.1 `scan_unity_asset_store_cache` (도구 #19)
+
+Unity Asset Store 캐시 디렉터리를 스캔해 `unity_imports` 테이블을 갱신한다.
+
+```jsonc
+// input
+{
+  "force": false,
+  "filter": {
+    "publisher_glob": "Kenney*",
+    "asset_name_glob": "*platformer*"
+  }
+}
+
+// output
+{
+  "scanned": 132,
+  "new": 4,
+  "updated": 1,
+  "unchanged": 127,
+  "removed": 0,
+  "cache_path": "C:/Users/.../Asset Store-5.x",
+  "warnings": []
+}
+```
+
+에러:
+- `404_not_found` — 캐시 경로를 찾을 수 없음 (사용자에게 Unity 설치 여부/경로 확인 안내).
+- `403_remote_disabled` — remote_optin 미활성화 상태에서 remote 스캔 시도.
+
+### 13.2 `list_unity_packages` (도구 #20)
+
+`unity_imports` 테이블을 조회해 패키지 목록과 `import_url` 을 돌려준다.
+
+```jsonc
+// input
+{
+  "state": "discovered",
+  "filter": { "asset_name_glob": "*character*" },
+  "include_preview": true,
+  "offset": 0,
+  "limit": 20
+}
+
+// output
+{
+  "total": 5,
+  "items": [
+    {
+      "id": 7,
+      "asset_name": "Kenney Character Pack",
+      "publisher": "Kenney",
+      "import_state": "discovered",
+      "package_size": 2097152,
+      "preview_asset_count": 45,
+      "preview_image_count": 42,
+      "preview_sound_count": 3,
+      "import_url": "http://localhost:37520/unity-asset-store"
+    }
+  ]
+}
+```
+
+`import_url` 은 웹 UI의 Unity Asset Store 페이지 URL이다. Claude Code는 이 URL을 사용자에게 안내해 임포트 여부를 결정하게 한다.
+
+### 13.3 Claude Code 워크플로 예시 — "Unity 에셋 보유 안내"
+
+```
+사용자: "내 Unity 에셋 중에 캐릭터 있어?"
+Claude:
+  1. scan_unity_asset_store_cache() — 캐시 재스캔 (빠름, 임포트 없음)
+  2. list_unity_packages(state="discovered", filter={asset_name_glob: "*character*"})
+     → 발견된 패키지들의 asset_name, publisher, preview 카운트 확인
+  3. 결과를 사용자에게 안내:
+     "Kenney Character Pack (42 이미지, 3 사운드)를 발견했어요.
+      아직 GAH 라이브러리에 임포트되지 않았습니다.
+      임포트하려면 이 링크를 열어 '임포트' 버튼을 클릭하세요:
+      http://localhost:37520/unity-asset-store"
+  4. 사용자가 웹 UI에서 임포트 완료 후:
+     find_asset("character sprite", project_id="...", kind="sprite")
+     → 방금 임포트된 팩의 에셋이 검색 결과에 포함됨
+```
+
+임포트 완료 여부는 `list_unity_packages(state="imported")` 로 확인할 수 있다.

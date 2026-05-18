@@ -55,5 +55,7 @@
               onclick="event.stopPropagation()">&#9654; 재생</button>
       <div class="audio-slot"></div>
     {% endif %}
+    {# M7 patch — 라이브러리 직접 채택 버튼 제거. 채택은 Claude pending-pick
+       (picks.py) 흐름에서만 발생 — record_asset_use(source="claude_pick"). #}
   </div>
 </div>

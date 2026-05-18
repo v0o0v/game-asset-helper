@@ -18,9 +18,8 @@ def _all_table_names(conn: sqlite3.Connection) -> set[str]:
 def test_initialize_creates_required_tables(store) -> None:
     names = _all_table_names(store.conn)
     assert {"packs", "assets", "tags", "asset_tags"}.issubset(names)
-    # M6 unity-import 테이블은 아직 미도입. 추가되면 가드 한 줄 빼면 됨.
-    for forbidden in ("unity_imports",):
-        assert forbidden not in names, f"{forbidden} should be created in a later milestone"
+    # M7 — unity_imports 테이블이 initialize() 에서 생성되어야 한다.
+    assert "unity_imports" in names, "unity_imports 테이블이 M7 에서 추가되어야 함"
 
 
 def test_pragma_journal_mode_is_wal(store) -> None:

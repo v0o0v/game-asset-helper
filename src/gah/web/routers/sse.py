@@ -44,7 +44,12 @@ async def sse_notifications(request: Request) -> EventSourceResponse:
                 if await request.is_disconnected():
                     break
                 try:
-                    msg = await asyncio.wait_for(q.get(), timeout=15.0)
+                    # M7 patch: timeout 15→2초. 페이지 unload 후 빠르게
+                    # is_disconnected() 체크 + ping yield 시 sse-starlette 가
+                    # 끊긴 클라이언트 감지. HTTP/1.1 도메인당 6 connection
+                    # 한계가 빠른 메뉴 이동 시 SSE 누적으로 채워지는 지연
+                    # 회피 (M5 까지 무관했으나 M7 헤더 dropdown 추가로 노출).
+                    msg = await asyncio.wait_for(q.get(), timeout=2.0)
                     yield {
                         "event": msg["event"],
                         "data": json.dumps(msg["data"], ensure_ascii=False),

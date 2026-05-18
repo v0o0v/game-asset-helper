@@ -166,6 +166,14 @@ class Config:
     claude_pick_max_pending: int = 20
     web_open_browser_on_start: bool = True
     web_log_requests: bool = False
+    # M7 — Unity Asset Store 임포트
+    unity_asset_store_cache_path: str | None = None
+    unity_remote_optin_enabled: bool = False
+    unity_remote_optin_session: str | None = None
+    # M7 — 활성 프로젝트 (D12)
+    active_project_id: int | None = None
+    # M7 — /projects/<id> 선호도 점수 공식 (D14)
+    preference_usage_weight: float = 0.1
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "Config":

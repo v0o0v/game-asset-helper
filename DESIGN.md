@@ -364,7 +364,7 @@ src/gah/web/
 
 레지스트리 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`에 `GameAssetHelper` 키 등록/해제 토글(M8 패키징 때 GUI 설정 제공 예정).
 
-### 4.9 Unity Asset Store Importer
+### 4.9 Unity Asset Store Importer ✅ M7 구현 완료
 
 사용자가 Unity Asset Store에서 받은 에셋을 GAH 라이브러리에 자동 등록한다. Unity는 보유 에셋 다운로드용 공식 API를 제공하지 않으므로([Asset Store 공식 안내](https://docs.unity3d.com/Manual/AssetStore.html)) v1은 **로컬 캐시 스캔**을 1차 경로로 삼고, 비공식 다운로드는 옵트인 부가 기능으로만 둔다.
 
@@ -422,6 +422,66 @@ src/gah/web/
 
 - `.unitypackage` 내용은 Unity Asset Store EULA의 범위 안에서 GAH가 "사용자 본인의 로컬 라이브러리 인덱싱"으로만 사용한다. 외부로 전송하지 않으며, MCP를 통한 응답에 포함되는 것은 **사용자 본인의** Claude Code 세션에 한정된다.
 - GAH는 임포트한 팩의 라이선스 필드를 `Unity Asset Store EULA`로 자동 설정한다. 사용자가 작업물 배포 시 라이선스 조건을 따로 검토해야 한다는 안내를 GUI 상세 화면에 노출.
+
+
+### 4.10 활성 프로젝트 + 프로젝트 페이지 + 자산별 선호도 ✅ M7 구현 완료
+
+> M7에서 신설된 cross-cutting 기능이다. Unity Asset Store 임포트와 독립적이지만 같은 마일스톤에서 구현됐다.
+
+#### 4.10.1 활성 프로젝트 (active project)
+
+GAH는 한 번에 하나의 **활성 프로젝트**를 기억한다.
+
+- 글로벌 헤더 우상단 드롭다운에서 선택/생성/변경.
+- `Config.active_project_id` 에 저장돼 재시작 후에도 유지.
+- 활성 프로젝트가 없으면 라이브러리 카드의 "채택" 버튼이 비활성화된다.
+- MCP 도구 `find_asset` / `suggest_packs` 는 `project_id` 파라미터로 명시적으로 전달하는 방식을 유지한다. 활성 프로젝트는 웹 UI 중심 개념이다.
+
+프로젝트 생성 API:
+- `POST /api/projects` — `{external_id, display_name}` → `{id, ...}`
+- 성공 시 자동으로 활성 프로젝트로 설정.
+
+활성 프로젝트 관리 API:
+- `GET /api/active-project` — 현재 활성 프로젝트 조회
+- `POST /api/active-project` — `{project_id}` 로 변경
+- `DELETE /api/active-project` — 활성 프로젝트 해제
+
+#### 4.10.2 자산 채택 (adopt)
+
+라이브러리 카드 하단에 "채택" 버튼이 있다. 클릭 시:
+1. 활성 프로젝트 없음 → 버튼 disabled (툴팁: "프로젝트를 먼저 선택하세요")
+2. `POST /api/library/assets/{id}/adopt` → `asset_usage` 에 `source="user_web"` 행 INSERT.
+3. 응답 후 카드 UI에 채택 표시.
+
+#### 4.10.3 프로젝트 목록 페이지 (`/projects`)
+
+- 모든 프로젝트를 `first_seen DESC` 로 나열.
+- 활성 프로젝트는 상단 강조 + 별 아이콘.
+- 각 카드에 총 사용 자산 수, 최다 사용 팩 이름 표시.
+
+#### 4.10.4 프로젝트 상세 페이지 (`/projects/<id>`)
+
+세 패널로 구성:
+
+1. **사용 이력 표** — `asset_usage` JOIN assets/packs. `used_at DESC`. 페이지네이션 25개씩.
+2. **채택 팩 분포** — `asset_usage GROUP BY pack_id`. 도넛 차트 없이 막대 목록으로 표현.
+3. **자산별 선호도 패널** — `get_project_asset_preferences()` 결과:
+   - `composite_score` = `SUM(feedback.weight) + 0.1 × usage_count`
+   - 정렬: score_desc (기본) / score_asc / usage_desc / name_asc
+   - 인라인 검색 (JS 클라이언트 사이드 필터)
+   - 페이지네이션 50개씩
+
+#### 4.10.5 격리 불변식 (I-1~I-5)
+
+라이브러리(검색/분석 도메인)와 Unity 후보(임포트 도메인) 간 격리를 보장하는 5 불변식이 `tests/test_isolation_invariants.py` 에 회귀 테스트로 고정돼 있다.
+
+| 불변식 | 설명 |
+|---|---|
+| I-1 | `discovered/previewed` 패키지의 자산은 `assets` 테이블에 없음 |
+| I-2 | preview 는 `unity_imports.preview_*` 만 갱신 — library/assets 부작용 없음 |
+| I-3 | library 라우터가 `unity_imports` 테이블을 조회하지 않음 |
+| I-4 | Unity 라우터가 `list_assets`/`find_asset` 같은 library API를 호출하지 않음 |
+| I-5 | project_A 의 feedback/usage 가 project_B 점수에 반영되지 않음 |
 
 
 ## 5. 데이터 스키마
@@ -548,19 +608,25 @@ CREATE TABLE search_queries (
   created_at   INTEGER NOT NULL
 );
 
--- Unity Asset Store 임포트 추적
+-- Unity Asset Store 임포트 추적 (M7 갱신)
 CREATE TABLE unity_imports (
-  id              INTEGER PRIMARY KEY,
-  package_path    TEXT NOT NULL UNIQUE,    -- .unitypackage 절대 경로
-  publisher       TEXT,
-  category        TEXT,
-  asset_name      TEXT NOT NULL,
-  package_size    INTEGER NOT NULL,
-  package_mtime   INTEGER NOT NULL,        -- 변경 감지용
-  pack_id         INTEGER REFERENCES packs(id) ON DELETE SET NULL,
-  import_state    TEXT NOT NULL,           -- 'pending' | 'extracted' | 'failed' | 'skipped'
-  import_error    TEXT,
-  imported_at     INTEGER
+  id                    INTEGER PRIMARY KEY,
+  package_path          TEXT NOT NULL UNIQUE,    -- .unitypackage 절대 경로
+  publisher             TEXT,
+  category              TEXT,
+  asset_name            TEXT NOT NULL,
+  package_size          INTEGER NOT NULL,
+  package_mtime         INTEGER NOT NULL,        -- 변경 감지용
+  preview_asset_count   INTEGER,                 -- 미리보기: 전체 지원 자산 수
+  preview_image_count   INTEGER,                 -- 미리보기: 이미지 수
+  preview_sound_count   INTEGER,                 -- 미리보기: 사운드 수
+  preview_inspected_at  INTEGER,                 -- 미리보기 마지막 수행 시각
+  pack_id               INTEGER REFERENCES packs(id) ON DELETE SET NULL,
+  import_state          TEXT NOT NULL,           -- 'discovered' | 'previewed' | 'import_pending' | 'imported' | 'failed' | 'skipped'
+  import_error          TEXT,
+  imported_at           INTEGER,
+  first_seen_at         INTEGER NOT NULL,        -- 캐시에서 처음 발견된 시각
+  last_scanned_at       INTEGER                  -- 마지막 스캔에서 존재 확인된 시각
 );
 CREATE INDEX idx_unity_imports_pack ON unity_imports(pack_id);
 
@@ -867,16 +933,19 @@ Claude Code가 "이 에셋이 잘 안 맞았다"는 신호를 보낼 수 있게 
 - `run_saved_search(project_id, name, overrides={...})` → 저장된 query_json 을 FindAssetRequest 로 재구성 후 `tool_find_asset` 위임. `overrides` 로 일부 필드 (예: `count`) 만 덮어쓰기 가능.
 - `query_json` 에는 `_schema_version: 1` 박혀 있어 M5+ 마이그레이션 시 신호로 사용.
 
-### 6.11 `sync_unity_asset_store`
+### 6.11 `scan_unity_asset_store_cache` / `list_unity_packages` ✅ M7 구현 완료
 
-Unity Asset Store 로컬 캐시(또는 옵션이 켜져 있다면 비공식 publisher 패널 경유)를 스캔해 신규/변경된 `.unitypackage`를 추출하고 라이브러리에 팩으로 등록한다.
+> **설계 변경 (M7)**: 원래 단일 `sync_unity_asset_store` 도구(historical reference — 아래 "이전 설계" 참고)를 **2개 도구**로 분리했다. 임포트(추출)는 사용자 통제 보존을 위해 웹 UI 전용으로 남겨 MCP 도구로 노출하지 않는다.
+
+#### 19. `scan_unity_asset_store_cache`
+
+Unity Asset Store 캐시 디렉터리를 스캔해 `unity_imports` 테이블을 갱신한다. 임포트(추출)는 수행하지 않는다.
 
 ```jsonc
 // input
 {
-  "mode": "cache_only",            // "cache_only" (default) | "cache_and_remote"
-  "force": false,                   // true면 mtime 변화 없어도 전부 재추출
-  "filter": {                       // optional. 부분 동기화
+  "force": false,                   // true면 mtime 변화 없어도 전부 재스캔
+  "filter": {                       // optional
     "publisher_glob": "Kenney*",
     "asset_name_glob": "*platformer*"
   }
@@ -885,18 +954,53 @@ Unity Asset Store 로컬 캐시(또는 옵션이 켜져 있다면 비공식 publ
 // output
 {
   "scanned": 132,
-  "new_packs": 4,
-  "updated_packs": 1,
-  "skipped": 127,
-  "failed": 0,
-  "packs": [
-    { "pack_id": 41, "name": "Mega Platformer Pack", "asset_count": 312, "state": "extracted" }
-  ],
+  "new": 4,
+  "updated": 1,
+  "unchanged": 127,
+  "removed": 0,
+  "cache_path": "C:/Users/.../Asset Store-5.x",
   "warnings": []
 }
 ```
 
-`mode="cache_and_remote"`는 §4.9.2의 비공식 경로가 설정에서 활성화돼 있을 때만 동작하며, 비활성 상태에서 호출되면 `403_remote_disabled` 에러를 돌려준다.
+#### 20. `list_unity_packages`
+
+`unity_imports` 테이블을 조회해 패키지 목록을 돌려준다. Claude Code가 "내가 가진 Unity 에셋" 질의에 응답할 때 사용.
+
+```jsonc
+// input
+{
+  "state": "discovered",            // optional: "discovered"|"previewed"|"imported"|"skipped"|null(=전체)
+  "filter": {
+    "publisher_glob": "Kenney*",
+    "asset_name_glob": "*character*"
+  },
+  "include_preview": false,         // true면 preview_asset_count 등 포함
+  "offset": 0,
+  "limit": 20
+}
+
+// output
+{
+  "total": 132,
+  "items": [
+    {
+      "id": 7,
+      "asset_name": "Kenney Platformer Pack",
+      "publisher": "Kenney",
+      "import_state": "discovered",
+      "package_size": 1048576,
+      "import_url": "http://localhost:37520/unity-asset-store"
+    }
+  ]
+}
+```
+
+`import_url` 은 웹 UI의 Unity Asset Store 페이지 URL이다. Claude Code는 이를 사용자에게 안내해 임포트 여부를 결정하게 한다.
+
+---
+
+> **이전 설계 (historical reference)**: 단일 `sync_unity_asset_store` 도구가 스캔 + 추출을 모두 수행하도록 설계됐었다. M7 구현 과정에서 임포트는 사용자 확인이 필요한 조작(파일 복사, 라이브러리 변경)이므로 MCP 도구로 노출하지 않고 웹 UI에만 남기는 것으로 결정이 변경됐다.
 
 
 ## 7. 폴더 / 파일 구조
@@ -1180,12 +1284,14 @@ mcp.find_asset(query, project_id, ...)
 - 와이드/리스트 카드 우상단에 `🎞 N frames` 배지.
 - v1 알려진 한계: 알파 없는 시트는 JSON 사이드카 필수, 비균일 atlas v2.
 
-### Milestone 7 — Unity Asset Store 임포트 (1주, 기존 M6)
+### Milestone 7 — Unity Asset Store 임포트 (1주, 기존 M6) ✅ 완료 (2026-05-18)
 - 캐시 경로 자동 검출(환경변수 + Preferences 폴백) + 사용자 오버라이드.
 - `.unitypackage` 파서, 선택적 추출(이미지/사운드만), 매니페스트 자동 생성.
-- 증분 동기화, `unity_imports` 테이블, `sync_unity_asset_store` MCP 도구.
-- 웹 UI 의 Unity Asset Store 페이지.
+- 증분 동기화, `unity_imports` 테이블(preview 컬럼 4개 + first_seen_at + last_scanned_at 포함), 2 MCP 도구(`scan_unity_asset_store_cache` + `list_unity_packages`).
+- 웹 UI 의 Unity Asset Store 페이지 (미리보기/임포트/건너뜀/되돌리기).
+- 활성 프로젝트 + 프로젝트 페이지 + 자산별 선호도 (§4.10).
 - 비공식 publisher 패널 경로는 스켈레톤만(기본 비활성), 안정성 모니터링 후 별도 마일스톤에서 본 구현.
+- **신규 의존성 없음**. 1011 passed (baseline 887 + 신규 +124).
 
 ### Milestone 8 — 패키징 + i18n + 풍부 UX 마감 (1~1.5주, 기존 M7)
 - 웹 UI i18n — Jinja2 + `babel` (또는 단순 JSON 변환기), `Config.ui_language` (`"ko"`/`"en"`/`"auto"`). M5 의 모든 사용자 노출 문자열을 `_()` 또는 `tr()` 로 감싸 둠.

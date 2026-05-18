@@ -281,3 +281,59 @@ class SuggestAnimationFramesRequest(_BaseModel):
 class SuggestAnimationFramesResult(_BaseModel):
     frame_indices: list[int]
     fps_hint: int
+
+
+# ── M7 — Unity Asset Store 임포트 ────────────────────────────────────
+
+
+class ScanFilter(_BaseModel):
+    publisher_glob: str | None = None
+    asset_name_glob: str | None = None
+
+
+class ScanUnityAssetStoreCacheRequest(_BaseModel):
+    force: bool = False
+    filter: ScanFilter | None = None
+
+
+class ScanUnityAssetStoreCacheResult(_BaseModel):
+    scanned: int
+    new: int
+    updated: int
+    unchanged: int
+    removed: int
+    cache_path: str
+    warnings: list[str] = []
+
+
+class ListUnityPackagesRequest(_BaseModel):
+    state: Literal[
+        "discovered", "previewed", "import_pending",
+        "imported", "skipped", "failed",
+    ] | None = None
+    filter: ScanFilter | None = None
+    include_preview: bool = False
+    offset: int = Field(0, ge=0)
+    limit: int = Field(50, ge=1, le=200)
+
+
+class UnityPackageItem(_BaseModel):
+    id: int
+    package_path: str
+    publisher: str | None
+    category: str | None
+    asset_name: str
+    package_size: int
+    package_mtime: int
+    import_state: str
+    preview_asset_count: int | None
+    preview_image_count: int | None
+    preview_sound_count: int | None
+    pack_id: int | None
+    imported_at: int | None
+    import_url: str
+
+
+class ListUnityPackagesResult(_BaseModel):
+    total: int
+    items: list[UnityPackageItem]

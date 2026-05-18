@@ -1,0 +1,98 @@
+{# M7 Phase 5.2 — 글로벌 헤더 활성 프로젝트 드롭다운 (D12)
+   nav 안 .nav-notifications 영역에 포함된다.
+   Alpine x-data="headerProject()" — 초기화 시 /api/active-project + /api/projects 로드.
+   SSE /api/active-project/stream 구독으로 다른 탭 변경도 동기화. #}
+<div class="header-project" x-data="headerProject()">
+  <button class="header-project-chip" @click="open = !open" type="button">
+    <template x-if="active">
+      <span>{{ _("현재 프로젝트") }}: <strong x-text="active.display_name || active.external_id"></strong></span>
+    </template>
+    <template x-if="!active">
+      <span class="no-active-project">{{ _("프로젝트 선택") }}</span>
+    </template>
+    <span class="caret">&#9662;</span>
+  </button>
+  <div class="header-project-menu" x-show="open" @click.away="open = false" x-cloak>
+    <template x-for="p in projects" :key="p.id">
+      <button class="menu-item"
+              @click="setActive(p.id)"
+              :class="{'active': active && active.id === p.id}"
+              type="button">
+        <span x-text="p.display_name || p.external_id"></span>
+      </button>
+    </template>
+    <template x-if="projects.length === 0">
+      <span class="menu-empty">{{ _("프로젝트 없음") }}</span>
+    </template>
+    <hr>
+    <button class="menu-item" @click="openNew()" type="button">{{ _("+ 새 프로젝트") }}</button>
+    <button class="menu-item" @click="setActive(null)" x-show="active" type="button">{{ _("선택 해제") }}</button>
+  </div>
+  {% include "_modal_new_project.html" %}
+</div>
+<script>
+function headerProject() {
+  return {
+    open: false,
+    showModal: false,
+    active: null,
+    projects: [],
+    newExternal: "",
+    newDisplay: "",
+    async init() {
+      await this.refresh();
+      // SSE 다중 탭 동기화는 v2 로 보류 — HTTP/1.1 도메인당 connection
+      // 한계(6) 가 페이지 전환마다 새 EventSource 로 채워져 연쇄 지연
+      // 발생. setActive() / createNew() 의 명시 refresh() 만으로 단일 탭
+      // 사용에는 충분.
+      // this.subscribe();
+    },
+    async refresh() {
+      try {
+        const ar = await fetch("/api/active-project");
+        if (ar.ok) this.active = (await ar.json()).active;
+      } catch (e) {}
+      try {
+        const pr = await fetch("/api/projects");
+        if (pr.ok) {
+          const body = await pr.json();
+          this.projects = body.items || [];
+        }
+      } catch (e) {}
+    },
+    subscribe() {
+      try {
+        const es = new EventSource("/api/active-project/stream");
+        es.addEventListener("active_project_changed", () => this.refresh());
+      } catch (e) {}
+    },
+    async setActive(pid) {
+      await fetch("/api/active-project", {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({project_id: pid}),
+      });
+      this.open = false;
+      await this.refresh();
+    },
+    openNew() { this.showModal = true; this.open = false; },
+    async createNew() {
+      if (!this.newExternal) return;
+      try {
+        const r = await fetch("/api/projects", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({external_id: this.newExternal, display_name: this.newDisplay}),
+        });
+        const body = await r.json();
+        if (body.id) {
+          await this.setActive(body.id);
+        }
+      } catch (e) {}
+      this.showModal = false;
+      this.newExternal = "";
+      this.newDisplay = "";
+    },
+  };
+}
+</script>

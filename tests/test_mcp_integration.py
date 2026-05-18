@@ -93,8 +93,8 @@ def test_stdio_subprocess_initialize_handshake(tmp_path):
         proc.wait(timeout=5)
 
 
-def test_stdio_subprocess_tools_list_returns_18(tmp_path):
-    """M3 의 12 → M4 의 16 → M5 의 17 → M6 의 18 (suggest_animation_frames 신규 도구 추가)."""
+def test_stdio_subprocess_tools_list_returns_20(tmp_path):
+    """M3 의 12 → M4 의 16 → M5 의 17 → M6 의 18 → M7 의 20 (scan+list 신규 도구 추가)."""
     proc = _spawn(tmp_path)
     try:
         # initialize
@@ -123,9 +123,12 @@ def test_stdio_subprocess_tools_list_returns_18(tmp_path):
             "request_user_pick",
             # M6 1 신규 도구
             "suggest_animation_frames",
+            # M7 2 신규 도구
+            "scan_unity_asset_store_cache",
+            "list_unity_packages",
         }
         assert expected <= names
-        assert len(names) == 18
+        assert len(names) == 20
     finally:
         proc.terminate()
         proc.wait(timeout=5)
