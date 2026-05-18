@@ -165,11 +165,12 @@ library/
 
 > Gemma 4는 OCR, 객체 검출, UI/차트 이해 같은 능력을 모델 카드에 명시한다. 게임 아이콘처럼 텍스트가 박힌 스프라이트의 라벨 인식에 그대로 활용 가능하다.
 
-#### 4.2.2 스프라이트 시트 (`spritesheets/*.png`)
-1. 동명 `.json`이 있으면 우선 사용 (Aseprite/TexturePacker 형식 자동 판별).
-2. 없으면 격자 추정: 가로/세로로 투명 행/열을 찾아 자동 분할. 실패 시 사용자에게 GUI에서 frame size 입력 요청.
-3. 프레임을 가로 8칸 그리드로 합성한 미리보기 이미지를 만들어 Gemma 4에 넘기고, "어떤 애니메이션으로 추정되는가"를 묻는다 (`idle`, `walk`, `run`, `attack`, `hurt`, `death`, `jump`, `cast`, `other` 화이트리스트).
-4. 결과는 시트 단위 + 프레임 묶음 단위로 모두 저장.
+#### 4.2.2 스프라이트 시트 (`spritesheets/*.png`) ✅ M6 완료
+
+1. 동명 `.json` 이 있으면 우선 사용 — `core/sheet/json_parser.py` 가 Aseprite Array/Hash + TexturePacker 자동 형식 판별.
+2. 없으면 격자 추정 — `core/sheet/grid_detect.py` 가 Pillow alpha 채널 행/열 합으로 균일 격자 검출. 실패 시 일반 `sprite` 로 폴백 (사용자 frame size 입력 GUI 는 M7+ v2).
+3. 프레임을 가로 8칸 그리드로 합성 (`core/sheet/preview.py`, 8 이하 그대로, 그 이상 선형 stride 샘플링) → Gemma 4 호출 → `animation_hint` 받음.
+4. 결과는 시트 단위 + Aseprite frameTags 가 있으면 frame range 단위로도 `sprite_meta.animations_json` 에 저장.
 
 #### 4.2.3 사운드 (`sounds/*.{wav,ogg,mp3}`)
 
@@ -781,17 +782,21 @@ pack_score =
 - 사운드 샘플은 `preview_blurb`(Gemma 4가 만든 한 줄 요약) + `path`를 돌려주고, Claude Code가 OS 기본 재생기로 미리듣기 액션을 제안할 수 있게 한다.
 - 응답 크기 절약을 위해 `include_thumbnails=false`로 호출하면 경로 필드를 비운다.
 
-### 6.6 `suggest_animation_frames`
+### 6.6 `suggest_animation_frames` ✅ M6 완료
 
-스프라이트 시트의 특정 애니메이션(예: `walk`)에 해당하는 프레임 인덱스 배열을 돌려준다. Unity의 `AnimationClip`을 만들 때 직접 쓰일 데이터.
+스프라이트 시트의 특정 애니메이션(예: `walk`)에 해당하는 프레임 인덱스 배열 + `fps_hint` 를 돌려준다. Unity의 `AnimationClip` 을 만들 때 직접 쓰일 데이터.
 
 ```jsonc
 // input
 { "asset_id": 88, "animation": "walk" }
 
-// output
-{ "frame_indices": [4,5,6,7,8,9], "fps_hint": 12 }
+// output (Aseprite frameTags 기반, 평균 duration 90ms 에서 역산)
+{ "frame_indices": [0,1,2,3,4,5,6,7], "fps_hint": 11 }
 ```
+
+에러:
+- `404_not_found` — `asset_id` 없음, `sprite_meta` 없음, animation 미존재 (응답 메시지에 available 목록 포함).
+- `400_invalid_input` — `kind != "spritesheet"`.
 
 ### 6.7 `record_asset_use`
 
@@ -1168,10 +1173,12 @@ mcp.find_asset(query, project_id, ...)
 
 **spec**: [`docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md`](./docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md)
 
-### Milestone 6 — 시트 분석 + 애니메이션 (1주, 기존 M5)
+### Milestone 6 — 시트 분석 + 애니메이션 (1주) ✅ 완료
+
 - 격자 자동 분할, Aseprite/TexturePacker JSON 지원.
 - `suggest_animation_frames` 도구 (17 → 18).
-- 와이드 카드 우상단에 `🎞 N frames` 배지 추가 (M5 카드 컴포넌트 옵셔널 메타).
+- 와이드/리스트 카드 우상단에 `🎞 N frames` 배지.
+- v1 알려진 한계: 알파 없는 시트는 JSON 사이드카 필수, 비균일 atlas v2.
 
 ### Milestone 7 — Unity Asset Store 임포트 (1주, 기존 M6)
 - 캐시 경로 자동 검출(환경변수 + Preferences 폴백) + 사용자 오버라이드.
