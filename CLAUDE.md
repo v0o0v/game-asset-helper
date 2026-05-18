@@ -25,7 +25,7 @@
 | M3 — 검색 백엔드 + 통일성 + MCP | ✅ 완료 | HybridSearcher 가중합 0.40/0.15/0.20/0.20/0.05, ConsistencyScorer §4.6 표, UsageTracker, MCP stdio 12 도구 (mcp 1.27), GUI 검색 박스, `docs/MCP_USAGE_GUIDE.md` 본격화 |
 | M4 — 검색 UX 풍부화 | ✅ 완료 (main 머지됨, [PR #5](https://github.com/v0o0v/game-asset-helper/pull/5)) | label_query 파서 AND/OR/NOT + axis:label + bare 자동매칭, HybridSearcher 6채널 0.35/0.10/0.20/0.20/0.05/0.10 feedback, diversity none/mmr/round_robin, saved_searches 4 신규 MCP 도구 (12→16), feedback_records signed weight 페널티 학습, suggest_packs samples 풍부화. Qt UI 위젯 4개는 M5 가 폐기 예정 |
 | **M5 — 웹 GUI 전환 + 라이브러리 리디자인 + Claude pick 인터랙션** (~5.5주) | **✅ 완료** (`feat/m5-web-gui` 브랜치, main 머지 대기) | 웹 GUI 전환 완료 + 라이브러리/팩/라벨 리디자인 + Claude pick + 17 MCP 도구 + Qt UI 폐기. Phase 0~6 완료 — **796 passed + 1 skipped**. spec: [`docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md`](./docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md), plan: [`milestones/M5_plan.md`](./milestones/M5_plan.md) |
-| M6 — 시트 분석 + 애니메이션 (1주) | 대기 | 격자 분할·Aseprite/TexturePacker JSON·`suggest_animation_frames` |
+| **M6 — 시트 분석 + 애니메이션** | ✅ 완료 | sheet 4 모듈 + SpritesheetAnalyzer + `suggest_animation_frames` MCP 18번째 + 와이드/리스트 카드 🎞 배지. 신규 의존성 0. **84 신규 테스트** (총 880). spec: [`docs/superpowers/specs/2026-05-18-m6-sheet-and-animation-design.md`](./docs/superpowers/specs/2026-05-18-m6-sheet-and-animation-design.md), plan: [`milestones/M6_plan.md`](./milestones/M6_plan.md) |
 | M7 — Unity Asset Store 임포트 (1주) | 대기 | `.unitypackage` 파서·캐시 스캐너 |
 | M8 — 패키징 + i18n (1주) | 대기 | PyInstaller/Tauri 빌드, gettext / Jinja i18n |
 
@@ -135,7 +135,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-`pytest -q`가 **796 passed + 1 skipped + 4 deselected** 로 떨어지면 준비 완료 (M0~M4 의 452 baseline + M5 Phase 0~6 의 +344 신규 — Qt UI 폐기 테스트 7 파일 삭제로 skipped 8 → 1). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m gah --mcp` subprocess + JSON-RPC, **17 도구** 응답) 추가 검증 가능. M4 시점 검증 결과는 [`milestones/M4_verification.md`](./milestones/M4_verification.md). M5 최종 검증 결과는 [`milestones/M5_verification.md`](./milestones/M5_verification.md). **M4 + M5 spec 은 [PR #5](https://github.com/v0o0v/game-asset-helper/pull/5) 로 main 머지됨**. **M5 작업 브랜치는 `feat/m5-web-gui`** (main 위 75+ commit, Phase 0~6 완료, main 머지 대기).
+`pytest -q`가 **880 passed + 1 skipped + 40 deselected** 로 떨어지면 준비 완료 (M0~M4 의 452 baseline + M5 Phase 0~6 의 +344 신규 + M6 Phase 0~5 의 +84 신규 — Qt UI 폐기 테스트 7 파일 삭제로 skipped 8 → 1). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m gah --mcp` subprocess + JSON-RPC, **18 도구** 응답) 추가 검증 가능. M5 최종 검증 결과는 [`milestones/M5_verification.md`](./milestones/M5_verification.md). M6 최종 검증 결과는 [`milestones/M6_verification.md`](./milestones/M6_verification.md). **M4 + M5 spec 은 [PR #5](https://github.com/v0o0v/game-asset-helper/pull/5) 로 main 머지됨**. **M6 작업 브랜치는 `feat/m6-sheet-animation`** (main 위 20+ commit, Phase 0~5 완료, main 머지 대기).
 
 ## 7. 자주 쓰는 명령
 
@@ -163,24 +163,23 @@ python -m gah --tray
 python -m gah --version
 ```
 
-## 8. 다음 작업 (M6 — 시트 분석 + 애니메이션)
+## 8. 다음 작업 (M7 — Unity Asset Store 임포트)
 
-M5 가 **✅ 완료**됐다 (Phase 0~6, 796 passed, `feat/m5-web-gui` 브랜치 main 머지 대기). 다음 마일스톤은 **M6 — 시트 분석 + 애니메이션** (~1주).
+M6 가 **✅ 완료**됐다 (Phase 0~5, 880 passed, `feat/m6-sheet-animation` 브랜치 main 머지 대기). 다음 마일스톤은 **M7 — Unity Asset Store 임포트** (~1주).
 
-### 8.1 현재 상태 (M5 완료)
+### 8.1 현재 상태 (M6 완료)
 
-- 브랜치 `feat/m5-web-gui` — main 위 **75+ commit** (main 머지 대기).
-- **796 passed + 1 skipped + 4 deselected**. 회귀 0.
-- M5 완료된 인프라 요약:
-  - **Phase 0~2** — FastAPI/uvicorn/Jinja2/sse-starlette + Config 7 신규 필드 + HTMX/Alpine vendoring + WebServer + SSE bus + 라이브러리 페이지 (`506 passed`)
-  - **Phase 3** — B/C/D 사이드 패널 18 task (매칭 모드/라벨 검색/axis 칩/다축 필터/표시 옵션/프리셋/슬라이더/저장된 검색/통일성 요약/반응형) (`692 passed`)
-  - **Phase 4** — `request_user_pick` 17번째 MCP 도구 + SSE pick 카드 + TrayBridge + httpx loopback (`746 passed`)
-  - **Phase 5** — `/packs` 카드 그리드 + `/labels/admin` 24 axis CRUD + Qt UI 8 파일 삭제 (`783 passed`)
-  - **Phase 6A** — 404/500 에러 페이지 + `M5_verification.md` (`796 passed`)
-  - **Phase 6B** — 문서 마감 (이 커밋)
-- Qt UI `src/gah/ui/` 디렉터리 완전 삭제 완료 (Phase 5C).
-- 웹 UI 페이지: `/library`, `/packs`, `/labels/admin`.
-- MCP 17 도구 (`request_user_pick` Phase 4C 에서 추가).
+- 브랜치 `feat/m6-sheet-animation` — main 위 **20+ commit** (main 머지 대기).
+- **880 passed + 1 skipped + 40 deselected**. 회귀 0.
+- M6 완료된 인프라 요약:
+  - **Phase 0** — 5 frozen dataclass (`SheetFrame`/`SheetTag`/`SheetDetection`/`SheetFormat`/`SheetResult`) (+5 테스트)
+  - **Phase 1** — `core/sheet/` 패키지 4 모듈 (json_parser/grid_detect/preview/detect) (+35 테스트)
+  - **Phase 2** — `Store.animations_json` 컬럼 + `SpritesheetAnalyzer` + `AnalysisQueue` promote (+21 테스트)
+  - **Phase 3** — `suggest_animation_frames` 18번째 MCP 도구 + 404/400 에러 매핑 (+12 테스트)
+  - **Phase 4** — 와이드/리스트 카드 `🎞 N frames` 배지 + light/dark CSS (+5 테스트)
+  - **Phase 5** — Phase 2 cleanup + 문서 마감 (0 신규 테스트)
+- MCP 18 도구 (`suggest_animation_frames` Phase 3 에서 추가).
+- 신규 의존성 0 (Pillow/numpy 이미 M2 에서 사용).
 
 ### 8.2 다음 세션 진입 시 첫 작업
 
@@ -194,34 +193,35 @@ M5 가 **✅ 완료**됐다 (Phase 0~6, 796 passed, `feat/m5-web-gui` 브랜치 
    ```powershell
    git status
    ```
-   → `On branch feat/m5-web-gui` + 75+ commits ahead of main + clean. (또는 main 머지 후라면 `main` 브랜치에서 clean)
+   → `On branch feat/m6-sheet-animation` + 20+ commits ahead of main + clean. (또는 main 머지 후라면 `main` 브랜치에서 clean)
 
 2. **회귀 검증**:
    ```powershell
    pytest -q
    ```
-   → `796 passed, 1 skipped, 4 deselected`.
+   → `880 passed, 1 skipped, 40 deselected`.
 
-3. **선택 A — M5 브랜치 main 머지**: PR 생성 후 main 에 머지. (`feat/m5-web-gui` → `main`)
+3. **선택 A — M6 브랜치 main 머지**: PR 생성 후 main 에 머지. (`feat/m6-sheet-animation` → `main`)
 
-4. **선택 B — M6 시작**: [`milestones/M5_plan.md`](./milestones/M5_plan.md) 이 M6 의 spec/plan/todo 작성부터 시작. 핵심:
-   - 스프라이트 시트 격자 자동 분할 (Pillow grid crop)
-   - Aseprite/TexturePacker JSON 파서
-   - `suggest_animation_frames` MCP 도구 (17 → 18)
-   - 와이드 카드 `🎞 N frames` 배지 (M5 카드 컴포넌트 옵셔널 메타)
+4. **선택 B — M7 시작**: `milestones/M7_plan.md` 작성부터 시작. 핵심:
+   - Unity Asset Store 캐시 경로 자동 검출 (환경변수 + Preferences 폴백)
+   - `.unitypackage` 파서 — 이미지/사운드만 선택적 추출
+   - 매니페스트 자동 생성 + `unity_imports` 테이블
+   - `sync_unity_asset_store` MCP 도구 (18 → 19)
+   - 웹 UI Unity Asset Store 페이지
 
 상세 진행 상태 + 알려진 한계는 [`HANDOFF.md`](./HANDOFF.md).
 
-### 8.3 마일스톤 재정렬 (M5 완료)
+### 8.3 마일스톤 재정렬 (M6 완료)
 
 | # | 이름 | 일정 | 상태 |
 |---:|---|---:|---|
 | M5 | 웹 GUI 전환 + 리디자인 + Claude pick | 5.5주 | ✅ 완료 |
-| **M6** | **시트 분석 + 애니메이션** | **1주** | **대기** |
-| M7 | Unity Asset Store 임포트 | 1주 | 대기 |
+| M6 | 시트 분석 + 애니메이션 | 1주 | ✅ 완료 |
+| **M7** | **Unity Asset Store 임포트** | **1주** | **대기** |
 | M8 | 패키징 + i18n | 1주 | 대기 |
 
-참고 DESIGN: §3 (아키텍처 — M5 갱신 완료), §4.5 (MCP — 17 도구), §4.8 (트레이 + 웹 UI), §11 (로드맵).
+참고 DESIGN: §3 (아키텍처 — M6 갱신 완료), §4.2.2 (시트 분석 — M6), §4.5 (MCP — 18 도구), §4.8 (트레이 + 웹 UI), §11 (로드맵).
 
 ## 9. 알려진 이슈·주의사항
 
