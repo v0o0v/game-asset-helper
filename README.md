@@ -229,6 +229,36 @@ pyinstaller assetcache.spec
 빌드된 exe 는 단일 파일로 배포 가능. 첫 실행 시 CLIP 모델 가중치 (~600 MB) 가
 `%APPDATA%\AssetCacheMCP\cache\clip\` 로 자동 다운로드된다.
 
+## 배포 — PyPI publish 자동화 (M10)
+
+PyPI 가 1차 배포 채널. `git tag v0.1.1 && git push --tags` 로 자동 publish 되도록
+GitHub Actions workflow (`.github/workflows/publish.yml`) 가 구성되어 있다.
+
+사전 셋업:
+
+- GitHub repo Settings > Secrets and variables > Actions > `PYPI_API_TOKEN` 에
+  PyPI API token 등록 필요 (https://pypi.org/manage/account/token/ 에서 발급)
+- 첫 v0.1.0 은 수동으로 `python -m twine upload dist/*` 업로드 권장
+  (workflow 가 처음 도는 환경에서 secret 누락 등 문제를 미리 점검)
+- 이후 v0.1.1+ 부터는 `git tag v0.1.1 && git push --tags` 한 줄로 자동 publish
+
+수동 빌드 + 업로드 흐름 (참고):
+
+```powershell
+# 1. 빌드 (dist/assetcache_mcp-*.whl + .tar.gz 생성)
+python -m build
+```
+
+```powershell
+# 2. TestPyPI 업로드 (선택)
+python -m twine upload --repository testpypi dist/*
+```
+
+```powershell
+# 3. 정식 PyPI 업로드
+python -m twine upload dist/*
+```
+
 ## 번역 추가 (M8)
 
 신규 언어 추가 시:
