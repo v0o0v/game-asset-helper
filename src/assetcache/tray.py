@@ -2,18 +2,29 @@
 
 The icon is drawn at runtime with ``QPainter`` so we don't carry a PNG
 file in the source tree.  Polished artwork lands with M6.
+
+M10 Task 2.6: ``TrayController`` + ``_TrayBridge`` 클래스가 추가됨. PyPI
+업데이트 알림을 워커 스레드 (``PollingLoop`` 등) 에서 호출하면 Qt main
+thread 이벤트 루프로 마샬링해 메뉴를 동적으로 갱신한다. ``QApplication``,
+``QSystemTrayIcon``, ``QMenu`` 는 ``TrayController`` 가 모듈 레벨에서 참조
+가능하도록 (테스트에서 ``patch("assetcache.tray.QApplication")`` 으로 갈
+수 있게) module top-level 에 import. ``qt_offscreen`` autouse fixture 가
+``QT_QPA_PLATFORM=offscreen`` 을 보장하므로 headless 환경에서도 안전.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, List, Optional
+
+from PySide6.QtCore import QCoreApplication, QObject, Signal
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from assetcache.platform.autostart import is_autostart_enabled, set_autostart
 
 if TYPE_CHECKING:  # pragma: no cover
     from PySide6.QtGui import QIcon
-    from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
     from .core.analysis_queue import AnalysisProgress
 
@@ -231,3 +242,129 @@ def notify_user_pick_request(
     else:
         tray.setToolTip(_tr("AssetCacheMCP"))
         tray.setProperty("_pick_count", 0)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# M10 Task 2.6 — PyPI 업데이트 알림 동적 메뉴 + Qt Signal cross-thread bridge
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class _TrayBridge(QObject):
+    """워커 스레드 → Qt main thread 마샬링용 QObject.
+
+    ``PollingLoop`` (asyncio) 에서 ``update_check_result(result)`` 가 호출되면
+    ``update_signal.emit(result)`` 가 발생하고, Qt AutoConnection 이
+    QueuedConnection 으로 격상되어 ``TrayController._apply_update_result`` 가
+    main thread 이벤트 루프에서 실행된다. 따라서 GUI 위젯 조작은 안전.
+    """
+
+    update_signal = Signal(object)
+    """PyPI 업데이트 확인 결과를 main thread 로 전달. payload = CheckResult."""
+
+
+class TrayController:
+    """PyPI 업데이트 알림 메뉴를 동적으로 관리하는 컨트롤러.
+
+    별도 컨테이너로 분리한 이유 — 기존 ``make_tray_icon`` 은 부팅 시 1회만
+    호출되는 빌더 함수이고, 업데이트 메뉴는 24h 폴링 후에 추가/제거되어야
+    하므로 mutable 상태를 가진 객체가 필요. ``app`` 은 ``QApplication`` 또는
+    그 모킹된 등가물 (테스트에서 ``MagicMock()`` 주입 가능).
+
+    사용 패턴 (M10 Phase 3 통합 시)::
+
+        controller = TrayController(app=qapp, tray_icon=tray)
+        # PollingLoop 콜백에서 ─
+        controller.update_check_result(check_result)
+        # → signal.emit → main thread 에서 _apply_update_result
+    """
+
+    def __init__(
+        self,
+        app: Any,
+        tray_icon: Optional["QSystemTrayIcon"] = None,
+        menu: Optional["QMenu"] = None,
+    ) -> None:
+        self.app = app
+        self.tray_icon = tray_icon
+        self.menu = menu
+        self.menu_actions: List[Any] = []
+        self._bridge = _TrayBridge()
+        # AutoConnection: 같은 스레드이면 DirectConnection, 다르면 QueuedConnection.
+        self._bridge.update_signal.connect(self._apply_update_result)
+        # public alias — 테스트와 외부 호출자가 cross-thread emit 검증 시 사용.
+        self.update_signal = self._bridge.update_signal
+
+    def update_check_result(self, result: Any) -> None:
+        """Thread-safe: 어디서든 호출 가능. main thread 마샬링은 Signal 책임."""
+        self._bridge.update_signal.emit(result)
+
+    def _apply_update_result(self, result: Any) -> None:
+        """Qt main thread 에서 실행. menu_actions 를 result 에 맞춰 동기화.
+
+        업데이트가 가능하면 한 개의 동적 항목을 추가, 불가능하면 기존 항목을
+        제거. msgid 는 영어 (M8 정책): 라벨에는 ``"update available"`` 이
+        포함되어 검색/필터 가능.
+        """
+        # 기존 update 메뉴 항목을 모두 제거 (라벨에 'update available' 포함).
+        self.menu_actions = [
+            a for a in self.menu_actions if "update available" not in str(a)
+        ]
+        if not getattr(result, "available", False):
+            self._rebuild_menu()
+            return
+
+        # lazy import — 모듈 import 시점에 updater 패키지가 로드되지 않게 한다.
+        from assetcache.core.updater.pip_command import recommended_upgrade_command
+
+        command = recommended_upgrade_command("assetcache-mcp")
+        label = self._tr("v{version} update available →").format(
+            version=getattr(result, "latest", "?"),
+        )
+        action = self._make_menu_action(label, lambda: self._on_update_clicked(command))
+        self.menu_actions.append(action)
+        self._rebuild_menu()
+
+    def _on_update_clicked(self, command: str) -> None:
+        """업그레이드 명령을 클립보드로 복사 + 시스템 알림 표시."""
+        clipboard = QApplication.clipboard()
+        clipboard.setText(command)
+        if self.tray_icon is not None:
+            msg = self._tr("Upgrade command copied to clipboard")
+            try:
+                self.tray_icon.showMessage("AssetCacheMCP", f"{msg}: {command}")
+            except Exception:  # pragma: no cover — headless fallback
+                log.debug("tray_icon.showMessage 실패 (headless?) — skip")
+
+    @staticmethod
+    def _make_menu_action(label: str, callback: Callable[[], None]) -> "QAction":
+        """``QAction`` 을 만들어 ``triggered`` 에 callback 연결.
+
+        실 menu (``QMenu``) 부착은 ``_rebuild_menu`` 책임. 테스트는 라벨 문자열만
+        검증하므로 ``str(action)`` 이 label 을 포함하도록 ``setText`` 직후
+        ``action.setObjectName(label)`` 도 세팅 → ``QAction.__repr__`` 폴백.
+        실제 PyInstaller 빌드에서는 ``setText`` 만으로 충분.
+        """
+        action = QAction(label)
+        action.setObjectName(label)
+        action.triggered.connect(lambda checked=False: callback())
+        return action
+
+    def _rebuild_menu(self) -> None:
+        """``self.menu`` 가 있으면 dynamic 항목들을 다시 부착.
+
+        구체 layout (separator / 위치) 은 ``make_tray_icon`` 의 메뉴 빌더와
+        Phase 3 통합 시점에 합쳐진다. Task 2.6 에서는 menu_actions list 의
+        management 만 보장하면 회귀가 깨지지 않는다.
+        """
+        if self.menu is None:
+            return
+        # 기존 dynamic 액션 제거는 menu owner 가 별도로 책임 (Phase 3 통합).
+        for action in self.menu_actions:
+            try:
+                self.menu.addAction(action)
+            except Exception:  # pragma: no cover — mocked menu safety
+                log.debug("menu.addAction 실패 (mock?) — skip")
+
+    @staticmethod
+    def _tr(text: str) -> str:
+        return QCoreApplication.translate("Tray", text)
