@@ -93,7 +93,7 @@ def build_server(
     paths: Any | None = None,
 ) -> FastMCP:
     """20 도구를 등록한 FastMCP 인스턴스 반환 (M3 12 + M4 saved_searches 4 + M5 request_user_pick 1 + M6 suggest_animation_frames 1 + M7 scan+list 2)."""
-    server = FastMCP("game-asset-helper", instructions=INSTRUCTIONS)
+    server = FastMCP("assetcache-mcp", instructions=INSTRUCTIONS)
     deps = t.ToolDeps(
         store=store, search=search, usage=usage,
         registry=registry, queue=queue, config=config, paths=paths,
