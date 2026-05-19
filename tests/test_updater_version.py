@@ -55,3 +55,31 @@ def test_compare_major_increment() -> None:
 def test_pre_release_less_than_release() -> None:
     """SemVer 표준: 1.0.0-beta < 1.0.0."""
     assert compare(parse("1.0.0-beta"), parse("1.0.0")) < 0
+
+
+# ─────────────────────────────────────────────────────────────────────
+# M10 Phase 2: Version.parse classmethod + ordering dunders
+# checker.py 의 `Version.parse("0.1.0")` + `latest > self.current` 사용을 위해
+# 추가. 모듈 레벨 parse()/compare() API 는 그대로 보존.
+# ─────────────────────────────────────────────────────────────────────
+
+
+def test_version_parse_classmethod() -> None:
+    """Version.parse(text) classmethod 는 module-level parse() 와 동일한 결과."""
+    assert Version.parse("0.0.1") == Version(0, 0, 1, None)
+    assert Version.parse("v1.2.3") == parse("v1.2.3")
+    assert Version.parse("v1.0.0-beta") == Version(1, 0, 0, "beta")
+
+
+def test_version_ordering_dunders() -> None:
+    """Version 인스턴스는 < > <= >= 비교 연산자 지원."""
+    v_low = Version.parse("0.0.1")
+    v_high = Version.parse("0.0.2")
+    assert v_low < v_high
+    assert v_high > v_low
+    assert v_low <= v_high
+    assert v_high >= v_low
+    assert v_low <= Version.parse("0.0.1")
+    assert v_low >= Version.parse("0.0.1")
+    # pre-release < release (compare() 정책 그대로)
+    assert Version.parse("1.0.0-beta") < Version.parse("1.0.0")

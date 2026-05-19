@@ -22,6 +22,31 @@ class Version:
     patch: int
     pre: str | None  # None = stable release, str = pre-release tag
 
+    @classmethod
+    def parse(cls, text: str) -> "Version":
+        """module-level parse() 위임 — `Version.parse("0.1.0")` 호출 편의."""
+        return parse(text)
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return NotImplemented
+        return compare(self, other) < 0
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return NotImplemented
+        return compare(self, other) <= 0
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return NotImplemented
+        return compare(self, other) > 0
+
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return NotImplemented
+        return compare(self, other) >= 0
+
 
 def parse(text: str) -> Version:
     """Parse "v0.0.1" / "0.0.1" / "v1.0.0-beta" 형태."""
