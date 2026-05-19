@@ -12,9 +12,9 @@ pytestmark = pytest.mark.e2e
 
 
 def test_library_page_loads_and_renders_title(page, e2e_url):
-    """페이지 진입 → <title> 에 'Game Asset Helper' 포함."""
+    """페이지 진입 → <title> 에 'AssetCacheMCP' 포함."""
     page.goto(f"{e2e_url}/library")
-    assert "Game Asset Helper" in page.title()
+    assert "AssetCacheMCP" in page.title()
 
 
 def test_search_bar_submits_on_button_click(page, e2e_url):

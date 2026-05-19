@@ -129,7 +129,7 @@ class LibraryWatcher:
 
         self._pump_stop.clear()
         self._pump_thread = threading.Thread(
-            target=self._pump_loop, name="gah-watcher-pump", daemon=True
+            target=self._pump_loop, name="assetcache-watcher-pump", daemon=True
         )
         self._pump_thread.start()
         log.info("LibraryWatcher started for %s", library_root)

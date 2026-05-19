@@ -29,6 +29,6 @@ def test_theme_js_loaded_in_base(client):
 def test_anti_flash_inline_script_present(client):
     r = client.get("/library")
     # localStorage 즉시 적용 인라인 스크립트
-    assert "gah_theme" in r.text
+    assert "assetcache_theme" in r.text
     # documentElement.setAttribute 또는 data-theme 적용
     assert "documentElement.setAttribute" in r.text or "data-theme" in r.text

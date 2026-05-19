@@ -91,7 +91,7 @@ def build_app(deps: WebDeps) -> FastAPI:
     templates_dir.mkdir(parents=True, exist_ok=True)  # Phase 1B 시점엔 비어 있어도 OK
 
     app = FastAPI(
-        title="Game Asset Helper",
+        title="AssetCacheMCP",
         version=assetcache.__version__,
         lifespan=_lifespan,
     )

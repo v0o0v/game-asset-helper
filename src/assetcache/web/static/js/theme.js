@@ -13,14 +13,14 @@ function themeToggle() {
     return {
         mode: 'auto',
         init() {
-            this.mode = localStorage.getItem('gah_theme') || 'auto';
+            this.mode = localStorage.getItem('assetcache_theme') || 'auto';
             this.apply();
         },
         cycle() {
             this.mode = this.mode === 'auto' ? 'light'
                       : this.mode === 'light' ? 'dark'
                       : 'auto';
-            localStorage.setItem('gah_theme', this.mode);
+            localStorage.setItem('assetcache_theme', this.mode);
             this.apply();
         },
         apply() {

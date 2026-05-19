@@ -35,7 +35,7 @@ def test_settings_post_updates_ui_language(client, web_deps):
     assert r.status_code == 200
     assert r.json()["ok"] is True
     assert web_deps.config.ui_language == "en"
-    assert "gah_locale=en" in r.headers.get("set-cookie", "")
+    assert "assetcache_locale=en" in r.headers.get("set-cookie", "")
 
 
 def test_settings_post_updates_ui_theme(client, web_deps):
@@ -71,7 +71,7 @@ def test_settings_get_includes_current_locale(client, web_deps):
 
 
 def test_settings_post_auto_clears_cookie(client, web_deps):
-    """ui_language='auto' 저장 시 기존 gah_locale 쿠키 삭제.
+    """ui_language='auto' 저장 시 기존 assetcache_locale 쿠키 삭제.
 
     잔존 쿠키가 LocaleMiddleware 2단계 (쿠키) 에서 Config.ui_language 3단계보다
     우선이라, 쿠키를 명시 delete 안 하면 "자동 감지" 가 실제로 동작 안 함.
@@ -80,7 +80,7 @@ def test_settings_post_auto_clears_cookie(client, web_deps):
     assert r.status_code == 200
     assert web_deps.config.ui_language == "auto"
     set_cookie = r.headers.get("set-cookie", "")
-    assert "gah_locale" in set_cookie
+    assert "assetcache_locale" in set_cookie
     # delete_cookie 는 Max-Age=0 으로 만료 set
     assert "max-age=0" in set_cookie.lower()
 

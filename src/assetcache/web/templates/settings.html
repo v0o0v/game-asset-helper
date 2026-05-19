@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {# M8 — 설정 페이지 (언어 / 테마 / 자동 시작). #}
 
-{% block title %}{{ _("Settings") }} · {{ _("Game Asset Helper") }}{% endblock %}
+{% block title %}{{ _("Settings") }} · {{ _("AssetCacheMCP") }}{% endblock %}
 
 {% block content %}
 <section class="settings-page" x-data="settingsForm()">
@@ -90,9 +90,9 @@ function settingsForm() {
                 }
                 // localStorage 동기화 — theme.js 와 anti-flash 스크립트가 이 값을 본다.
                 if (this.form.ui_theme === 'auto') {
-                    localStorage.removeItem('gah_theme');
+                    localStorage.removeItem('assetcache_theme');
                 } else {
-                    localStorage.setItem('gah_theme', this.form.ui_theme);
+                    localStorage.setItem('assetcache_theme', this.form.ui_theme);
                 }
                 window.location.reload();
             } catch (e) {

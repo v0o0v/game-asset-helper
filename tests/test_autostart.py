@@ -47,7 +47,7 @@ def test_set_enabled_writes_value(mock_winreg, tmp_path):
     autostart.set_autostart(True, exe_path=exe)
     mock_winreg.SetValueEx.assert_called_once()
     args = mock_winreg.SetValueEx.call_args[0]
-    assert args[1] == "GameAssetHelper"  # value name
+    assert args[1] == "AssetCacheMCP"  # value name
     assert str(exe) in args[4]  # 명령에 exe 경로 포함
 
 
@@ -55,7 +55,7 @@ def test_set_enabled_deletes_value_when_disabled(mock_winreg):
     key = MagicMock()
     mock_winreg.OpenKey.return_value.__enter__.return_value = key
     autostart.set_autostart(False)
-    mock_winreg.DeleteValue.assert_called_once_with(key, "GameAssetHelper")
+    mock_winreg.DeleteValue.assert_called_once_with(key, "AssetCacheMCP")
 
 
 def test_set_handles_missing_value_on_disable(mock_winreg):
@@ -84,5 +84,5 @@ def test_resolve_exe_command_uses_dev_pythonw(monkeypatch):
     monkeypatch.setattr(autostart.sys, "executable", "C:/Python/python.exe")
     cmd = autostart._resolve_exe_command(None)
     assert "python" in cmd.lower()
-    assert "-m gah" in cmd
+    assert "-m assetcache" in cmd
     assert "--tray" in cmd

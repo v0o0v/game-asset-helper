@@ -1,4 +1,4 @@
-﻿"""System tray icon for Game Asset Helper.
+﻿"""System tray icon for AssetCacheMCP.
 
 The icon is drawn at runtime with ``QPainter`` so we don't carry a PNG
 file in the source tree.  Polished artwork lands with M6.
@@ -100,7 +100,7 @@ def make_tray_icon(
     icon = _build_app_icon()
 
     tray = QSystemTrayIcon(icon, qapp)
-    tray.setToolTip(_tr("Game Asset Helper"))
+    tray.setToolTip(_tr("AssetCacheMCP"))
 
     menu = QMenu()
 
@@ -197,7 +197,7 @@ def update_tray_tooltip(
     pending = int(snapshot.pending)
     total = completed + pending
     if pending == 0 and snapshot.in_flight_path is None:
-        tray.setToolTip(_tr("Game Asset Helper — 분석 대기 중"))
+        tray.setToolTip(_tr("AssetCacheMCP — 분석 대기 중"))
         return
     eta = _format_duration_kor(snapshot.eta_seconds)
     tray.setToolTip(
@@ -212,7 +212,7 @@ def notify_user_pick_request(
 ) -> None:
     """Claude 요청 카운트 변경 시 트레이 툴팁 갱신 + property 기록.
 
-    ``count > 0`` 시 "Game Asset Helper — Claude 요청 N건" 툴팁.
+    ``count > 0`` 시 "AssetCacheMCP — Claude 요청 N건" 툴팁.
     ``count == 0`` 시 디폴트 툴팁 복원. ``_pick_count`` property 가 정수로
     기록됨 (테스트 + 디버그용).
 
@@ -226,8 +226,8 @@ def notify_user_pick_request(
         return QCoreApplication.translate("Tray", text)
 
     if count > 0:
-        tray.setToolTip(_tr("Game Asset Helper — Claude 요청 {n}건").format(n=count))
+        tray.setToolTip(_tr("AssetCacheMCP — Claude 요청 {n}건").format(n=count))
         tray.setProperty("_pick_count", count)
     else:
-        tray.setToolTip(_tr("Game Asset Helper"))
+        tray.setToolTip(_tr("AssetCacheMCP"))
         tray.setProperty("_pick_count", 0)

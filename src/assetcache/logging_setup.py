@@ -1,4 +1,4 @@
-"""Idempotent logging setup for Game Asset Helper.
+"""Idempotent logging setup for AssetCacheMCP.
 
 A single call to `setup_logging` installs both a console handler (INFO+)
 and a rotating file handler (10MB × 5 backups), as specified in

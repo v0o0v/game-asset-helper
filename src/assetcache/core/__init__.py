@@ -1,4 +1,4 @@
-"""Core domain modules for Game Asset Helper.
+"""Core domain modules for AssetCacheMCP.
 
 M1 introduces the SQLite store, pack manifest parsing, asset kind
 classification, pack ingestion, the library full-scan reconciler and

@@ -31,7 +31,7 @@ def test_locale_url_overrides_all(app_with_locale):
     cfg.ui_language = "ko"
     c = TestClient(app)
     r = c.get("/probe?lang=en", headers={"accept-language": "ko"},
-              cookies={"gah_locale": "ko"})
+              cookies={"assetcache_locale": "ko"})
     assert r.json() == {"locale": "en", "ctx": "en"}
 
 
@@ -40,7 +40,7 @@ def test_locale_cookie_overrides_config_and_header(app_with_locale):
     cfg.ui_language = "ko"
     c = TestClient(app)
     r = c.get("/probe", headers={"accept-language": "ko"},
-              cookies={"gah_locale": "en"})
+              cookies={"assetcache_locale": "en"})
     assert r.json()["locale"] == "en"
 
 
@@ -91,5 +91,5 @@ def test_locale_invalid_cookie_value_ignored(app_with_locale):
     app, cfg = app_with_locale
     cfg.ui_language = "ko"
     c = TestClient(app)
-    r = c.get("/probe", cookies={"gah_locale": "klingon"})
+    r = c.get("/probe", cookies={"assetcache_locale": "klingon"})
     assert r.json()["locale"] == "ko"

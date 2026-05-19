@@ -1,4 +1,4 @@
-﻿"""CLI entrypoint for Game Asset Helper.
+﻿"""CLI entrypoint for AssetCacheMCP.
 
 Boot order (DESIGN §4.5):
     1. parse args
@@ -101,7 +101,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except AlreadyRunning as exc:
         log.info("Another instance is already running: %s", exc)
         print(
-            "Game Asset Helper가 이미 실행 중입니다 (트레이 아이콘을 확인하세요).",
+            "AssetCacheMCP가 이미 실행 중입니다 (트레이 아이콘을 확인하세요).",
             file=sys.stderr,
         )
         return EXIT_ALREADY_RUNNING

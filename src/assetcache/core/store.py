@@ -1,4 +1,4 @@
-"""SQLite store for Game Asset Helper.
+"""SQLite store for AssetCacheMCP.
 
 M1 owns ``packs`` / ``assets`` / ``tags`` / ``asset_tags``.  M2 extends
 the schema with ``sprite_meta`` / ``sound_meta`` / ``assets_fts``

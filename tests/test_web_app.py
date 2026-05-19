@@ -22,7 +22,7 @@ def client(app_for_test):
 def test_build_app_returns_fastapi(deps_fixture):
     app = build_app(deps_fixture)
     assert isinstance(app, FastAPI)
-    assert app.title == "Game Asset Helper"
+    assert app.title == "AssetCacheMCP"
 
 
 def test_health_endpoint_200(client):

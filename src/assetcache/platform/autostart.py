@@ -14,7 +14,7 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 _RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-_VALUE_NAME = "GameAssetHelper"
+_VALUE_NAME = "AssetCacheMCP"
 
 
 def is_autostart_enabled() -> bool:
@@ -61,10 +61,10 @@ def _resolve_exe_command(exe_path: Path | None) -> str:
     우선순위:
       1. 인자 `exe_path` 가 명시되면 그 경로 + ' --tray'
       2. `sys.frozen` (PyInstaller 빌드) 이면 `sys.executable + " --tray"`
-      3. dev 환경이면 `sys.executable + " -m gah --tray"` (pythonw 권장)
+      3. dev 환경이면 `sys.executable + " -m assetcache --tray"` (pythonw 권장)
     """
     if exe_path is not None:
         return f'"{exe_path}" --tray'
     if getattr(sys, "frozen", False):
         return f'"{sys.executable}" --tray'
-    return f'"{sys.executable}" -m gah --tray'
+    return f'"{sys.executable}" -m assetcache --tray'

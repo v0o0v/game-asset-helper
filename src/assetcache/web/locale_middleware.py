@@ -2,7 +2,7 @@
 
 우선순위 (위가 우선):
   1. URL ?lang=ko|en
-  2. 쿠키 gah_locale
+  2. 쿠키 assetcache_locale
   3. Config.ui_language (≠ "auto")
   4. Accept-Language 헤더 (Config.ui_language == "auto" 일 때)
   5. 폴백 "ko"
@@ -39,7 +39,7 @@ class LocaleMiddleware(BaseHTTPMiddleware):
         if q in SUPPORTED:
             return q
         # 2. 쿠키
-        c = request.cookies.get("gah_locale")
+        c = request.cookies.get("assetcache_locale")
         if c in SUPPORTED:
             return c
         # 3. Config.ui_language

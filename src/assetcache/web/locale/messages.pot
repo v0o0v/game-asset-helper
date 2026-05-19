@@ -163,7 +163,7 @@ msgstr ""
 #: src/assetcache/web/templates/project_detail.html:7
 #: src/assetcache/web/templates/projects_list.html:4
 #: src/assetcache/web/templates/settings.html:4
-msgid "Game Asset Helper"
+msgid "AssetCacheMCP"
 msgstr ""
 
 #: src/assetcache/web/templates/_nav.html:9 src/assetcache/web/templates/library.html:2

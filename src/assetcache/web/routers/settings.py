@@ -75,10 +75,10 @@ async def update_settings(
     # "auto" 면 기존 쿠키 삭제 — 안 그러면 잔존 쿠키가 Config.ui_language 보다
     # 우선이라 "자동 감지" 가 실제로 자동 동작 안 함.
     if payload.ui_language == "auto":
-        response.delete_cookie("gah_locale")
+        response.delete_cookie("assetcache_locale")
     elif payload.ui_language is not None:
         response.set_cookie(
-            "gah_locale",
+            "assetcache_locale",
             payload.ui_language,
             max_age=31_536_000,
             samesite="lax",

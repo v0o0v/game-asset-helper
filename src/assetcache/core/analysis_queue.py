@@ -121,7 +121,7 @@ class AnalysisQueue(QObject):
             return
         self._stop_event.clear()
         self._executor = ThreadPoolExecutor(
-            max_workers=self.concurrency, thread_name_prefix="gah-analyze"
+            max_workers=self.concurrency, thread_name_prefix="assetcache-analyze"
         )
         for _ in range(self.concurrency):
             fut = self._executor.submit(self._worker_loop)

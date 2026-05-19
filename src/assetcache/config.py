@@ -1,4 +1,4 @@
-"""Configuration and filesystem paths for Game Asset Helper.
+"""Configuration and filesystem paths for AssetCacheMCP.
 
 The shape and defaults are referenced from DESIGN.md §3, §5 and §10.
 M0 only wires up enough fields to boot the tray app; later milestones
@@ -25,7 +25,7 @@ import tomli_w
 from platformdirs import user_data_dir
 
 
-APP_NAME = "GameAssetHelper"
+APP_NAME = "AssetCacheMCP"
 
 
 class ConfigError(Exception):
