@@ -36,7 +36,6 @@ from assetcache.platform.single_instance import AlreadyRunning, SingleInstance
 EXIT_OK = 0
 EXIT_ALREADY_RUNNING = 0  # benign — second launch should be silent
 EXIT_NOT_IMPLEMENTED = 2
-EXIT_MIGRATION_FAILED = 3
 EXIT_USAGE = 64
 
 
@@ -60,70 +59,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default="INFO",
         help="로그 레벨 (DEBUG/INFO/WARNING/ERROR)",
     )
-    parser.add_argument(
-        "--migrate",
-        choices=["copy", "move"],
-        default=None,
-        help="v0.0.1 (GameAssetHelper) 데이터 폴더를 헤드리스로 마이그레이션. "
-             "copy 는 원본 보존, move 는 원본 제거.",
-    )
-    parser.add_argument(
-        "--legacy-data-dir",
-        type=Path,
-        default=None,
-        help="--migrate 와 함께 — legacy(구 v0.0.1) data_dir 명시. "
-             "지정하지 않으면 platformdirs(GameAssetHelper) 로 자동 검출.",
-    )
     return parser
-
-
-def _run_migration_cli(
-    paths,
-    mode: str,
-    legacy_override: Path | None,
-) -> int:
-    """헤드리스 마이그레이션 — `python -m assetcache --migrate=copy|move`.
-
-    detect_v001_candidate 가 후보를 못 찾으면 EXIT_OK + 안내 메시지로 종료한다
-    (사용자가 이미 마이그레이션 완료했거나 v0.0.1 데이터가 없는 정상 시나리오).
-    legacy_override 가 주어지면 paths.legacy_data_dir 을 강제로 교체해 검출에
-    사용한다 — explicit --data-dir 흐름에서 default_app_paths 가 legacy 를
-    None 으로 두는 동작을 우회하기 위함.
-    """
-    from dataclasses import replace
-    from assetcache.core.migration import (
-        MigrationRunner,
-        MigrationState,
-        detect_v001_candidate,
-    )
-
-    if legacy_override is not None:
-        paths = replace(paths, legacy_data_dir=legacy_override.expanduser().resolve())
-
-    candidate = detect_v001_candidate(paths)
-    if candidate is None:
-        print(
-            "마이그레이션 후보가 없습니다 — v0.0.1 데이터 폴더가 발견되지 "
-            "않았거나 이미 마이그레이션이 완료되었습니다.",
-        )
-        return EXIT_OK
-
-    print(
-        f"마이그레이션 시작 (mode={mode}): "
-        f"{candidate.source} → {candidate.target} "
-        f"({candidate.total_files} 파일, {candidate.total_bytes:,} bytes)"
-    )
-
-    import asyncio
-    runner = MigrationRunner()
-    asyncio.run(runner.run(candidate, mode=mode))  # type: ignore[arg-type]
-
-    if runner.state == MigrationState.DONE:
-        print("마이그레이션 완료.")
-        return EXIT_OK
-
-    print(f"마이그레이션 실패: {runner.error}", file=sys.stderr)
-    return EXIT_MIGRATION_FAILED
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -139,14 +75,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.version:
         print(f"assetcache-mcp {__version__}")
         return EXIT_OK
-
-    if args.migrate:
-        # 헤드리스 마이그레이션 — single_instance lock 안 잡음 (1회성 단독 실행).
-        # setup_logging 보다 먼저 분기 — 그래야 logs/assetcache.log 가
-        # data_dir 안에 file handle 로 잡힌 상태에서 _do_transfer 의
-        # rmtree(target) 가 Windows file lock 으로 깨지지 않는다.
-        # 진행 출력은 stdout/stderr 만 사용 (1회성 헤드리스 흐름).
-        return _run_migration_cli(paths, args.migrate, args.legacy_data_dir)
 
     level = getattr(logging, str(args.log_level).upper(), logging.INFO)
     setup_logging(paths.log_path, level=level)
