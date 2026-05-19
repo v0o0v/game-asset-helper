@@ -9,15 +9,24 @@
 - [ ] Task 0.3 — ko/en `.po` "Game Asset Helper" → "AssetCacheMCP" + `.mo` 재컴파일
 - [ ] Task 0.4 — 전수 grep `from gah\|import gah` = 0 hits 검증 + pytest 1047 passed + MCP integration 통과 + 트레이 부팅 스모크 (수동)
 
-## Phase 1 — 데이터 폴더 마이그레이션 helper (~1일, +15 tests)
+## Phase 1 — 데이터 폴더 마이그레이션 helper (~1일, +21 tests)
 
-- [ ] Task 1.1 — `core/migration.py` `detect_v001_candidate` + `is_already_migrated` + `MigrationCandidate` dataclass + `AppPaths.legacy_data_dir` 필드 + 5 tests
-- [ ] Task 1.2 — `MigrationRunner` async copy/move + 디스크 공간 검사 + rollback + 마커 파일 + 5 tests
-- [ ] Task 1.3 — `rewrite_paths_after_migration` (config.toml + metadata.db.assets.path) + `.bak` 백업 + 5 tests
-- [ ] Task 1.4 — `web/routers/migration.py` `/api/migration/{status,run,progress,dismiss}` + 3 tests
-- [ ] Task 1.5 — `_migration_banner.html` Alpine + SSE + base.html 통합 + CSS
-- [ ] Task 1.6 — CLI `--migrate=copy|move` 헤드리스 + 2 tests
-- [ ] Task 1.7 — 마이그레이션 i18n msgid 5+3 건 ko/en + `.mo` 재컴파일
+- [x] Task 1.1 — `core/migration.py` `detect_v001_candidate` + `is_already_migrated` + `MigrationCandidate` dataclass + `AppPaths.legacy_data_dir` 필드 + 5 tests
+- [x] Task 1.2 — `MigrationRunner` async copy/move + 디스크 공간 검사 + rollback + 마커 파일 + 5 tests
+- [x] Task 1.3 — `rewrite_paths_after_migration` (config.toml 만; metadata.db 는 assets.path 가 library_root 기준 상대경로라 무수정) + 3 tests
+- [x] Task 1.4 — `web/routers/migration.py` `/api/migration/{status,run,progress,dismiss}` + 3 tests
+- [x] Task 1.5 — `_migration_banner.html` Alpine + SSE + base.html 통합 + CSS
+- [x] Task 1.6 — CLI `--migrate=copy|move` 헤드리스 + 2 tests
+- [x] Task 1.7 — 마이그레이션 배너 i18n msgid 10건 ko/en + `.mo` 재컴파일
+
+### Phase 1 reviewer / robustness 후속 fix (history 에 누적)
+
+- [x] Task 1.4 reviewer Critical — asyncio.Task GC + SSE JSON safety (a217f0d)
+- [x] Task 1.3 reviewer Important — LIKE escape + OSError catch + docstring (8814f42)
+- [x] 검토 — Task 1.3 db rewrite 제거 (assets.path 상대경로 인지, a51a399)
+- [x] worktree editable install 정합성 — pyproject pytest pythonpath=src (1ce0322)
+- [x] Task 1.2 fix — ensure_dirs 가 만든 빈 target 과 충돌하던 copytree/move (b949632)
+- [x] Task 1.1 fix — detect 가 ensure_dirs scaffolding 을 데이터로 오인하던 결함 (52bb928)
 
 ## Phase 2 — M9 cherry-pick (~1.5일, +15 tests)
 
