@@ -179,5 +179,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_ALREADY_RUNNING
 
 
+def main_mcp(argv: list[str] | None = None) -> int:
+    """`assetcache-mcp` console script — 직접 MCP stdio 진입.
+
+    `pyproject.toml` 의 `[project.scripts]` 에서 `assetcache-mcp` 엔트리가
+    이 함수를 호출한다. 인자는 무시하고 `main(["--mcp"])` 로 forwarding 해서
+    MCP stdio 서버 모드로 진입한다 — Claude Code 가 child process 로
+    spawn 할 때 추가 인자 없이 즉시 stdio 핸드셰이크 가능.
+    """
+    return main(["--mcp"])
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
