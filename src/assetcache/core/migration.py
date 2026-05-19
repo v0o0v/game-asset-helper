@@ -127,15 +127,22 @@ def _count_files(root: Path) -> tuple[int, int]:
     return n, sz
 
 
+def _escape_like(pattern: str) -> str:
+    """SQLite LIKE 의 wildcard (_ % \\) 를 escape — 사용 시 ESCAPE '\\' 필요."""
+    return pattern.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%")
+
+
 def rewrite_paths_after_migration(candidate: MigrationCandidate) -> None:
     """target 안의 config.toml + metadata.db 의 구 base path 를 새 base 로.
 
     config.toml: 구 base 시작 path 를 새 base 로 replace.
-    metadata.db:
-        - assets.path: 구 base 시작 행만 rewrite
-        - unity_imports.unitypackage_path: 외부 cache 라 rewrite X
+    metadata.db (안전망 — 실 데이터의 assets.path 는 library_root 기준 상대경로):
+        - assets.path: 구 base 절대경로로 시작하는 행만 rewrite (실 데이터에선 대부분 no-op,
+          historical absolute path 잔존 시 fallback). config.toml.library_root 가
+          새 base 로 갱신되어 상대경로가 새 base 로 자동 resolve 됨.
+        - unity_imports.unitypackage_path: 외부 Asset Store cache 경로라 rewrite X
         - projects.path: Unity 프로젝트 외부 경로라 rewrite X
-        - .db.bak 사전 백업
+        - .db.bak 사전 백업 (copy2 실패도 catch 해 graceful skip)
     """
     old_base = str(candidate.source)
     new_base = str(candidate.target)
@@ -157,7 +164,7 @@ def rewrite_paths_after_migration(candidate: MigrationCandidate) -> None:
     db_path = candidate.target / "metadata.db"
     if db_path.exists():
         try:
-            # 백업
+            # 백업 — copy2 실패도 graceful skip (move mode rollback 회피)
             shutil.copy2(db_path, db_path.with_suffix(".db.bak"))
 
             conn = sqlite3.connect(db_path)
@@ -167,9 +174,10 @@ def rewrite_paths_after_migration(candidate: MigrationCandidate) -> None:
                     "SELECT name FROM sqlite_master WHERE type='table'"
                 )}
                 if "assets" in tbls:
+                    like_pattern = _escape_like(old_base) + "%"
                     cursor = conn.execute(
-                        "SELECT id, path FROM assets WHERE path LIKE ?",
-                        (f"{old_base}%",),
+                        "SELECT id, path FROM assets WHERE path LIKE ? ESCAPE '\\'",
+                        (like_pattern,),
                     )
                     updates = []
                     for row_id, path in cursor:
@@ -182,8 +190,8 @@ def rewrite_paths_after_migration(candidate: MigrationCandidate) -> None:
                         conn.commit()
             finally:
                 conn.close()
-        except sqlite3.DatabaseError:
-            # invalid db (fake or test fixture) — skip rewrite, keep .bak
+        except (sqlite3.DatabaseError, OSError):
+            # invalid db (fake or test fixture) 또는 copy2 실패 — skip rewrite
             pass
 
 
