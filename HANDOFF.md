@@ -1,15 +1,15 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-19 (M8 완료)
-**마지막 완료 마일스톤**: **M8 — 패키징 + i18n** — ✅ 완료
-**현재 브랜치**: `feat/m8-packaging-and-i18n` (PR 대기)
-**다음 작업**: M8 PR 머지 후 v1 release 또는 v2 brainstorming
+**마지막 인계 시각**: 2026-05-19 (M8 완료 + 수동 검증 통과 + 후속 patch 3건 main 누적)
+**마지막 완료 마일스톤**: **M8 — 패키징 + i18n** — ✅ 완료 (수동 검증 통과)
+**현재 브랜치**: `main` (origin/main 과 sync, working tree clean, 마지막 commit `4971232`)
+**다음 작업**: **v1 release** (GitHub release + `GameAssetHelper.exe` 업로드) 또는 **v2 brainstorming**
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가"를 한 번에 파악하도록 작성된 스냅샷이다.
 
 ## 1. 한 줄 요약
 
-M8 (패키징 + i18n) 완료. v1 모든 마일스톤 종료. PyInstaller `--onefile` 단일 exe + Babel gettext ko/en i18n + 다크모드 토글 + Windows autostart. pytest **1046 passed + 1 skipped + 40 deselected** (M7 1002 baseline + M8 +44). MCP **20 도구** (M7 그대로). 신규 의존성 2 (Babel>=2.14 런타임, pyinstaller>=6 dev). 다음 = **M8 PR 머지 후 v1 release 또는 v2 brainstorming**.
+M8 (패키징 + i18n) ✅ 완료 + 사용자 수동 검증 통과. PR #9 main 머지 + 후속 fix 3건 (PR #10 + main fast-forward 2 commit). 빌드된 `dist/GameAssetHelper.exe` (308 MB, --onefile + --noconsole) 실 부팅 검증 — port 9874 + HTTP 200 76ms + 한국어 i18n 정상 렌더. pytest **1046 passed + 1 skipped + 40 deselected**. MCP **20 도구**. 신규 의존성 2 (Babel>=2.14, pyinstaller>=6 dev). 다음 = **v1 release 또는 v2 brainstorming**.
 
 수동 검증 시나리오는 [`milestones/M8_verification.md`](./milestones/M8_verification.md) 참고.
 
@@ -68,7 +68,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 git status
 ```
 
-→ `On branch feat/m8-packaging-and-i18n`, working tree clean.
+→ `On branch main`, `up to date with 'origin/main'`, working tree clean. 마지막 commit `4971232`.
 
 ```powershell
 pytest -q
@@ -78,41 +78,58 @@ pytest -q
 
 ## 5. 다음 세션 진입 절차 (v1 release 또는 v2)
 
-### 5.1 M8 PR 머지 확인
+### 5.1 환경 복원 + 회귀
+
+```powershell
+& "$env:USERPROFILE\.venvs\gah\Scripts\Activate.ps1"
+```
+
+```powershell
+cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
+```
 
 ```powershell
 git status
 ```
 
-→ `feat/m8-packaging-and-i18n` 브랜치 PR 상태 확인.
+→ `On branch main`, working tree clean.
 
 ```powershell
 pytest -q
 ```
 
-→ `1046 passed, 1 skipped, 40 deselected` (M8 완료 결과).
+→ `1046 passed, 1 skipped, 40 deselected`.
 
 ### 5.2 다음 결정 (사용자)
 
-1. **v1 release** — GitHub release 페이지에 `dist/GameAssetHelper.exe` 업로드. SmartScreen 경고 안내 포함.
-2. **v2 brainstorming** — v2 미룸 항목 (Pack/프로젝트 풍부 UX, E2E, 추가 언어, 인스톨러 등) + `superpowers:brainstorming` 으로 설계.
+1. **v1 release** — `pyinstaller gah.spec` → `dist/GameAssetHelper.exe` (308 MB, 검증 완료) 를 GitHub release 페이지에 업로드. SmartScreen 안내 포함.
+2. **v2 brainstorming** — v2 미룸 항목 (Pack/프로젝트 풍부 UX, E2E, 추가 언어, 인스톨러, 코드 서명 등) + `superpowers:brainstorming` 으로 설계.
 
-### 5.3 PyInstaller 빌드 (수동 검증 필요)
+### 5.3 PyInstaller 빌드 (이미 검증됨)
+
+수동 검증 통과 — `dist/GameAssetHelper.exe --tray` 가 트레이 + WebServer (port 9874) + 한국어 i18n + 다크모드 + autostart 모두 정상 동작 확인.
+
+빌드 절차 (release 산출 시):
+
+```powershell
+pybabel compile -d src/gah/web/locale
+```
+
+```powershell
+python scripts/generate_tray_ico.py
+```
 
 ```powershell
 pyinstaller gah.spec
 ```
 
-```powershell
-dist\GameAssetHelper.exe --version
-```
-
-→ "0.0.1" 출력 확인. 자세한 빌드 절차는 `README.md` 의 "빌드" 절 참고.
+산출: `dist/GameAssetHelper.exe` (~308 MB, --onefile + --noconsole).
 
 ### 5.4 다음 세션이 자동 로드하는 메모리
 
-- `project_m8_complete.md` — M8 완료 스냅샷, v1 release 또는 v2 결정 사항
+- `project_m8_complete.md` — M8 완료 스냅샷 + 수동 검증 통과 + 후속 fix 3건 + v1 release/v2 결정 사항
 - `project_m8_starting_state.md` — STALE (M8 완료, project_m8_complete 참조)
+- `feedback_manual_verification_fixes.md` — 수동 검증 중 발견 fix 는 별도 브랜치 누적 + 사용자가 push/PR/머지 (이번 세션에 정립)
 
 ## 6. 마일스톤 정렬 (v1 완료)
 
@@ -128,7 +145,8 @@ v1 전체 완료. 총 일정 ≈ 18.5주.
 ## 7. 알려진 한계 / v2 보류 항목
 
 - SmartScreen 경고 (코드 서명 없음 — v2)
-- exe 크기 ~1.5~2 GB (CLIP 가중치 포함, GitHub release 2 GB 제한 근접)
+- exe 크기 308 MB (실측, CLIP 가중치는 첫 실행 시 다운로드라 빌드에 미포함)
+- 빌드된 exe 첫 부팅 시 Ollama cold-start + CLIP 모델 init 으로 1~2분 소요 (M2.1 알려진 트레이드오프)
 - publisher 패널 실제 HTTP 구현 (v2 — 현재 skeleton 만)
 - 자동 동기화 스케줄러 (v2)
 - 캐시에서 사라진 .unitypackage 자동 제거 (v2)
