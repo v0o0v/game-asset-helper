@@ -31,7 +31,7 @@
 | M6 — 시트 분석 + 애니메이션 | ✅ 완료 ([PR #7](https://github.com/v0o0v/game-asset-helper/pull/7) main 머지) + 후속 patch 8건 | sheet 4 모듈 + SpritesheetAnalyzer + `suggest_animation_frames` MCP 18번째 + 와이드/리스트 카드 🎞 배지 + Ollama cold-start retry. 신규 의존성 0. **91 신규 테스트** (M6 spec +84, 후속 patch +7, 총 887). spec: [`docs/superpowers/specs/2026-05-18-m6-sheet-and-animation-design.md`](./docs/superpowers/specs/2026-05-18-m6-sheet-and-animation-design.md) |
 | **M7 — Unity Asset Store 임포트 (1주)** | **✅ 완료** ([PR #8](https://github.com/v0o0v/game-asset-helper/pull/8) main 머지) + 후속 patch 19건 | `.unitypackage` 파서·캐시 스캐너·임포터 + 활성 프로젝트 + 프로젝트 페이지 + 자산별 선호도 + 20 MCP 도구. 신규 의존성 0. **+124 신규 테스트** (총 1002). spec: [`docs/superpowers/specs/2026-05-18-m7-unity-asset-store-import.md`](./docs/superpowers/specs/2026-05-18-m7-unity-asset-store-import.md), plan: [`milestones/M7_plan.md`](./milestones/M7_plan.md) |
 | **M8 — 패키징 + i18n (1주)** | **✅ 완료** ([PR #9](https://github.com/v0o0v/game-asset-helper/pull/9) + [PR #10](https://github.com/v0o0v/game-asset-helper/pull/10) main 머지 + 후속 fix 2건 main 직접 누적, 수동 검증 통과) | PyInstaller `--onefile` + Babel gettext (ko/en) + 다크모드 토글 + Windows autostart. 신규 의존성 2 (Babel>=2.14, pyinstaller>=6 dev). **+44 신규 테스트** (총 1046). `dist/GameAssetHelper.exe` 308MB 부팅 검증 통과. spec: [`docs/superpowers/specs/2026-05-19-m8-packaging-and-i18n-design.md`](./docs/superpowers/specs/2026-05-19-m8-packaging-and-i18n-design.md), plan: [`milestones/M8_plan.md`](./milestones/M8_plan.md) |
-| **M10 — PyPI 배포 + AssetCacheMCP rename + 마이그레이션 (1.5~2주)** | **🚧 in-flight** (`claude/brave-tesla-80fb0e` 브랜치, Phase 0~2 + 3 완료) | rename (`gah` → `assetcache`) + 마이그레이션 helper (`%APPDATA%\GameAssetHelper\` → `%APPDATA%\AssetCacheMCP\`) + M9 cherry-pick (PyPI 알림 배너 + tray Signal) + docs 일괄 갱신 + verification. plan: [`docs/superpowers/plans/2026-05-19-m10-pypi-and-rename.md`](./docs/superpowers/plans/2026-05-19-m10-pypi-and-rename.md) |
+| **M10 — PyPI 배포 + AssetCacheMCP rename + 마이그레이션 (1.5~2주)** | **✅ 완료** ([PR #11](https://github.com/v0o0v/assetcache-mcp/pull/11) main 머지 + [PR #12](https://github.com/v0o0v/assetcache-mcp/pull/12) Node.js 24 workflow fix) | rename (`gah` → `assetcache`) + 마이그레이션 helper (`%APPDATA%\GameAssetHelper\` → `%APPDATA%\AssetCacheMCP\`) + M9 cherry-pick (PyPI 알림 배너 + tray Signal) + PyInstaller exe → **PyPI 1차 배포** + Trusted Publishing (OIDC). **+57 신규 테스트** (총 1103). [PyPI v0.1.0 Latest](https://pypi.org/project/assetcache-mcp/0.1.0/) + [GitHub release v0.1.0](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0). spec: [`docs/superpowers/specs/2026-05-19-m10-pypi-and-rename.md`](./docs/superpowers/specs/2026-05-19-m10-pypi-and-rename.md), plan: [`milestones/M10_plan.md`](./milestones/M10_plan.md) |
 
 각 마일스톤의 상세 계획·체크리스트·검증 결과는 `milestones/M{N}_plan.md`, `M{N}_todo.md`, `M{N}_verification.md`.
 
@@ -146,7 +146,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-`pytest -q`가 **1103 passed + 1 skipped + 40 deselected** 로 떨어지면 준비 완료 (M0~M8 의 1046 baseline + M10 Phase 0~2 의 +47 + Phase 3 의 +10). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m assetcache --mcp` subprocess + JSON-RPC, **20 도구** 응답) 추가 검증 가능. 마일스톤별 최종 검증 결과는 `milestones/M{N}_verification.md`. **M4 + M5 + M6 + M7 + M8 모두 main 머지 완료** ([PR #5](https://github.com/v0o0v/game-asset-helper/pull/5), [PR #6](https://github.com/v0o0v/game-asset-helper/pull/6), [PR #7](https://github.com/v0o0v/game-asset-helper/pull/7), [PR #8](https://github.com/v0o0v/game-asset-helper/pull/8), [PR #9](https://github.com/v0o0v/game-asset-helper/pull/9) + [PR #10](https://github.com/v0o0v/game-asset-helper/pull/10) + 후속 fix 2건 main 직접). **수동 검증 통과** — `dist/GameAssetHelper.exe` 308MB 부팅 + i18n/다크모드/autostart/포트 9874 모두 정상. **현재 브랜치 = `claude/brave-tesla-80fb0e`** (M10 in-flight, main 위 31 commits + Phase 3).
+`pytest -q`가 **1103 passed + 1 skipped + 40 deselected** 로 떨어지면 준비 완료 (M0~M8 의 1046 baseline + M10 +57). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m assetcache --mcp` subprocess + JSON-RPC, **20 도구** 응답) 추가 검증 가능. 마일스톤별 최종 검증 결과는 `milestones/M{N}_verification.md`. **M4 + M5 + M6 + M7 + M8 + M10 모두 main 머지 완료** ([PR #5](https://github.com/v0o0v/assetcache-mcp/pull/5), [PR #6](https://github.com/v0o0v/assetcache-mcp/pull/6), [PR #7](https://github.com/v0o0v/assetcache-mcp/pull/7), [PR #8](https://github.com/v0o0v/assetcache-mcp/pull/8), [PR #9](https://github.com/v0o0v/assetcache-mcp/pull/9) + [PR #10](https://github.com/v0o0v/assetcache-mcp/pull/10), [PR #11](https://github.com/v0o0v/assetcache-mcp/pull/11) + [PR #12](https://github.com/v0o0v/assetcache-mcp/pull/12)). **v0.1.0 PyPI publish 완료** — [PyPI Latest](https://pypi.org/project/assetcache-mcp/0.1.0/) + [GitHub release Latest](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0) + Trusted Publishing 자동. **현재 브랜치 = `main`** (M10 완료, repo rename `v0o0v/game-asset-helper` → `v0o0v/assetcache-mcp`).
 
 ## 7. 자주 쓰는 명령
 
@@ -192,24 +192,26 @@ python -m assetcache --migrate=copy
 python -m assetcache --migrate=move
 ```
 
-## 8. 다음 작업 (M10 Phase 4 — PyPI 빌드 + 배포)
+## 8. 다음 작업 (M10 ✅ 완료 — v0.1.0 PyPI publish 후)
 
-v1 (M0~M8) ✅ 완료 + [v0.0.1 GitHub release published](https://github.com/v0o0v/game-asset-helper/releases/tag/v0.0.1) (`GameAssetHelper.exe` 323MB). M9 (코드 서명 + 자동 업데이트) implementation 완료 (`feat/m9-code-signing-and-auto-update` 21 commits, 1111 tests) — 단 **path pivot: PyPI 1순위 결정** 으로 main 머지 보류.
+v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) 모두 main 머지 완료. M9 (코드 서명 + GitHub releases 자동 업데이트) 은 path pivot 으로 머지 보류 (`feat/m9` 브랜치 보존, PyPI 흐름의 일부 모듈은 M10 Phase 2 에서 cherry-pick 됨).
 
-**M10 결정 사항** (2026-05-19):
+**M10 최종 결과**:
 
-1. **PyPI 1순위 배포** — `pipx install assetcache-mcp` 또는 `uv tool install assetcache-mcp` 로 Windows + Mac + Linux 동시 지원. SmartScreen 우회 불필요, 비용 $0
-2. **앱 rename** — `Game Asset Helper` / `gah` → **`AssetCacheMCP`** / `assetcache-mcp` (PyPI 패키지) / `assetcache` (CLI). 패키지 디렉터리 `src/gah/` → `src/assetcache/`
-3. **M9 cherry-pick** — Installer / swap / `--complete-update` drop. UpdateChecker / version / web banner / tray Signal 은 재사용 (Phase 2 에서 완료)
-4. **SignPath** — Option B 로 보류. 신청 docs (`docs/SIGNPATH_APPLICATION.md` + `docs/CODE_SIGNING_POLICY.md`) 는 `feat/m9` 에 보존
+- PyPI: [v0.1.0 Latest](https://pypi.org/project/assetcache-mcp/0.1.0/) (2026-05-20 publish, 298 KB whl + 385 KB tar.gz)
+- GitHub release: [v0.1.0 Latest](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0)
+- GitHub repo: `v0o0v/game-asset-helper` → `v0o0v/assetcache-mcp` rename 완료
+- **Trusted Publishing (OIDC)** 셋업 — 향후 `git tag vX.Y.Z; git push origin vX.Y.Z` 한 줄로 자동
+- GitHub Actions workflow: `actions/checkout@v6` + `actions/setup-python@v6` (Node.js 24 호환)
 
 ### 8.1 현재 상태
 
-- **worktree** — `D:\ClaudeCowork\game-asset-helper\game-asset-helper\.claude\worktrees\brave-tesla-80fb0e\` 에서 작업
-- **claude/brave-tesla-80fb0e** — main 위 31 commits (M10 Phase 0~3 완료), **1103 passed + 1 skipped + 40 deselected**, push 안 됨
-- M10 Phase 진행: Phase 0 (rename mechanical) ✅ + Phase 1 (마이그레이션 helper) ✅ + Phase 2 (PyPI 알림) ✅ + Phase 3 (docs + i18n catalog + verification) ✅
+- **main** — `7ba6551` (workflow Node.js 24 fix) → `d9a3862` (M10 PR #11 merge) → M0~M8 base
+- **현재 브랜치 = main**, 회귀 **1103 passed + 1 skipped + 40 deselected**
 - MCP **20 도구** (M10 신규 0)
-- v1 release: [v0.0.1 published](https://github.com/v0o0v/game-asset-helper/releases/tag/v0.0.1) (서명 X, SmartScreen 차단 해제 안내 release notes 포함)
+- 설치: `pipx install assetcache-mcp` 또는 `pip install assetcache-mcp`
+- 콘솔 스크립트: `assetcache` (트레이/MCP 통합) + `assetcache-mcp` (MCP stdio 전용)
+- 사용자 데이터: `%APPDATA%\AssetCacheMCP\` (v0.0.1 사용자 = `%APPDATA%\GameAssetHelper\` 자동 마이그레이션 helper 제공)
 
 ### 8.2 다음 세션 진입 시 첫 작업
 
@@ -218,33 +220,43 @@ v1 (M0~M8) ✅ 완료 + [v0.0.1 GitHub release published](https://github.com/v0o
    & "$env:USERPROFILE\.venvs\gah\Scripts\Activate.ps1"
    ```
    ```powershell
-   cd D:\ClaudeCowork\game-asset-helper\game-asset-helper\.claude\worktrees\brave-tesla-80fb0e
+   cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
    ```
 
-2. **회귀 검증**:
+2. **main 동기화**:
+   ```powershell
+   git checkout main
+   ```
+   ```powershell
+   git pull
+   ```
+
+3. **회귀 검증**:
    ```powershell
    pytest -q
    ```
-   → `1103 passed, 1 skipped, 40 deselected` (Phase 0~3 누적).
+   → `1103 passed, 1 skipped, 40 deselected` 확인.
 
-3. **Phase 4 진행** — `docs/superpowers/plans/2026-05-19-m10-pypi-and-rename.md §Phase 4`:
-   - `pyproject.toml` 최종 확정 (name, version, entry_points, classifiers, deps)
-   - `assetcache-mcp` console_script entry point 추가
-   - `python -m build` 로 sdist + wheel 생성
-   - TestPyPI 업로드 → `pipx install --index-url ...` 검증
-   - 정식 PyPI 업로드 (`twine upload dist/*`)
-   - GitHub Actions workflow (`.github/workflows/publish.yml`)
+4. **다음 작업 후보** — 사용자 결정:
+   - M11 후보: Mac/Linux 검증 (PyPI 패키지 cross-platform 호환 정식 검증)
+   - v0.1.1 patch: 발견된 bug fix 누적, Trusted Publishing 첫 자동 publish 검증
+   - 사용자 피드백 수집: [PyPI download 통계](https://pypistats.org/packages/assetcache-mcp) + GitHub Issues
+   - Claude Desktop config 자동 마이그레이션 helper (`python -m gah --mcp` → `assetcache-mcp`)
 
-자세한 결정 사항 + 마이그레이션 + M9 retain/drop 표는 [`HANDOFF.md`](./HANDOFF.md) + [memory 다수](file://memory/).
+5. **worktree 정리** (선택):
+   ```powershell
+   git worktree remove .claude/worktrees/brave-tesla-80fb0e
+   ```
+   단 worktree 의 `claude/brave-tesla-80fb0e` branch 의 `0009a10` (Task 5.2/5.3 todo 마크) 가 main 의 cleanup PR 에서 동일 내용 반영됐는지 확인 후.
 
 ### 8.3 마일스톤 정렬
 
 | # | 이름 | 상태 |
 |---:|---|---|
 | M0~M8 | v1 (뼈대 ~ 패키징 + i18n) | ✅ 완료 (main 머지) |
-| M9 | 코드 서명 + 자동 업데이트 | ⚠️ implementation 완료 / **머지 보류** (PyPI 채택으로 path pivot) |
-| M10 | **PyPI + AssetCacheMCP rename** | 🚧 Phase 0~3 완료, Phase 4 (배포) 대기 |
-| M11+ | Mac/Linux 검증 + 추후 | 📋 미정 |
+| M9 | 코드 서명 + 자동 업데이트 (GitHub releases) | ⚠️ implementation 완료 / **머지 보류** (PyPI 채택으로 path pivot, 일부 모듈은 M10 Phase 2 cherry-pick) |
+| M10 | **PyPI 배포 + AssetCacheMCP rename + 마이그레이션** | ✅ 완료 (PR #11 + #12 머지, v0.1.0 PyPI Latest) |
+| M11+ | Mac/Linux 검증 + v0.1.1 patch + 사용자 피드백 대응 | 📋 미정 |
 
 참고 DESIGN: §3 (아키텍처), §4.9 (Unity Asset Store Importer — M7), §4.10 (활성 프로젝트/프로젝트 페이지 — M7), §4.5 (MCP — 20 도구), §4.8 (트레이 + 웹 UI), §11 (로드맵).
 

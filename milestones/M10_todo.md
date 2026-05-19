@@ -2,12 +2,12 @@
 
 > 본 todo 는 [`docs/superpowers/plans/2026-05-19-m10-pypi-and-rename.md`](../docs/superpowers/plans/2026-05-19-m10-pypi-and-rename.md) 의 phase 진행 상황을 마일스톤 사이클 형식으로 추적.
 
-## Phase 0 — rename mechanical (~1.5일)
+## Phase 0 — rename mechanical (~1.5일, M10 시작 이전 사전 commit)
 
-- [ ] Task 0.1 — `git mv src/gah src/assetcache` + import 전수 교체 (~150 파일) + `gah.spec` → `assetcache.spec` + pyproject 패키지 경로 갱신 + 회귀 1047 passed
-- [ ] Task 0.2 — `config.APP_NAME = "AssetCacheMCP"` + `tray.py` 브랜딩 + `base.html` title/h1 + tests/ fixture 어설션 갱신
-- [ ] Task 0.3 — ko/en `.po` "Game Asset Helper" → "AssetCacheMCP" + `.mo` 재컴파일
-- [ ] Task 0.4 — 전수 grep `from gah\|import gah` = 0 hits 검증 + pytest 1047 passed + MCP integration 통과 + 트레이 부팅 스모크 (수동)
+- [x] Task 0.1 — `git mv src/gah src/assetcache` + import 전수 교체 + pyproject 패키지 경로 갱신 (`7f7ce30` + cleanup `add85a0` + `b892a83`)
+- [x] Task 0.2 — `config.APP_NAME = "AssetCacheMCP"` + `tray.py` 브랜딩 + `base.html` title/h1 + cookie/data-attr (`b04e829`)
+- [x] Task 0.3 — ko/en `.po` "Game Asset Helper" → "AssetCacheMCP" + `.mo` 재컴파일 (`5c40188`)
+- [x] Task 0.4 — 전수 grep `from gah\|import gah` = 0 hits 검증 + pytest 1047 passed (Phase 1 시작 baseline)
 
 ## Phase 1 — 데이터 폴더 마이그레이션 helper (~1일, +21 tests)
 
@@ -63,6 +63,12 @@
 
 ## Phase 5 — 마일스톤 wrap-up
 
-- [x] Task 5.1 — `milestones/M10_plan.md` + `M10_todo.md` 정합성 검증 (이 commit 으로 일괄 마크)
-- [ ] **Task 5.2 — `claude/brave-tesla-80fb0e` → `main` PR 생성 + 사용자 review + main 머지 (사용자 수동)**
-- [ ] **Task 5.3 — v0.1.0 GitHub release draft → publish (사용자 수동, release notes 검토 후)**
+- [x] Task 5.1 — `milestones/M10_plan.md` + `M10_todo.md` 정합성 검증 (`28bd58b` + 본 cleanup commit)
+- [x] Task 5.2 — PR #11 머지 — `claude/brave-tesla-80fb0e` → `main` (merge commit `d9a3862`, 2026-05-20)
+- [x] Task 5.3 — v0.1.0 GitHub release draft → publish ([Latest](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0))
+- [x] Task 5.4 — PyPI / TestPyPI entire-account scope token 2개 revoke (2026-05-20, 보안 정리)
+
+### Phase 5 후속 fix (history 누적)
+
+- [x] workflow actions Node.js 24 호환 갱신 — `actions/checkout@v4` → `@v6`, `actions/setup-python@v5` → `@v6` (PR #12 squash merge `7ba6551`)
+- [x] cleanup PR — Phase 0 / Phase 5 todo 마크 정합성 + CLAUDE.md §8 + HANDOFF.md M10 완료 반영 (본 commit)
