@@ -54,10 +54,15 @@
 - [x] Task 4.2 — `main_mcp()` entry point 추가 (`assetcache-mcp` console script — `072f712`)
 - [x] Task 4.3 — `python -m build` + 별도 venv 로컬 wheel smoke (`assetcache --version` = `assetcache-mcp 0.1.0`) + `__version__` 0.1.0 sync (`28a257e`, dist 298KB)
 - [x] Task 4.4 — `.github/workflows/publish.yml` tag v\* trigger + PYPI_API_TOKEN secret + README dev 안내 (`d2a8079`)
-- [ ] **Task 4.5 — TestPyPI 업로드 + `pipx install --index-url ...` 검증 (사용자 수동)**
-- [ ] **Task 4.6 — PyPI 정식 업로드 + GitHub repo `v0o0v/assetcache-mcp` 린네임 + v0.1.0 tag/release publish (사용자 수동)**
+- [x] Task 4.5 — TestPyPI 업로드 + `pip install --no-deps --index-url ...` 검증 (`cd03b3d`, 사용자 token + Claude .pypirc + twine upload + 별도 venv install + module import + `__version__=0.1.0` + `pip show` 메타데이터 정상)
+- [x] Task 4.6 — 정식 PyPI 업로드 + GitHub repo rename + v0.1.0 release draft (`fda1a08` + `74bc84d` + `e6fa00b`, 정식 PyPI publish + assetcache.exe --version 정상 + Trusted Publishing 셋업 + workflow 29초 success + GitHub release draft 생성)
+
+### Phase 4 후속 fix / 전환 (history 누적)
+
+- [x] Trusted Publishing (OIDC) 전환 — `.github/workflows/publish.yml` 의 `password:` 라인 삭제 + `skip-existing: true` 옵션 + README §배포 갱신 (`74bc84d`)
 
 ## Phase 5 — 마일스톤 wrap-up
 
-- [ ] Task 5.1 — `milestones/M10_plan.md` + `M10_todo.md` 정합성 검증 (모든 task 완료 표시)
-- [ ] **Task 5.2 — `feat/m10` → `main` PR 작성 + 사용자 review + main 머지 (사용자 수동)**
+- [x] Task 5.1 — `milestones/M10_plan.md` + `M10_todo.md` 정합성 검증 (이 commit 으로 일괄 마크)
+- [ ] **Task 5.2 — `claude/brave-tesla-80fb0e` → `main` PR 생성 + 사용자 review + main 머지 (사용자 수동)**
+- [ ] **Task 5.3 — v0.1.0 GitHub release draft → publish (사용자 수동, release notes 검토 후)**
