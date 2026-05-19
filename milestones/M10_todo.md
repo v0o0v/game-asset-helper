@@ -42,22 +42,22 @@
 
 - [x] babel.cfg path 갱신 — `src/gah/` → `src/assetcache/` (Phase 0 rename 누락, `b5d24b0`)
 
-## Phase 3 — 문서 + verification (~1일, +5 tests)
+## Phase 3 — 문서 + verification (+10 tests, ~1일)
 
-- [ ] Task 3.1 — README + CLAUDE + HANDOFF + DESIGN AssetCacheMCP 표기 일괄 갱신
-- [ ] Task 3.2 — `tests/test_locale_assetcache_msgid.py` parametrize (5 msgid × ko/en) + 5~10 tests pass
-- [ ] Task 3.3 — `milestones/M10_verification.md` 수동 검증 시나리오 7건 (Phase 0 회귀 / 마이그레이션 / PyPI 알림 / CLI / wheel / TestPyPI / PyPI 정식)
+- [x] Task 3.1 — README + CLAUDE + HANDOFF + DESIGN AssetCacheMCP 표기 일괄 갱신 (`5eef1a8`)
+- [x] Task 3.2 — `tests/test_locale_assetcache_msgid.py` parametrize (5 msgid × ko/en) + 10 instance (`ced16fb`, 1093 → 1103)
+- [x] Task 3.3 — `milestones/M10_verification.md` 수동 검증 시나리오 7건 (`6569034`)
 
-## Phase 4 — PyPI 배포 (~1일)
+## Phase 4 — PyPI 배포 (~1일, 0 자동 신규 테스트)
 
-- [ ] Task 4.1 — `pyproject.toml` name="assetcache-mcp" + version=0.1.0 + scripts + classifiers + urls + package-data + editable install + 회귀
-- [ ] Task 4.2 — `main_mcp()` entry point 추가 (assetcache-mcp console script)
-- [ ] Task 4.3 — `python -m build` + 별도 venv 로컬 wheel smoke (`assetcache --version`)
-- [ ] Task 4.4 — `.github/workflows/publish.yml` tag v\* trigger + PYPI_API_TOKEN secret
-- [ ] Task 4.5 — TestPyPI 업로드 + `pipx install --index-url ...` 검증 (사용자 수동)
-- [ ] Task 4.6 — PyPI 정식 업로드 + GitHub repo `v0o0v/assetcache-mcp` 린네임 + v0.1.0 tag/release publish (사용자 수동)
+- [x] Task 4.1 — `pyproject.toml` name="assetcache-mcp" + version=0.1.0 + scripts + classifiers + urls + package-data + editable install + 회귀 (`8f8af41`)
+- [x] Task 4.2 — `main_mcp()` entry point 추가 (`assetcache-mcp` console script — `072f712`)
+- [x] Task 4.3 — `python -m build` + 별도 venv 로컬 wheel smoke (`assetcache --version` = `assetcache-mcp 0.1.0`) + `__version__` 0.1.0 sync (`28a257e`, dist 298KB)
+- [x] Task 4.4 — `.github/workflows/publish.yml` tag v\* trigger + PYPI_API_TOKEN secret + README dev 안내 (`d2a8079`)
+- [ ] **Task 4.5 — TestPyPI 업로드 + `pipx install --index-url ...` 검증 (사용자 수동)**
+- [ ] **Task 4.6 — PyPI 정식 업로드 + GitHub repo `v0o0v/assetcache-mcp` 린네임 + v0.1.0 tag/release publish (사용자 수동)**
 
 ## Phase 5 — 마일스톤 wrap-up
 
 - [ ] Task 5.1 — `milestones/M10_plan.md` + `M10_todo.md` 정합성 검증 (모든 task 완료 표시)
-- [ ] Task 5.2 — `feat/m10` → `main` PR 작성 + 사용자 review + main 머지
+- [ ] **Task 5.2 — `feat/m10` → `main` PR 작성 + 사용자 review + main 머지 (사용자 수동)**
