@@ -63,30 +63,30 @@
 >
   <template x-if="state === 'idle'">
     <div>
-      <h3>{{ _("v0.0.1 데이터를 발견했습니다") }}</h3>
+      <h3>{{ _("v0.0.1 data detected") }}</h3>
       <p>
-        <span x-text="candidate?.total_files"></span> {{ _("파일") }}
+        <span x-text="candidate?.total_files"></span> {{ _("files") }}
         (<span x-text="Math.round((candidate?.total_bytes || 0) / 1024 / 1024)"></span> MB)
-        — {{ _("AssetCacheMCP 로 이주합니다.") }}
+        — {{ _("Migrate to AssetCacheMCP.") }}
       </p>
-      <button @click="start('copy')">{{ _("복사") }}</button>
-      <button @click="start('move')">{{ _("이동") }}</button>
-      <button @click="dismiss()">{{ _("나중에") }}</button>
+      <button @click="start('copy')">{{ _("Copy") }}</button>
+      <button @click="start('move')">{{ _("Move") }}</button>
+      <button @click="dismiss()">{{ _("Later") }}</button>
     </div>
   </template>
   <template x-if="state === 'running'">
     <div>
-      <p>{{ _("이주 중...") }} <span x-text="Math.round((progress || 0) * 100)"></span>%</p>
+      <p>{{ _("Migrating...") }} <span x-text="Math.round((progress || 0) * 100)"></span>%</p>
       <progress :value="progress" max="1"></progress>
     </div>
   </template>
   <template x-if="state === 'done'">
-    <p>{{ _("이주 완료. 새 데이터 폴더를 로드합니다.") }}</p>
+    <p>{{ _("Migration complete. Reloading the new data folder.") }}</p>
   </template>
   <template x-if="state === 'failed'">
     <div>
-      <p>{{ _("이주 실패:") }} <span x-text="error"></span></p>
-      <button @click="state = 'idle'">{{ _("재시도") }}</button>
+      <p>{{ _("Migration failed:") }} <span x-text="error"></span></p>
+      <button @click="state = 'idle'">{{ _("Retry") }}</button>
     </div>
   </template>
 </div>
