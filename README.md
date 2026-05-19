@@ -231,16 +231,17 @@ pyinstaller assetcache.spec
 
 ## 배포 — PyPI publish 자동화 (M10)
 
-PyPI 가 1차 배포 채널. `git tag v0.1.1 && git push --tags` 로 자동 publish 되도록
+PyPI 가 1차 배포 채널. `git tag v0.1.1 ; git push origin v0.1.1` 로 자동 publish 되도록
 GitHub Actions workflow (`.github/workflows/publish.yml`) 가 구성되어 있다.
 
-사전 셋업:
-
-- GitHub repo Settings > Secrets and variables > Actions > `PYPI_API_TOKEN` 에
-  PyPI API token 등록 필요 (https://pypi.org/manage/account/token/ 에서 발급)
-- 첫 v0.1.0 은 수동으로 `python -m twine upload dist/*` 업로드 권장
-  (workflow 가 처음 도는 환경에서 secret 누락 등 문제를 미리 점검)
-- 이후 v0.1.1+ 부터는 `git tag v0.1.1 && git push --tags` 한 줄로 자동 publish
+**인증 방식 — Trusted Publishing (OIDC)**:
+- API token 없이 GitHub OIDC 만으로 PyPI 인증. 평문 secret 노출 위험 없음
+- 사전 셋업: https://pypi.org/manage/account/publishing/ 에서 trusted publisher 등록:
+  - PyPI Project Name: `assetcache-mcp`
+  - Owner: `v0o0v`, Repository name: `assetcache-mcp`, Workflow name: `publish.yml`
+- workflow 의 `permissions.id-token: write` 가 OIDC 토큰 발행 권한 부여
+- v0.1.0 은 첫 publish (TestPyPI → 정식 PyPI 순) 수동 수행 완료, 이후 모든 tag push 가 자동
+- `skip-existing: true` 설정으로 같은 version 재업로드 시 silent skip (workflow 재실행해도 안전)
 
 수동 빌드 + 업로드 흐름 (참고):
 
