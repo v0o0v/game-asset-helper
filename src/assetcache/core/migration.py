@@ -81,6 +81,13 @@ class MigrationRunner:
     def _do_transfer(
         self, candidate: "MigrationCandidate", mode: str
     ) -> None:
+        # 실 부팅 흐름에서 AppPaths.ensure_dirs 가 candidate.target 을 미리
+        # 만든다 (data_dir/library/cache/logs). detect_v001_candidate 가
+        # _is_empty_dir 만 통과시키므로 이 시점의 target 은 반드시 비어있다.
+        # shutil.copytree(dirs_exist_ok=False) / shutil.move(dst-exists) 와
+        # 충돌하지 않도록 비어있는 target 트리를 제거해 깨끗한 캔버스로 넘긴다.
+        if candidate.target.exists():
+            shutil.rmtree(candidate.target)
         if mode == "copy":
             shutil.copytree(
                 str(candidate.source), str(candidate.target),
