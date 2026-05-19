@@ -1,3 +1,3 @@
 """AssetCacheMCP — MCP + tray app for game asset cataloging."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

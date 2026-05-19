@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assetcache-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server + tray app for indexing and retrieving 2D sprites, sheets, sounds, and Unity packages via natural language."
 readme = "README.md"
 requires-python = ">=3.10"
