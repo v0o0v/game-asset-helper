@@ -47,6 +47,10 @@ class Version:
             return NotImplemented
         return compare(self, other) >= 0
 
+    def __str__(self) -> str:
+        base = f"{self.major}.{self.minor}.{self.patch}"
+        return f"{base}-{self.pre}" if self.pre else base
+
 
 def parse(text: str) -> Version:
     """Parse "v0.0.1" / "0.0.1" / "v1.0.0-beta" 형태."""

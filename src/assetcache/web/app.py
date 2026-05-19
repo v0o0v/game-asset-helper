@@ -36,6 +36,7 @@ from .routers import (
     settings as settings_router,
     sse,
     unity_asset_store,
+    updates as updates_router,
 )
 from .routers.projects import router_pages as projects_pages_router
 
@@ -154,6 +155,7 @@ def build_app(deps: WebDeps) -> FastAPI:
     app.include_router(projects_pages_router)       # M7 Phase 6 — 프로젝트 HTML 페이지
     app.include_router(settings_router.router)       # M8 — 설정 페이지
     app.include_router(migration_router.router)      # M10 — 마이그레이션 API
+    app.include_router(updates_router.router)        # M10 — PyPI 업데이트 알림 API
 
     # ── 전역 에러 핸들러 ──────────────────────────────────────────────
     # /api/* 경로는 JSON 응답 유지; 그 외 경로는 친절한 HTML 에러 페이지 반환.
