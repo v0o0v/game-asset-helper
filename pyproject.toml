@@ -60,6 +60,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 addopts = "-ra -m 'not clip_integration and not mcp_integration and not e2e'"
 markers = [
   "clip_integration: 실제 CLIP 모델 다운로드(~600 MB) 필요. 기본 실행에서 제외 — `pytest -m clip_integration` 으로 옵트인.",
