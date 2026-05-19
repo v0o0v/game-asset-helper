@@ -1,0 +1,40 @@
+{# PyPI 신버전 알림 배너 — Alpine + /api/updates/check 폴링 #}
+<div
+  x-data="{
+    available: false,
+    latest: '',
+    command: '',
+    releaseUrl: '',
+    async check() {
+      try {
+        const r = await fetch('/api/updates/check');
+        const d = await r.json();
+        this.available = !!d.available;
+        this.latest = d.latest || '';
+        this.command = d.command || '';
+        this.releaseUrl = d.release_notes_url || '';
+      } catch (e) {
+        this.available = false;
+      }
+    },
+    copyCommand() {
+      navigator.clipboard.writeText(this.command);
+    },
+    dismiss() {
+      this.available = false;
+      document.cookie = `pypi_update_dismissed_${this.latest}=1; path=/`;
+    },
+  }"
+  x-init="check()"
+  x-show="available && !document.cookie.includes(`pypi_update_dismissed_${latest}=1`)"
+  x-cloak
+  class="pypi-update-banner"
+>
+  <div>
+    <span>v<span x-text="latest"></span> {{ _("available") }}</span>
+    <code x-text="command"></code>
+    <button @click="copyCommand()">{{ _("Copy") }}</button>
+    <a :href="releaseUrl" target="_blank" x-show="releaseUrl">{{ _("Release notes") }}</a>
+    <button @click="dismiss()">{{ _("Later") }}</button>
+  </div>
+</div>
