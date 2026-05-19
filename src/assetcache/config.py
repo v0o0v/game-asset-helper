@@ -41,6 +41,7 @@ class AppPaths:
     config_path: Path
     log_path: Path
     lock_path: Path
+    legacy_data_dir: Path | None = None  # %APPDATA%\GameAssetHelper\ — v0.0.1 마이그레이션용
 
     def ensure_dirs(self) -> None:
         """Create every directory needed at runtime. Idempotent."""
@@ -68,6 +69,12 @@ def _resolve_data_root(override: str | os.PathLike[str] | None = None) -> Path:
 
 def default_app_paths(data_root: str | os.PathLike[str] | None = None) -> AppPaths:
     root = _resolve_data_root(data_root)
+    legacy = None
+    if data_root is None and not os.environ.get("GAH_DATA_DIR"):
+        # 실 사용자 흐름에서만 legacy 검출 — explicit override 면 미사용
+        legacy_root = Path(user_data_dir("GameAssetHelper", appauthor=False, roaming=True)).resolve()
+        if legacy_root != root:
+            legacy = legacy_root
     return AppPaths(
         data_dir=root,
         library_dir=root / "library",
@@ -76,6 +83,7 @@ def default_app_paths(data_root: str | os.PathLike[str] | None = None) -> AppPat
         config_path=root / "config.toml",
         log_path=root / "logs" / "assetcache.log",
         lock_path=root / "assetcache.lock",
+        legacy_data_dir=legacy,
     )
 
 
