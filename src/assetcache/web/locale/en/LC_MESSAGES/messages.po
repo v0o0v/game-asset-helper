@@ -817,6 +817,10 @@ msgstr "Retry"
 msgid "available"
 msgstr "available"
 
+#: src/assetcache/web/templates/_pypi_update_banner.html:36
+msgid "Copy"
+msgstr "Copy"
+
 #: src/assetcache/web/templates/_pypi_update_banner.html:37
 msgid "Release notes"
 msgstr "Release notes"

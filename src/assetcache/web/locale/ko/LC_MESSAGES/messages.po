@@ -807,6 +807,10 @@ msgstr "재시도"
 msgid "available"
 msgstr "사용 가능"
 
+#: src/assetcache/web/templates/_pypi_update_banner.html:36
+msgid "Copy"
+msgstr "복사"
+
 #: src/assetcache/web/templates/_pypi_update_banner.html:37
 msgid "Release notes"
 msgstr "릴리스 노트"

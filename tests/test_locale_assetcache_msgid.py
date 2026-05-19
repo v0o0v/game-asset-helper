@@ -14,8 +14,9 @@ LOCALE_ROOT = (
 )
 
 NEW_MSGIDS = [
-    # Phase 2.7 (PyPI 신버전 알림) — 영어 msgid 2건
+    # Phase 2.7 (PyPI 신버전 알림) — 영어 msgid 3건
     "available",
+    "Copy",
     "Upgrade command copied to clipboard",
 ]
 
