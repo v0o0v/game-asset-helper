@@ -4,7 +4,7 @@
   1. 알파 채널 연결 구간 분석으로 프레임 박스 자동 검출
   2. 행별로 그룹화 (행 = 같은 y-range, 열 = 가로 정렬)
   3. Aseprite "Array" 형식 JSON 사이드카 생성 (frameTags 포함)
-  4. `%APPDATA%\\GameAssetHelper\\library\\<pack>\\` 에 PNG + JSON + pack.json 배치
+  4. `%APPDATA%\\AssetCacheMCP\\library\\<pack>\\` 에 PNG + JSON + pack.json 배치
   5. 다음 트레이 부팅 시 워처 + 분석 큐가 자동 픽업 → `kind="spritesheet"` promote
      + `🎞 N frames` 배지 + `suggest_animation_frames` MCP 응답 활성
 
@@ -54,12 +54,12 @@ _ROW_LABELS = [
 
 
 def _appdata_library_dir() -> Path:
-    """%APPDATA%\\GameAssetHelper\\library 경로 반환."""
+    """%APPDATA%\\AssetCacheMCP\\library 경로 반환."""
     base = os.environ.get("APPDATA")
     if not base:
         # %APPDATA% 가 없으면 (테스트 환경 등) 사용자 홈 폴백
         base = str(Path.home() / "AppData" / "Roaming")
-    return Path(base) / "GameAssetHelper" / "library"
+    return Path(base) / "AssetCacheMCP" / "library"
 
 
 def _find_runs(flags: np.ndarray) -> list[tuple[int, int]]:
