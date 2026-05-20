@@ -71,3 +71,36 @@ def test_decode_vector_is_callable_as_instance_method() -> None:
     blob, dim = enc.encode_text("hello")
     arr = enc.decode_vector(blob, dim)
     assert arr.tolist() == pytest.approx([0.1, 0.2, 0.3, 0.4])
+
+
+def test_encode_text_works_with_backend_chain() -> None:
+    """M11 — BackendChain.embed 가 (vec, name) 튜플 반환해도 처리."""
+    from assetcache.core.llm.base import (
+        BackendCapabilities,
+        BackendInfo,
+    )
+    from assetcache.core.llm.chain import BackendChain
+
+    class _FakeBackend:
+        info = BackendInfo(
+            name="fake",
+            display_name="fake",
+            homepage="",
+            capabilities=BackendCapabilities(True, True, True, embed_dim=None),
+        )
+
+        def chat(self, *a, **kw):  # pragma: no cover
+            return {}
+
+        def embed(self, text, *, model=None):
+            return [0.5, 0.6, 0.7]
+
+        def test_connection(self):
+            return True
+
+    chain = BackendChain([_FakeBackend()], modality="text_embed")
+    enc = EmbeddingEncoder(chain)
+    blob, dim = enc.encode_text("hello")
+    assert dim == 3
+    arr = enc.decode_vector(blob, dim)
+    assert arr.tolist() == pytest.approx([0.5, 0.6, 0.7])

@@ -12,6 +12,8 @@ import io
 import logging
 from typing import TYPE_CHECKING
 
+from ..llm import unwrap_chat_result
+from ..llm.base import BackendError
 from ..ollama_client import ChatMessage, OllamaError
 from ..searchable import build_searchable
 from ..sheet.detect import detect_sheet
@@ -194,9 +196,9 @@ class SpritesheetAnalyzer:
                        images_b64=[img_b64]),
         ]
         try:
-            payload = self.ollama.chat(messages, force_json=True, num_ctx=4000)
+            payload = unwrap_chat_result(self.ollama.chat(messages, force_json=True, num_ctx=4000))
             return payload, "ok", None
-        except OllamaError as e:
+        except (OllamaError, BackendError) as e:
             return ({"animation_hint": [], "description": "",
                     "subject": "", "category": "other",
                     "style": "other", "mood": [], "palette": [],

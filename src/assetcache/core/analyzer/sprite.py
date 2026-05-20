@@ -20,6 +20,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..llm import unwrap_chat_result
+from ..llm.base import BackendError
 from ..ollama_client import ChatMessage, OllamaError
 from ..searchable import build_searchable
 from ..store import LabelScore, SpriteMeta
@@ -238,10 +240,10 @@ class SpriteAnalyzer:
         last_err: str | None = None
         for _ in range(3):
             try:
-                payload = self.ollama.chat(
+                payload = unwrap_chat_result(self.ollama.chat(
                     messages, force_json=True, num_ctx=8000
-                )
-            except OllamaError as e:
+                ))
+            except (OllamaError, BackendError) as e:
                 return ({"description": "", "subject": "",
                          "category": _CATEGORY_FALLBACK,
                          "style": _STYLE_FALLBACK, "mood": [], "palette": [],

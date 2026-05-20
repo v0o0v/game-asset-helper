@@ -1,14 +1,20 @@
-"""Embedding encoder backed by :class:`OllamaClient`.
+"""Embedding encoder backed by :class:`BackendChain` (M11) or duck-typed embed source.
 
-The encoder is intentionally tiny — its main job is to lock in a
-single dimension on first use so the BLOBs stored in
-``asset_embeddings`` can be safely decoded later.
+M11 migration: 기존 `_EmbedCapable` Protocol (단순 `.embed(text)` 인스턴스) 와
+새 `BackendChain[modality=text_embed]` 둘 다 받는다.
+
+- BackendChain 은 `embed()` 가 `(vec, backend_name)` 튜플 반환 → 풀어서 vec 만 사용.
+- duck-typed (구 `OllamaClient` / 테스트 fake) 는 `embed()` 가 `list[float]` 반환 → 그대로.
+
+encode_text 의 외부 동작은 동일 — `(blob, dim)` 튜플 반환 + first-use dim lock.
+
+다음 마일스톤에서 BackendChain 채택을 강제하고 duck-typed path 제거 예정.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Protocol
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -16,13 +22,23 @@ log = logging.getLogger(__name__)
 
 
 class _EmbedCapable(Protocol):
+    """legacy — 단순 `.embed(text, *, model)` 호출 가능한 객체."""
+
     def embed(self, text: str, *, model: str | None = None) -> list[float]: ...
+
+
+def _unwrap_embed_result(result: Any) -> list[float]:
+    """BackendChain.embed → (vec, name) / legacy → list[float] 양쪽 흡수."""
+    if isinstance(result, tuple) and len(result) == 2:
+        vec, _name = result
+        return list(vec)
+    return list(result)
 
 
 class EmbeddingEncoder:
     def __init__(
         self,
-        client: _EmbedCapable,
+        client: Any,  # BackendChain | _EmbedCapable
         *,
         model: str = "nomic-embed-text",
     ) -> None:
@@ -33,13 +49,11 @@ class EmbeddingEncoder:
     def encode_text(self, text: str) -> tuple[bytes, int]:
         """Return ``(blob, dim)`` for ``text``.
 
-        On the first successful response the dimension is captured and
-        future responses are checked to match — if they don't we still
-        accept the new vector but log a warning (M3 search needs
-        uniform dims for cosine, so this is also a heads-up for a
-        future migration).
+        first-use dim lock — 후속 호출이 다른 dim 반환 시 warn (검색은 cosine 이라
+        균일 dim 필수, 다른 backend 로 교체 시 재인덱싱 권유).
         """
-        vec = self.client.embed(text, model=self.model)
+        result = self.client.embed(text, model=self.model)
+        vec = _unwrap_embed_result(result)
         arr = np.asarray(vec, dtype=np.float32)
         if self._dim is None:
             self._dim = int(arr.size)
