@@ -939,3 +939,59 @@ msgstr "OpenRouter Settings 에서 발급 →"
 msgid "Get token from HuggingFace →"
 msgstr "HuggingFace 에서 토큰 발급 →"
 
+# M11.1 — Gemini Batch API
+
+msgid "Batch analysis"
+msgstr "배치 분석"
+
+msgid "Threshold"
+msgstr "임계값"
+
+msgid "Polling interval"
+msgstr "폴링 주기"
+
+msgid "In-progress batch jobs"
+msgstr "진행 중 배치 작업"
+
+msgid "Submitted %d minutes ago"
+msgstr "%d분 전 제출"
+
+msgid "image chain first is %s — batch enabled"
+msgstr "이미지 체인 1순위가 %s 입니다 — batch 활성"
+
+msgid "image chain first is %s — batch disabled. Set chain[image][0] to gemini."
+msgstr "이미지 체인 1순위가 %s 입니다 — batch 비활성. 이미지 체인 1순위를 gemini 로 설정하세요."
+
+msgid "Cancel all"
+msgstr "모두 취소"
+
+msgid "Auto"
+msgstr "자동"
+
+msgid "Forced on"
+msgstr "강제 ON"
+
+msgid "Forced off"
+msgstr "강제 OFF"
+
+msgid "Batch mode (Gemini): %s"
+msgstr "배치 모드 (Gemini): %s"
+
+msgid "Analysis progress"
+msgstr "분석 진행"
+
+msgid "Summary"
+msgstr "요약"
+
+msgid "Interactive queue"
+msgstr "즉시 분석 큐"
+
+msgid "Batch jobs"
+msgstr "배치 작업"
+
+msgid "Recent failures"
+msgstr "최근 실패"
+
+msgid "Worker #%d (%.1fs elapsed)"
+msgstr "워커 #%d (%.1f초 경과)"
+

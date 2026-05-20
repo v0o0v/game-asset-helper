@@ -949,3 +949,59 @@ msgstr "Get key from OpenRouter Settings →"
 msgid "Get token from HuggingFace →"
 msgstr "Get token from HuggingFace →"
 
+# M11.1 — Gemini Batch API
+
+msgid "Batch analysis"
+msgstr "Batch analysis"
+
+msgid "Threshold"
+msgstr "Threshold"
+
+msgid "Polling interval"
+msgstr "Polling interval"
+
+msgid "In-progress batch jobs"
+msgstr "In-progress batch jobs"
+
+msgid "Submitted %d minutes ago"
+msgstr "Submitted %d minutes ago"
+
+msgid "image chain first is %s — batch enabled"
+msgstr "image chain first is %s — batch enabled"
+
+msgid "image chain first is %s — batch disabled. Set chain[image][0] to gemini."
+msgstr "image chain first is %s — batch disabled. Set chain[image][0] to gemini."
+
+msgid "Cancel all"
+msgstr "Cancel all"
+
+msgid "Auto"
+msgstr "Auto"
+
+msgid "Forced on"
+msgstr "Forced on"
+
+msgid "Forced off"
+msgstr "Forced off"
+
+msgid "Batch mode (Gemini): %s"
+msgstr "Batch mode (Gemini): %s"
+
+msgid "Analysis progress"
+msgstr "Analysis progress"
+
+msgid "Summary"
+msgstr "Summary"
+
+msgid "Interactive queue"
+msgstr "Interactive queue"
+
+msgid "Batch jobs"
+msgstr "Batch jobs"
+
+msgid "Recent failures"
+msgstr "Recent failures"
+
+msgid "Worker #%d (%.1fs elapsed)"
+msgstr "Worker #%d (%.1fs elapsed)"
+
