@@ -260,7 +260,11 @@ def test_registry_claude_audio_chain_falls_back_to_ollama(monkeypatch):
         "_default_claude_factory",
         lambda settings, cfg: _FakeBackend("claude", aud=False, emb=False),
     )
-    reg = BackendRegistry.from_config(cfg)
+    # ollama 도 stub — 실 HTTP 호출 회피 (테스트 환경에 ollama 없을 수 있음)
+    reg = BackendRegistry.from_config(
+        cfg,
+        ollama_factory=lambda settings, cfg: _FakeBackend("ollama"),
+    )
     chain = reg.get_chain("chat_audio")
     # claude 가 capability audio=False 이므로 chain.chat 호출 시 skip
     from assetcache.core.llm.base import ChatMessage
