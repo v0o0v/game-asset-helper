@@ -181,9 +181,9 @@ MCP stdio 서버 모드:
 python -m assetcache --mcp
 ```
 
-## 8. 다음 작업 (M10 + v0.1.1 + v0.1.2 모두 publish ✅ 완료)
+## 8. 다음 작업 (v0.1.2 publish + 로드맵 brainstorm ✅ 완료, M11 implementation 자연)
 
-v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) + **v0.1.1 yagni-clean** + **v0.1.2 PyPI 페이지 정직성 patch** 모두 publish 완료. Trusted Publishing OIDC 자동 publish 2회 검증 (v0.1.1 32초 + v0.1.2 29초). M9 (코드 서명 + GitHub releases 자동 업데이트) 은 path pivot 으로 머지 보류 (`feat/m9` 브랜치 보존, PyPI 흐름의 일부 모듈은 M10 Phase 2 에서 cherry-pick 됨).
+v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) + **v0.1.1 yagni-clean** + **v0.1.2 PyPI 페이지 정직성 patch** 모두 publish 완료 + **M11~M18 로드맵 brainstorm + spec 작성 완료**. Trusted Publishing OIDC 자동 publish 2회 검증 (v0.1.1 32초 + v0.1.2 29초). M9 (코드 서명 + GitHub releases 자동 업데이트) 은 path pivot 으로 머지 보류 + **feat/m9 + feat/m10 브랜치 cleanup (2026-05-20 deleted)**, PyPI 흐름의 일부 모듈은 M10 Phase 2 에서 cherry-pick 됨. spec/plan 만 보존 (`docs/superpowers/{plans,specs}/2026-05-19-m9-*.md`).
 
 **최종 결과**:
 
@@ -195,13 +195,15 @@ v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) + **v0.1.1 yagni-clean** + **v0.1.2 P
 
 ### 8.1 현재 상태
 
-- **main** — `34ddde4` (PR #15 v0.1.2 patch merge) → `3d5b570` (version bump 0.1.1→0.1.2) → `a0badee` / `2715f83` / `44742e8` (PR #15 fix commits) → `8b793f4` (PR #14 v0.1.1 yagni-clean) → `d9a3862` (M10 PR #11)
-- **현재 브랜치 = main** (origin/main 동기화 완료), 회귀 **1079 passed + 1 skipped + 40 deselected** (v0.1.1 yagni-clean 후 baseline 그대로 — v0.1.2 는 코드 변경 0, 문서/메타데이터만)
-- MCP **20 도구** (M10 신규 0, v0.1.1/v0.1.2 변동 없음)
-- 설치: `pipx install assetcache-mcp` 또는 `pip install assetcache-mcp` (v0.1.2 Latest)
+- **main** — `b3f8fe8` (roadmap spec) → `e76dd94` (docs v012 갱신) → `34ddde4` (PR #15 v0.1.2 patch merge) → `3d5b570` (version bump) → `a0badee` / `2715f83` / `44742e8` (PR #15 fix commits) → `8b793f4` (PR #14 v0.1.1 yagni-clean) → `d9a3862` (M10 PR #11). v0.1.2 tag = `34ddde4`
+- **현재 브랜치 = main** (origin/main 동기화 완료), 회귀 **1079 passed + 1 skipped + 40 deselected** (v0.1.1 yagni-clean 후 baseline 그대로 — v0.1.2 는 코드 변경 0, 로드맵 spec 도 docs only)
+- **local branches**: main 하나만 (feat/m9 + feat/m10 deleted 2026-05-20)
+- MCP **20 도구** (M10 신규 0, v0.1.1/v0.1.2 변동 없음, M11 implementation 시 변경 가능)
+- 설치: `pipx install assetcache-mcp` (v0.1.2 Latest)
 - 콘솔 스크립트: `assetcache` (트레이/MCP 통합) + `assetcache-mcp` (MCP stdio 전용)
 - 사용자 데이터: `%APPDATA%\AssetCacheMCP\`
 - PyPI: [v0.1.2 Latest](https://pypi.org/project/assetcache-mcp/0.1.2/) + [v0.1.1](https://pypi.org/project/assetcache-mcp/0.1.1/) + [v0.1.0](https://pypi.org/project/assetcache-mcp/0.1.0/) (Trusted Publishing OIDC 자동 publish 활성)
+- **로드맵 spec**: [`docs/superpowers/specs/2026-05-20-roadmap-design.md`](docs/superpowers/specs/2026-05-20-roadmap-design.md) — M11 (Multi-backend LLM Architecture) design 확정 + M12~M18 정렬 + Reactive backlog
 
 ### 8.2 다음 세션 진입 시 첫 작업
 
@@ -227,21 +229,35 @@ v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) + **v0.1.1 yagni-clean** + **v0.1.2 P
    ```
    → `1079 passed, 1 skipped, 40 deselected` 확인.
 
-4. **다음 작업 후보** — 사용자 결정:
-   - M11 후보: Mac/Linux 검증 (PyPI 패키지 cross-platform 호환 정식 검증)
-   - **사용자 피드백 수집**: [PyPI download 통계](https://pypistats.org/packages/assetcache-mcp) + [GitHub Issues](https://github.com/v0o0v/assetcache-mcp/issues) 모니터링
-   - **v0.1.3+ patch**: 추가로 발견될 bug fix 누적 → `git tag vX.Y.Z; git push origin vX.Y.Z` 한 줄로 자동 publish (Trusted Publishing 패턴 v0.1.1+v0.1.2 양쪽 검증됨, 평균 30초)
+4. **다음 작업** — 자연스러운 우선 = **M11 implementation 시작**:
+   - 로드맵 spec 의 §4 M11 절 + 본 brainstorm session 의 web research (image+audio 6 backend 비교) 를 starting point 로
+   - `docs/superpowers/specs/YYYY-MM-DD-m11-multi-backend-llm-design.md` detail design spec 작성
+   - `writing-plans` skill → `milestones/M11_plan.md` 작성
+   - TDD cycle 시작 (test red → implementation green → verification)
+   - Phase 0 (Framework + Ollama migration) 부터 — 회귀 1079 보장
+   
+   또는 사용자 결정:
+   - 다른 마일스톤 시작 (M12~M18) — 같은 brainstorm→spec→plan→TDD 패턴
+   - **Reactive**: 사용자 피드백 모니터링 ([PyPI 통계](https://pypistats.org/packages/assetcache-mcp) + [GitHub Issues](https://github.com/v0o0v/assetcache-mcp/issues)) / v0.1.3+ patch ([[trusted-publishing-pattern]] 30초 자동)
 
 ### 8.3 마일스톤 정렬
 
 | # | 이름 | 상태 |
 |---:|---|---|
 | M0~M8 | v1 (뼈대 ~ 패키징 + i18n) | ✅ 완료 (main 머지) |
-| M9 | 코드 서명 + 자동 업데이트 (GitHub releases) | ⚠️ implementation 완료 / **머지 보류** (PyPI 채택으로 path pivot, 일부 모듈은 M10 Phase 2 cherry-pick) |
+| M9 | 코드 서명 + 자동 업데이트 (GitHub releases) | ⚠️ implementation 완료 / **path pivot** (PyPI 채택, version/checker/banner/tray 일부 모듈 M10 Phase 2 cherry-pick), feat/m9 브랜치 deleted (2026-05-20), spec/plan 만 보존 |
 | M10 | PyPI 배포 + AssetCacheMCP rename | ✅ 완료 (PR #11 + #12 머지, v0.1.0 PyPI) |
 | v0.1.1 yagni-clean + PyPI publish | v0.0.1 마이그레이션 helper 제거 + Trusted Publishing OIDC 첫 자동 publish | ✅ 완료 ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14) + [PyPI v0.1.1](https://pypi.org/project/assetcache-mcp/0.1.1/) + [GitHub release v0.1.1](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.1), 32초 자동) |
 | v0.1.2 PyPI 페이지 정직성 patch + PyPI publish | README/DESIGN/docs stale 일괄 갱신 + classifiers 보강 + Trusted Publishing 2회째 자동 publish | ✅ 완료 ([PR #15](https://github.com/v0o0v/assetcache-mcp/pull/15) + [PyPI v0.1.2 Latest](https://pypi.org/project/assetcache-mcp/0.1.2/) + [GitHub release v0.1.2](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.2), 29초 자동) |
-| M11+ | Mac/Linux 검증 + 사용자 피드백 대응 + v0.1.3+ patch 누적 | 📋 미정 |
+| **로드맵 brainstorm + spec** | M11~M18 8 마일스톤 정렬 + Reactive backlog ([roadmap-design.md](docs/superpowers/specs/2026-05-20-roadmap-design.md)) | ✅ 완료 (main `b3f8fe8`, 2026-05-20) |
+| **M11** | Multi-backend LLM Architecture (Ollama+Gemini+Claude+OpenAI+OpenRouter+HF, modality 별 chain + 자동 fallback) | 📋 design 확정, implementation 미시작 |
+| M12 | C4 측정 / 학습 / 벤치마크 (6 backend 정확도 비교) | 📋 미정 (M11 의존) |
+| M13 | Mac/Linux 검증 + M11 cross-platform | 📋 미정 (M11 의존) |
+| M14 | MCP 원격 통신 (HTTP/SSE + 인증) | 📋 미정 |
+| M15 | Unity Editor 통합 (drag-drop / 자동 import) | 📋 미정 |
+| M16 | C2 이미지/사운드 유사 검색 | 📋 미정 (M11 embedding 활용) |
+| M17 | 성능 (대량 라이브러리 + 메모리/시작 시간) | 📋 미정 |
+| M18 | 분산 분석 (여러 PC 공유 + 분석 분담) | 📋 미정 (M14 필수) |
 
 참고 DESIGN: §3 (아키텍처), §4.9 (Unity Asset Store Importer — M7), §4.10 (활성 프로젝트/프로젝트 페이지 — M7), §4.5 (MCP — 20 도구), §4.8 (트레이 + 웹 UI), §11 (로드맵).
 
