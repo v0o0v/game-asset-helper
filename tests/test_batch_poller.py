@@ -168,3 +168,120 @@ def test_poll_job_no_state_change_no_update(poller_factory):
     p._chain.get_backend.return_value = backend
     p._poll_once()
     store.update_batch_job_state.assert_not_called()
+
+
+def test_handle_succeeded_image_modality_persists(poller_factory):
+    from assetcache.core.batch.types import GeminiBatchStatus
+    p, store = poller_factory()
+    job = MagicMock(id=1, modality="chat_image", asset_count=2)
+    store.list_assets_in_batch.return_value = [
+        MagicMock(id=10), MagicMock(id=11),
+    ]
+    # 첫번째 응답 성공 / 두번째 실패
+    resp_ok = MagicMock()
+    resp_ok.response.text = '{"labels": []}'
+    resp_ok.error = None
+    resp_fail = MagicMock()
+    resp_fail.response = None
+    resp_fail.error = "internal"
+    status = GeminiBatchStatus(
+        state="JOB_STATE_SUCCEEDED",
+        inlined_responses=[resp_ok, resp_fail],
+        file_name=None, error=None,
+    )
+    backend = MagicMock()
+    p._handle_succeeded(job, status, backend)
+    # 성공: asset 10 → mark_asset_backends(image='gemini') + batch_state='completed'
+    store.mark_asset_backends.assert_any_call(10, image="gemini")
+    completed_calls = [
+        c for c in store.mark_asset_batch_state.call_args_list
+        if c.args[1] == "completed"
+    ]
+    assert (10, "completed") in [tuple(c.args) for c in completed_calls]
+    # 실패: asset 11 → batch_state='failed' + enqueue
+    failed_calls = [
+        tuple(c.args) for c in store.mark_asset_batch_state.call_args_list
+        if c.args[1] == "failed"
+    ]
+    assert (11, "failed") in failed_calls
+    p._aq.enqueue_asset.assert_called_with(11)
+    # 최종 job state 'succeeded' + success_count=1, failure_count=1
+    store.update_batch_job_state.assert_called_once()
+    kw = store.update_batch_job_state.call_args.kwargs
+    assert kw["state"] == "succeeded"
+    assert kw["success_count"] == 1
+    assert kw["failure_count"] == 1
+
+
+def test_handle_succeeded_audio_modality(poller_factory):
+    from assetcache.core.batch.types import GeminiBatchStatus
+    p, store = poller_factory()
+    job = MagicMock(id=1, modality="chat_audio", asset_count=1)
+    store.list_assets_in_batch.return_value = [MagicMock(id=20)]
+    resp = MagicMock()
+    resp.response.text = '{"category": "music"}'
+    resp.error = None
+    status = GeminiBatchStatus(
+        state="JOB_STATE_SUCCEEDED", inlined_responses=[resp],
+        file_name=None, error=None,
+    )
+    p._handle_succeeded(job, status, MagicMock())
+    store.mark_asset_backends.assert_called_with(20, audio="gemini")
+
+
+def test_handle_succeeded_embed_modality(poller_factory):
+    from assetcache.core.batch.types import GeminiBatchStatus
+    p, store = poller_factory()
+    job = MagicMock(id=1, modality="text_embed", asset_count=1)
+    store.list_assets_in_batch.return_value = [MagicMock(id=30)]
+    resp = MagicMock()
+    resp.embedding.values = [0.1, 0.2, 0.3]
+    resp.error = None
+    status = GeminiBatchStatus(
+        state="JOB_STATE_SUCCEEDED", inlined_responses=[resp],
+        file_name=None, error=None,
+    )
+    p._cfg.backends.gemini.model_embed = "gemini-embedding-001"
+    p._handle_succeeded(job, status, MagicMock())
+    store.save_embedding.assert_called_once()
+    args = store.save_embedding.call_args.args
+    assert args[0] == 30  # asset_id
+    # backend_used embed='gemini'
+    store.mark_asset_backends.assert_called_with(30, embed="gemini")
+
+
+def test_handle_succeeded_file_destination_marks_expired(poller_factory):
+    from assetcache.core.batch.types import GeminiBatchStatus
+    p, store = poller_factory()
+    job = MagicMock(id=1, modality="chat_image", asset_count=10)
+    status = GeminiBatchStatus(
+        state="JOB_STATE_SUCCEEDED", inlined_responses=None,
+        file_name="files/big", error=None,
+    )
+    p._handle_succeeded(job, status, MagicMock())
+    # v0.2.1 — file destination 미지원 → state='expired'
+    store.update_batch_job_state.assert_called_once()
+    kw = store.update_batch_job_state.call_args.kwargs
+    assert kw["state"] == "expired"
+
+
+def test_handle_succeeded_parse_error_falls_back_to_interactive(poller_factory):
+    from assetcache.core.batch.types import GeminiBatchStatus
+    p, store = poller_factory()
+    job = MagicMock(id=1, modality="chat_image", asset_count=1)
+    store.list_assets_in_batch.return_value = [MagicMock(id=40)]
+    resp = MagicMock()
+    resp.response.text = "not valid json"
+    resp.error = None
+    status = GeminiBatchStatus(
+        state="JOB_STATE_SUCCEEDED", inlined_responses=[resp],
+        file_name=None, error=None,
+    )
+    p._handle_succeeded(job, status, MagicMock())
+    # parse 실패 → batch_state='failed' + interactive 재enqueue
+    failed_calls = [
+        tuple(c.args) for c in store.mark_asset_batch_state.call_args_list
+        if c.args[1] == "failed"
+    ]
+    assert (40, "failed") in failed_calls
+    p._aq.enqueue_asset.assert_called_with(40)
