@@ -62,6 +62,7 @@ class GeminiBackend:
             supports_text_embed=True,
             embed_dim=768,
         ),
+        setup_url="https://aistudio.google.com/apikey",
     )
 
     def __init__(

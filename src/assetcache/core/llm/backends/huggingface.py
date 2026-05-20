@@ -71,6 +71,7 @@ class HuggingFaceBackend:
             supports_text_embed=True,
             embed_dim=None,  # 모델별 가변
         ),
+        setup_url="https://huggingface.co/settings/tokens",
     )
 
     def __init__(

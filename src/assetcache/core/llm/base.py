@@ -33,6 +33,10 @@ class BackendInfo:
     display_name: str
     homepage: str
     capabilities: BackendCapabilities
+    # M11 후속 — API key 발급 (또는 ollama 의 경우 설치) direct link.
+    # /settings 페이지의 backend 카드 안의 "Get key →" 한 줄 link 와
+    # `<details>` block 본문에서 활용.
+    setup_url: str | None = None
 
 
 class BackendError(RuntimeError):

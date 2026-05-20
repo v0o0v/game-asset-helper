@@ -36,6 +36,7 @@ class OpenRouterBackend(OpenAIBackend):
             supports_text_embed=False,
             embed_dim=None,
         ),
+        setup_url="https://openrouter.ai/settings/keys",
     )
 
     def __init__(self, *, api_key: str, model_image: str, timeout: float) -> None:

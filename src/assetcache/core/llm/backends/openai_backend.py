@@ -65,6 +65,7 @@ class OpenAIBackend:
             supports_text_embed=True,
             embed_dim=1536,
         ),
+        setup_url="https://platform.openai.com/api-keys",
     )
 
     def __init__(

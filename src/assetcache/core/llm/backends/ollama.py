@@ -32,6 +32,7 @@ class OllamaBackend:
             supports_text_embed=True,
             embed_dim=None,
         ),
+        setup_url="https://ollama.com/download",
     )
 
     def __init__(self, *, client: OllamaClient) -> None:
