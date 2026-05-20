@@ -53,6 +53,8 @@ dependencies = [
   "sse-starlette>=2",
   # M8: i18n 백엔드
   "Babel>=2.14",
+  # M11: 멀티 백엔드 LLM
+  "google-genai>=0.1",
 ]
 
 [project.optional-dependencies]
@@ -97,11 +99,12 @@ namespaces = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra -m 'not clip_integration and not mcp_integration and not e2e'"
+addopts = "-ra -m 'not clip_integration and not mcp_integration and not e2e and not llm_integration'"
 markers = [
   "clip_integration: 실제 CLIP 모델 다운로드(~600 MB) 필요. 기본 실행에서 제외 — `pytest -m clip_integration` 으로 옵트인.",
   "mcp_integration: 실제 MCP stdio subprocess 기동 필요(`python -m assetcache --mcp`). 기본 실행에서 제외 — `pytest -m mcp_integration` 으로 옵트인.",
   "e2e: Playwright 헤드리스 Chromium 필요. 기본 실행에서 제외 — `pytest -m e2e` 으로 옵트인.",
+  "llm_integration: 실 LLM API key 필요 (Gemini/Claude/OpenAI/OpenRouter/HF). 기본 deselected — `pytest -m llm_integration` 으로 옵트인.",
 ]
 filterwarnings = [
   "ignore::DeprecationWarning",
