@@ -23,8 +23,8 @@ from .core.analyzer.spritesheet import SpritesheetAnalyzer  # M6
 from .core.clip_labeler import ClipLabeler, OpenClipBackend
 from .core.consistency import ConsistencyScorer
 from .core.embedding import EmbeddingEncoder
+from .core.llm.registry import BackendRegistry
 from .core.labels import LabelRegistry
-from .core.ollama_client import OllamaClient
 from .core.scanner import reconcile_library
 from .core.search import HybridSearcher
 from .core.store import Store
@@ -109,14 +109,12 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     )
 
     # ── M2: analysis pipeline ──────────────────────────────────────
-    ollama = OllamaClient(
-        base_url=config.ollama_url,
-        model=config.model_image,
-        timeout_seconds=config.analysis_timeout_seconds,
-        max_retries=config.analysis_max_retries,
-        parallel=config.ollama_parallel,
-    )
-    embedder = EmbeddingEncoder(ollama, model=config.model_embed)
+    # M11: BackendChain 으로 라우팅. Phase 0 default 는 ollama 1순위 + chain 1개.
+    registry_llm = BackendRegistry.from_config(config)
+    chain_image = registry_llm.get_chain("chat_image")
+    chain_audio = registry_llm.get_chain("chat_audio")
+    chain_embed = registry_llm.get_chain("text_embed")
+    embedder = EmbeddingEncoder(chain_embed, model=config.model_embed)
     clip: ClipLabeler | None = None
     if config.clip_enable:
         try:
@@ -134,14 +132,14 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
             clip = None
 
     sprite = SpriteAnalyzer(
-        ollama=ollama, clip=clip, embedder=embedder, registry=registry,
+        ollama=chain_image, clip=clip, embedder=embedder, registry=registry,
     )
     spritesheet = SpritesheetAnalyzer(  # M6
-        sprite=sprite, ollama=ollama,
+        sprite=sprite, ollama=chain_image,
         registry=registry, embedder=embedder, clip=clip,
     )
     sound = SoundAnalyzer(
-        ollama=ollama, embedder=embedder, registry=registry,
+        ollama=chain_audio, embedder=embedder, registry=registry,
         spectrogram_cache_dir=paths.cache_dir / "spectrograms",
         max_clip_seconds=config.audio_max_seconds,
         chunk_strategy=config.audio_chunk_strategy,
@@ -172,6 +170,7 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
         queue=queue, config=config, paths=paths, pending_picks=pending,
         tray_bridge=bridge,
         library_root=library_root,  # M5 bugfix: assets.path 상대경로 해석용
+        llm_registry=registry_llm,  # M11 Phase 5 — settings UI 의 test_connection 가 사용
     )
     web = WebServer(deps)
     web.start()

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{# M8 — 설정 페이지 (언어 / 테마 / 자동 시작). #}
+{# M8 — 설정 페이지 (언어 / 테마 / 자동 시작). M11 Phase 5 — backends + chains 추가. #}
 
 {% block title %}{{ _("Settings") }} · {{ _("AssetCacheMCP") }}{% endblock %}
 
@@ -61,10 +61,137 @@
     </button>
     <span x-show="error" class="error" x-text="error"></span>
   </form>
+
+  {# M11 Phase 5 — Backends 섹션 #}
+  <h2>{{ _("Backends") }}</h2>
+  <p class="hint">
+    {{ _("Changes to backends require a restart to apply to running analyzers. The Test button uses current settings immediately.") }}
+  </p>
+
+  <div class="backend-cards">
+    <template x-for="name in backendOrder" :key="name">
+      <fieldset class="backend-card">
+        <legend>
+          <input type="checkbox" :id="`bk-${name}-enabled`"
+                 x-model="backends[name].enabled">
+          <label :for="`bk-${name}-enabled`" x-text="name"></label>
+        </legend>
+
+        {# M11+ — 가격 + 셋업 안내 (접힘 기본). Alpine x-if 로 매칭되는 backend 의
+           ko/en partial 만 보이고, 다른 5개는 표시 안 됨 (DOM 에는 6 partial 다 렌더링). #}
+        <details class="backend-help">
+          <summary>{{ _("ⓘ Pricing & setup") }}</summary>
+          {% for bname in ["ollama", "gemini", "claude", "openai", "openrouter", "huggingface"] %}
+            <template x-if="name === '{{ bname }}'">
+              <div>
+                {% include "settings/help_" + bname + "_" + lang + ".html" %}
+              </div>
+            </template>
+          {% endfor %}
+        </details>
+
+        <label class="field" x-show="'api_key' in backends[name]">
+          <span>{{ _("API key") }}</span>
+          <input type="password" autocomplete="off"
+                 x-model="backends[name].api_key"
+                 placeholder="—">
+          {# M11+ — direct link to provider's API key page #}
+          <small class="setup-link">
+            <a :href="setupUrls[name]" target="_blank" rel="noopener noreferrer"
+               x-text="setupLinkLabels[name]"></a>
+          </small>
+        </label>
+
+        <label class="field" x-show="'model_image' in backends[name]">
+          <span>{{ _("Image model") }}</span>
+          <input type="text" x-model="backends[name].model_image">
+        </label>
+
+        <label class="field" x-show="'model_audio' in backends[name]">
+          <span>{{ _("Audio model") }}</span>
+          <input type="text" x-model="backends[name].model_audio">
+        </label>
+
+        <label class="field" x-show="'model_embed' in backends[name]">
+          <span>{{ _("Embedding model") }}</span>
+          <input type="text" x-model="backends[name].model_embed">
+        </label>
+
+        <label class="field" x-show="'base_url' in backends[name]">
+          <span>{{ _("Base URL") }}</span>
+          <input type="text" x-model="backends[name].base_url">
+        </label>
+
+        <div class="backend-actions">
+          <button type="button" @click="saveBackend(name)">
+            <span x-text="backendSaving[name] ? '...' : '{{ _("Save") }}'"></span>
+          </button>
+          <button type="button" @click="testBackend(name)">
+            <span x-text="backendTesting[name] ? '...' : '{{ _("Test connection") }}'"></span>
+          </button>
+          <span class="test-result"
+                :class="backendTestResult[name] && backendTestResult[name].ok ? 'ok' : 'error'"
+                x-show="backendTestResult[name]"
+                x-text="backendTestResult[name] && (backendTestResult[name].ok ? '{{ _("Connection succeeded") }}' : (backendTestResult[name].message || '{{ _("Connection failed") }}'))"></span>
+        </div>
+      </fieldset>
+    </template>
+  </div>
+
+  {# M11 Phase 5 — Chains 섹션 #}
+  <h2>{{ _("Modality chains") }}</h2>
+  <p class="hint">
+    {{ _("The first backend in each chain is tried first; on transient errors (rate limit, network) the next backend is tried. Hard errors (auth, bad request) stop the chain immediately.") }}
+  </p>
+
+  <template x-for="modality in modalityOrder" :key="modality">
+    <fieldset class="chain-row">
+      <legend>
+        <span x-text="modalityLabels[modality]"></span>
+        <code x-text="modality"></code>
+      </legend>
+      <ol class="chain-list">
+        <template x-for="(name, idx) in chains[modality]" :key="`${modality}-${name}`">
+          <li class="chain-chip">
+            <span x-text="name"></span>
+            <button type="button" :disabled="idx === 0"
+                    @click="moveChainEntry(modality, idx, -1)"
+                    :title="'{{ _("Move up") }}'">&#9650;</button>
+            <button type="button" :disabled="idx === chains[modality].length - 1"
+                    @click="moveChainEntry(modality, idx, +1)"
+                    :title="'{{ _("Move down") }}'">&#9660;</button>
+            <button type="button"
+                    @click="removeChainEntry(modality, idx)"
+                    :title="'{{ _("Remove") }}'">&times;</button>
+          </li>
+        </template>
+      </ol>
+      <div class="chain-add">
+        <select x-model="chainAdd[modality]">
+          <option value="">— {{ _("Add backend") }} —</option>
+          <template x-for="bk in availableForChain(modality)" :key="bk">
+            <option :value="bk" x-text="bk"></option>
+          </template>
+        </select>
+        <button type="button"
+                :disabled="!chainAdd[modality]"
+                @click="addChainEntry(modality)">{{ _("Add") }}</button>
+      </div>
+    </fieldset>
+  </template>
+
+  <button type="button" @click="saveChains" :disabled="chainSaving">
+    <span x-show="!chainSaving">{{ _("Save chains") }}</span>
+    <span x-show="chainSaving">{{ _("Saving...") }}</span>
+  </button>
+  <span x-show="chainSaveError" class="error" x-text="chainSaveError"></span>
 </section>
 
 <script>
 function settingsForm() {
+    const backendsInit = {{ config.backends | tojson }};
+    const chainsInit = {{ config.chains | tojson }};
+    const backendOrder = ["ollama", "gemini", "claude", "openai", "openrouter", "huggingface"];
     return {
         form: {
             ui_language: "{{ config.ui_language }}",
@@ -74,6 +201,44 @@ function settingsForm() {
         saving: false,
         error: "",
         autostartSupported: navigator.userAgent.includes("Windows"),
+
+        // M11 — backends
+        backends: backendsInit,
+        backendOrder: backendOrder,
+        backendSaving: {},
+        backendTesting: {},
+        backendTestResult: {},
+
+        // M11+ — backend 별 API key 발급 페이지 URL + 한 줄 link label (i18n)
+        setupUrls: {
+            ollama: "https://ollama.com/download",
+            gemini: "https://aistudio.google.com/apikey",
+            claude: "https://console.anthropic.com/settings/keys",
+            openai: "https://platform.openai.com/api-keys",
+            openrouter: "https://openrouter.ai/settings/keys",
+            huggingface: "https://huggingface.co/settings/tokens",
+        },
+        setupLinkLabels: {
+            ollama: "{{ _('Download Ollama →') }}",
+            gemini: "{{ _('Get key from Google AI Studio →') }}",
+            claude: "{{ _('Get key from Anthropic Console →') }}",
+            openai: "{{ _('Get key from OpenAI Platform →') }}",
+            openrouter: "{{ _('Get key from OpenRouter Settings →') }}",
+            huggingface: "{{ _('Get token from HuggingFace →') }}",
+        },
+
+        // M11 — chains
+        chains: chainsInit,
+        modalityOrder: ["chat_image", "chat_audio", "text_embed"],
+        modalityLabels: {
+            chat_image: "{{ _("Image chain") }}",
+            chat_audio: "{{ _("Audio chain") }}",
+            text_embed: "{{ _("Embedding chain") }}",
+        },
+        chainAdd: { chat_image: "", chat_audio: "", text_embed: "" },
+        chainSaving: false,
+        chainSaveError: "",
+
         async save() {
             this.saving = true;
             this.error = "";
@@ -88,7 +253,6 @@ function settingsForm() {
                     this.error = data.error || `HTTP ${r.status}`;
                     return;
                 }
-                // localStorage 동기화 — theme.js 와 anti-flash 스크립트가 이 값을 본다.
                 if (this.form.ui_theme === 'auto') {
                     localStorage.removeItem('assetcache_theme');
                 } else {
@@ -99,6 +263,86 @@ function settingsForm() {
                 this.error = String(e);
             } finally {
                 this.saving = false;
+            }
+        },
+
+        async saveBackend(name) {
+            this.backendSaving[name] = true;
+            try {
+                const payload = Object.assign({}, this.backends[name]);
+                const r = await fetch(`/api/settings/backends/${name}`, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload),
+                });
+                if (!r.ok) {
+                    const data = await r.json().catch(() => ({}));
+                    this.backendTestResult[name] = {ok: false, message: data.error || `HTTP ${r.status}`};
+                }
+            } catch (e) {
+                this.backendTestResult[name] = {ok: false, message: String(e)};
+            } finally {
+                this.backendSaving[name] = false;
+            }
+        },
+
+        async testBackend(name) {
+            this.backendTesting[name] = true;
+            this.backendTestResult[name] = null;
+            try {
+                const r = await fetch(`/api/settings/backends/${name}/test`, {
+                    method: "POST",
+                });
+                const data = await r.json().catch(() => ({ok: false}));
+                this.backendTestResult[name] = data;
+            } catch (e) {
+                this.backendTestResult[name] = {ok: false, message: String(e)};
+            } finally {
+                this.backendTesting[name] = false;
+            }
+        },
+
+        availableForChain(modality) {
+            return this.backendOrder.filter(b => !this.chains[modality].includes(b));
+        },
+
+        moveChainEntry(modality, idx, delta) {
+            const arr = this.chains[modality];
+            const j = idx + delta;
+            if (j < 0 || j >= arr.length) return;
+            [arr[idx], arr[j]] = [arr[j], arr[idx]];
+        },
+
+        removeChainEntry(modality, idx) {
+            this.chains[modality].splice(idx, 1);
+        },
+
+        addChainEntry(modality) {
+            const name = this.chainAdd[modality];
+            if (!name) return;
+            if (!this.chains[modality].includes(name)) {
+                this.chains[modality].push(name);
+            }
+            this.chainAdd[modality] = "";
+        },
+
+        async saveChains() {
+            this.chainSaving = true;
+            this.chainSaveError = "";
+            try {
+                const r = await fetch("/api/settings/chains", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(this.chains),
+                });
+                if (!r.ok) {
+                    const data = await r.json().catch(() => ({}));
+                    this.chainSaveError = data.error || `HTTP ${r.status}`;
+                }
+            } catch (e) {
+                this.chainSaveError = String(e);
+            } finally {
+                this.chainSaving = false;
             }
         },
     };

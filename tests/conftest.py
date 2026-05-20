@@ -27,6 +27,23 @@ def qt_offscreen(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
 
 
+@pytest.fixture(autouse=True)
+def _isolate_data_root(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """모든 test 의 GAH_DATA_DIR 을 fresh tmp 로 강제 — production AppData 격리.
+
+    배경: ``default_app_paths(None)`` 가 ``platformdirs.user_data_dir`` 으로 production
+    경로 (``%APPDATA%\\AssetCacheMCP``) 반환. tmp_appdata fixture 안 쓰는 test 가
+    이 경로를 직접 read/write — production log/cache/db 오염. 실제로 partial
+    수동 검증 중 production assetcache.log 에 ``testserver`` / pytest tmp_path /
+    ``ConnectError: boom`` 등 test artifacts 누수 확인.
+
+    autouse 로 기본 격리. 명시적으로 다른 경로 쓰는 test 는 자체 monkeypatch
+    또는 ``tmp_appdata`` fixture 로 override.
+    """
+    safe_root = tmp_path_factory.mktemp("gah_isolated")
+    monkeypatch.setenv("GAH_DATA_DIR", str(safe_root))
+
+
 @pytest.fixture
 def qapp():
     """Provide a singleton :class:`QApplication` for widget tests.

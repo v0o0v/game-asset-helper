@@ -29,11 +29,20 @@ def test_encode_text_returns_bytes_and_dim() -> None:
     assert len(blob) == 4 * 4  # 4 floats × 4 bytes
 
 
-def test_encode_text_uses_configured_model_name() -> None:
+def test_encode_text_lets_backend_choose_model() -> None:
+    """M11 fix — encoder 가 backend 자체 model_embed 사용하도록 model=None 전달.
+
+    Background: M11 multi-backend chain 시대에 chain 에 ollama 외 backend
+    (gemini/openai/hf) 가 들어가면, 기존처럼 encoder 의 global "nomic-embed-text"
+    를 강제 전달하면 다른 backend 가 그 모델을 못 찾아 hard fail.
+    backend 의 self.model_embed (gemini-embedding-001 등) 가 자동으로 사용되도록
+    encoder 는 model 인자를 backend 에 전달하지 않는다.
+    """
     fake = _FakeOllama([0.1])
     enc = EmbeddingEncoder(fake, model="my-embed-model")  # type: ignore[arg-type]
     enc.encode_text("hi")
-    assert fake.calls[0]["model"] == "my-embed-model"
+    # encoder.model 은 logging/디버깅용 metadata 만 — backend 호출에는 안 쓰임
+    assert fake.calls[0]["model"] is None
 
 
 def test_decode_vector_roundtrips_through_blob() -> None:
@@ -71,3 +80,36 @@ def test_decode_vector_is_callable_as_instance_method() -> None:
     blob, dim = enc.encode_text("hello")
     arr = enc.decode_vector(blob, dim)
     assert arr.tolist() == pytest.approx([0.1, 0.2, 0.3, 0.4])
+
+
+def test_encode_text_works_with_backend_chain() -> None:
+    """M11 — BackendChain.embed 가 (vec, name) 튜플 반환해도 처리."""
+    from assetcache.core.llm.base import (
+        BackendCapabilities,
+        BackendInfo,
+    )
+    from assetcache.core.llm.chain import BackendChain
+
+    class _FakeBackend:
+        info = BackendInfo(
+            name="fake",
+            display_name="fake",
+            homepage="",
+            capabilities=BackendCapabilities(True, True, True, embed_dim=None),
+        )
+
+        def chat(self, *a, **kw):  # pragma: no cover
+            return {}
+
+        def embed(self, text, *, model=None):
+            return [0.5, 0.6, 0.7]
+
+        def test_connection(self):
+            return True
+
+    chain = BackendChain([_FakeBackend()], modality="text_embed")
+    enc = EmbeddingEncoder(chain)
+    blob, dim = enc.encode_text("hello")
+    assert dim == 3
+    arr = enc.decode_vector(blob, dim)
+    assert arr.tolist() == pytest.approx([0.5, 0.6, 0.7])

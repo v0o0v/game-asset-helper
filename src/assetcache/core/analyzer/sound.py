@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..llm import unwrap_chat_result
+from ..llm.base import BackendError
 from ..ollama_client import ChatMessage, OllamaError, encode_audio_clip, encode_image
 from ..searchable import build_searchable
 from ..store import LabelScore, SoundMeta
@@ -169,8 +171,10 @@ class SoundAnalyzer:
                     samples_mono, language=language,
                     duration_ms=duration_ms,
                 )
-            except OllamaError as e:
-                last_err = f"ollama: {e}"
+            except (OllamaError, BackendError) as e:
+                # M11 — chain 호환 (BackendError 도 catch) + 정확한 backend 이름 표기.
+                backend_name = getattr(e, "backend", None) or "chat"
+                last_err = f"chat backend ({backend_name}): {e}"
                 payload = None
                 break
             except Exception as e:  # noqa: BLE001
@@ -204,8 +208,9 @@ class SoundAnalyzer:
                     payload = self._call_gemma_image(
                         spec_path, language=language
                     )
-                except OllamaError as e:
-                    last_err = f"ollama: {e}"
+                except (OllamaError, BackendError) as e:
+                    backend_name = getattr(e, "backend", None) or "chat"
+                    last_err = f"chat backend ({backend_name}): {e}"
                     payload = None
                     break
                 if payload is None:
@@ -238,8 +243,8 @@ class SoundAnalyzer:
                             audio_b64=[(b64, "audio/wav")]),
             ]
             try:
-                resp = self.ollama.chat(msgs, force_json=True, num_ctx=8000)
-            except OllamaError:
+                resp = unwrap_chat_result(self.ollama.chat(msgs, force_json=True, num_ctx=8000))
+            except (OllamaError, BackendError):
                 continue
             if not isinstance(resp, dict):
                 continue
@@ -256,8 +261,8 @@ class SoundAnalyzer:
                         images_b64=[b64]),
         ]
         try:
-            resp = self.ollama.chat(msgs, force_json=True, num_ctx=8000)
-        except OllamaError:
+            resp = unwrap_chat_result(self.ollama.chat(msgs, force_json=True, num_ctx=8000))
+        except (OllamaError, BackendError):
             return None
         return resp if isinstance(resp, dict) else None
 

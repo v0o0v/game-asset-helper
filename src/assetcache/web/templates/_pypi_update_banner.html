@@ -1,4 +1,4 @@
-{# PyPI 신버전 알림 배너 — Alpine + /api/updates/check 폴링 #}
+{# PyPI 신버전 알림 배너 — Alpine + /api/updates/check (10분 localStorage cache) #}
 <div
   x-data="{
     available: false,
@@ -6,13 +6,33 @@
     command: '',
     releaseUrl: '',
     async check() {
+      // M11+ — localStorage 10분 cache. 페이지 navigate / 새로고침 시 spam 차단.
+      // 서버는 module-level UpdateChecker singleton + ETag 304 응답이지만,
+      // network round-trip 자체를 줄이는 게 더 가벼움.
+      const CACHE_KEY = 'pypi_update_cache_v1';
+      const CACHE_TTL_MS = 10 * 60 * 1000;
       try {
+        const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+        if (cached.checkedAt && (Date.now() - cached.checkedAt) < CACHE_TTL_MS) {
+          this.available = !!cached.available;
+          this.latest = cached.latest || '';
+          this.command = cached.command || '';
+          this.releaseUrl = cached.releaseUrl || '';
+          return;
+        }
         const r = await fetch('/api/updates/check');
         const d = await r.json();
         this.available = !!d.available;
         this.latest = d.latest || '';
         this.command = d.command || '';
         this.releaseUrl = d.release_notes_url || '';
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          checkedAt: Date.now(),
+          available: this.available,
+          latest: this.latest,
+          command: this.command,
+          releaseUrl: this.releaseUrl,
+        }));
       } catch (e) {
         this.available = false;
       }

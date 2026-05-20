@@ -823,3 +823,119 @@ msgstr "v{version} 업데이트 가능 →"
 msgid "Upgrade command copied to clipboard"
 msgstr "업그레이드 명령이 클립보드에 복사됨"
 
+# M11 Phase 5 — Multi-backend LLM settings
+
+#: src/assetcache/web/templates/settings.html
+msgid "Backends"
+msgstr "백엔드"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Changes to backends require a restart to apply to running analyzers. The Test button uses current settings immediately."
+msgstr "백엔드 변경 사항은 재시작 후 분석기에 반영됩니다. 테스트 버튼은 즉시 현재 설정으로 검증합니다."
+
+#: src/assetcache/web/templates/settings.html
+msgid "API key"
+msgstr "API 키"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Image model"
+msgstr "이미지 모델"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Audio model"
+msgstr "오디오 모델"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Embedding model"
+msgstr "임베딩 모델"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Base URL"
+msgstr "Base URL"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Test connection"
+msgstr "연결 테스트"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Connection succeeded"
+msgstr "연결 성공"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Connection failed"
+msgstr "연결 실패"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Modality chains"
+msgstr "모달리티 체인"
+
+#: src/assetcache/web/templates/settings.html
+msgid "The first backend in each chain is tried first; on transient errors (rate limit, network) the next backend is tried. Hard errors (auth, bad request) stop the chain immediately."
+msgstr "체인의 1순위 백엔드를 먼저 시도합니다. 일시적 오류(rate limit, 네트워크)이면 다음 백엔드로 넘어가고, hard 오류(인증, 잘못된 요청)이면 즉시 중단합니다."
+
+#: src/assetcache/web/templates/settings.html
+msgid "Image chain"
+msgstr "이미지 체인"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Audio chain"
+msgstr "오디오 체인"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Embedding chain"
+msgstr "임베딩 체인"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Move up"
+msgstr "위로"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Move down"
+msgstr "아래로"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Remove"
+msgstr "제거"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Add backend"
+msgstr "백엔드 추가"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Add"
+msgstr "추가"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Save chains"
+msgstr "체인 저장"
+
+# M11+ — Backend 카드 가격·셋업 안내
+
+#: src/assetcache/web/templates/settings.html
+msgid "ⓘ Pricing & setup"
+msgstr "ⓘ 가격 + 셋업 안내"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Download Ollama →"
+msgstr "Ollama 다운로드 →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get key from Google AI Studio →"
+msgstr "Google AI Studio 에서 발급 →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get key from Anthropic Console →"
+msgstr "Anthropic Console 에서 발급 →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get key from OpenAI Platform →"
+msgstr "OpenAI Platform 에서 발급 →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get key from OpenRouter Settings →"
+msgstr "OpenRouter Settings 에서 발급 →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get token from HuggingFace →"
+msgstr "HuggingFace 에서 토큰 발급 →"
+

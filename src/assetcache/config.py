@@ -84,6 +84,69 @@ _VALID_AUDIO_CHUNK_STRATEGIES = ("smart", "first", "rms_peak")
 _VALID_UI_LANGUAGES = ("ko", "en", "auto")
 _VALID_UI_THEMES = ("auto", "light", "dark")
 
+# M11 — multi-backend LLM
+_VALID_CHAIN_MODALITIES = ("chat_image", "chat_audio", "text_embed")
+_KNOWN_BACKENDS = ("ollama", "gemini", "claude", "openai", "openrouter", "huggingface")
+
+
+def _default_backends() -> dict[str, dict[str, Any]]:
+    """6 backend 기본 설정. ollama 만 enabled=True, 나머지는 disabled."""
+    return {
+        "ollama": {
+            "enabled": True,
+            "base_url": "http://127.0.0.1:11434",
+            "model_image": "gemma4:e4b",
+            "model_audio": "gemma4:e4b",
+            "model_embed": "nomic-embed-text",
+        },
+        "gemini": {
+            "enabled": False,
+            "api_key": "",
+            # M11+ — gemini-3.1-flash-lite (GA 2026-03) 가 default.
+            # 2.5-flash 대비 input -17% ($0.30 → $0.25/1M), output -40% ($2.50 → $1.50/1M),
+            # 속도 +64% (232 → 381 TPS), Intelligence Index +62% (21 → 34).
+            # multimodal MMMU-Pro 76.8%. 일반적인 sprite/sound 분석에 권장.
+            # 더 어려운 케이스 (frontier 정확도 필요) 는 'gemini-3.5-flash' (5× 비용)
+            # 또는 'gemini-2.5-flash' (기존 stable production) 로 /settings 에서 변경.
+            "model_image": "gemini-3.1-flash-lite",
+            "model_audio": "gemini-3.1-flash-lite",
+            # embedding 은 별도 family — 모델 변경 불필요 (gemini-embedding-001 그대로).
+            "model_embed": "gemini-embedding-001",
+        },
+        "claude": {
+            "enabled": False,
+            "api_key": "",
+            "model_image": "claude-haiku-4-5-20251001",
+        },
+        "openai": {
+            "enabled": False,
+            "api_key": "",
+            "model_image": "gpt-5.4-mini",
+            "model_audio": "gpt-4o-audio-preview",
+            "model_embed": "text-embedding-3-small",
+        },
+        "openrouter": {
+            "enabled": False,
+            "api_key": "",
+            "model_image": "google/gemma-4-27b-it:free",
+        },
+        "huggingface": {
+            "enabled": False,
+            "api_key": "",
+            "model_image": "Qwen/Qwen2.5-VL-72B-Instruct",
+            "model_audio": "",
+            "model_embed": "",
+        },
+    }
+
+
+def _default_chains() -> dict[str, list[str]]:
+    return {
+        "chat_image": ["ollama"],
+        "chat_audio": ["ollama"],
+        "text_embed": ["ollama"],
+    }
+
 
 class UsageSource(str, Enum):
     """`record_asset_use` 의 source 값 — M5 에서 'claude_pick' 신규 추가."""
@@ -179,6 +242,9 @@ class Config:
     # M8 — 웹 UI 언어 / 테마 (description_language 와 별개)
     ui_language: str = "auto"  # "ko" | "en" | "auto"
     ui_theme: str = "auto"     # "auto" | "light" | "dark"
+    # M11 — multi-backend LLM
+    backends: dict[str, dict[str, Any]] = field(default_factory=_default_backends)
+    chains: dict[str, list[str]] = field(default_factory=_default_chains)
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "Config":
@@ -206,6 +272,33 @@ class Config:
                 filtered["ollama_parallel"] = max(1, int(parallel))
             except (TypeError, ValueError):
                 filtered.pop("ollama_parallel")
+
+        # M11 — backends/chains migration
+        backends = _default_backends()
+        data_backends = data.get("backends") or {}
+        if isinstance(data_backends, dict):
+            for name, override in data_backends.items():
+                if name not in _KNOWN_BACKENDS:
+                    continue
+                if isinstance(override, dict):
+                    backends[name].update(override)
+        # legacy 키 backfill — [backends] 섹션이 없을 때만 ollama 에 복사
+        if "backends" not in data:
+            if "ollama_url" in data and isinstance(data["ollama_url"], str):
+                backends["ollama"]["base_url"] = data["ollama_url"]
+            for legacy_key in ("model_image", "model_audio", "model_embed"):
+                if legacy_key in data and isinstance(data[legacy_key], str):
+                    backends["ollama"][legacy_key] = data[legacy_key]
+        filtered["backends"] = backends
+
+        chains = _default_chains()
+        data_chains = data.get("chains") or {}
+        if isinstance(data_chains, dict):
+            for modality, order in data_chains.items():
+                if modality in _VALID_CHAIN_MODALITIES and isinstance(order, list):
+                    chains[modality] = [str(x) for x in order]
+        filtered["chains"] = chains
+
         return cls(**filtered)
 
     def to_mapping(self) -> dict[str, Any]:

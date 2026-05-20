@@ -1,19 +1,42 @@
-﻿"""M8 — /settings 페이지 + POST /api/settings (언어/테마/자동 시작)."""
+﻿"""M8 — /settings 페이지 + POST /api/settings (언어/테마/자동 시작).
+
+M11 Phase 5 — multi-backend LLM 설정용 3 endpoint 추가:
+- POST /api/settings/backends/{name}      — backend 설정 갱신
+- POST /api/settings/backends/{name}/test — backend.test_connection 호출
+- POST /api/settings/chains               — chain 순서 갱신
+"""
 from __future__ import annotations
 
 import logging
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
-from assetcache.config import save_config
+from assetcache.config import Config, save_config
 import assetcache.platform.autostart as _autostart_mod
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["settings"])
+
+
+# M11 — backend / chain settings
+_VALID_BACKEND_KEYS = frozenset(
+    {"enabled", "api_key", "model_image", "model_audio", "model_embed"}
+)
+_VALID_MODALITIES = ("chat_image", "chat_audio", "text_embed")
+
+
+def _build_registry_for_test(cfg: Config) -> Any:
+    """test_connection 만 위한 가벼운 BackendRegistry — 최신 cfg 기반.
+
+    monkeypatch 가능한 별도 함수 — 테스트에서 SDK 호출 회피.
+    """
+    from assetcache.core.llm.registry import BackendRegistry
+
+    return BackendRegistry.from_config(cfg)
 
 
 class SettingsUpdate(BaseModel):
@@ -25,9 +48,15 @@ class SettingsUpdate(BaseModel):
 
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request) -> HTMLResponse:
-    """설정 페이지 — 언어 / 테마 / 자동 시작 옵션."""
+    """설정 페이지 — 언어 / 테마 / 자동 시작 + M11 backend / chain."""
     deps = request.app.state.deps
     templates = request.app.state.templates
+    # M11+ — partial include 에 사용할 lang 변수. LocaleMiddleware 가
+    # request.state.locale 셋팅 (정확한 키는 'locale' — locale_middleware.py 참조).
+    # 없거나 ko/en 외 값이면 "en" 폴백.
+    lang = getattr(request.state, "locale", "en")
+    if lang not in ("ko", "en"):
+        lang = "en"
     return templates.TemplateResponse(
         request=request,
         name="settings.html",
@@ -35,6 +64,7 @@ async def settings_page(request: Request) -> HTMLResponse:
             "page": "settings",
             "config": deps.config,
             "autostart_actual": _autostart_mod.is_autostart_enabled(),
+            "lang": lang,
         },
     )
 
@@ -84,3 +114,104 @@ async def update_settings(
             samesite="lax",
         )
     return response
+
+
+# ---- M11 Phase 5: backend / chain settings ----
+
+
+@router.post("/api/settings/backends/{name}")
+async def update_backend(name: str, request: Request) -> JSONResponse:
+    """backend 설정 갱신 — enabled/api_key/model_* 키만 적용 (PATCH 의미)."""
+    deps = request.app.state.deps
+    cfg: Config = deps.config
+    if name not in cfg.backends:
+        return JSONResponse(
+            {"ok": False, "error": f"unknown backend: {name}"}, status_code=404
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        return JSONResponse(
+            {"ok": False, "error": "body must be a JSON object"}, status_code=400
+        )
+    for key, value in body.items():
+        if key in _VALID_BACKEND_KEYS:
+            cfg.backends[name][key] = value
+    try:
+        save_config(cfg, deps.paths.config_path)
+    except Exception as e:
+        log.warning("config save failed: %s", e)
+    return JSONResponse({"ok": True})
+
+
+@router.post("/api/settings/backends/{name}/test")
+async def test_backend(name: str, request: Request) -> JSONResponse:
+    """현재 cfg 기반으로 backend.test_connection() 호출 → {ok, message}."""
+    deps = request.app.state.deps
+    cfg: Config = deps.config
+    if name not in cfg.backends:
+        return JSONResponse(
+            {"ok": False, "error": f"unknown backend: {name}"}, status_code=404
+        )
+    registry = _build_registry_for_test(cfg)
+    backend = registry.get_backend(name)
+    if backend is None:
+        return JSONResponse(
+            {
+                "ok": False,
+                "message": "backend not configured (enabled=False or api_key missing)",
+            }
+        )
+    try:
+        ok = bool(backend.test_connection())
+    except Exception as e:  # pragma: no cover - safety net
+        log.warning("backend %s test_connection raised: %s", name, e)
+        return JSONResponse({"ok": False, "error": str(e)})
+    return JSONResponse({"ok": ok})
+
+
+@router.post("/api/settings/chains")
+async def update_chains(request: Request) -> JSONResponse:
+    """chain 순서 갱신 — JSON body 의 각 키는 modality, 값은 backend 이름 리스트."""
+    deps = request.app.state.deps
+    cfg: Config = deps.config
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        return JSONResponse(
+            {"ok": False, "error": "body must be a JSON object"}, status_code=400
+        )
+    known_backends = set(cfg.backends.keys())
+    # validate first — 부분 적용 회피
+    for modality, order in body.items():
+        if modality not in _VALID_MODALITIES:
+            return JSONResponse(
+                {"ok": False, "error": f"unknown modality: {modality}"},
+                status_code=400,
+            )
+        if not isinstance(order, list):
+            return JSONResponse(
+                {"ok": False, "error": f"chain must be a list: {modality}"},
+                status_code=400,
+            )
+        for backend_name in order:
+            if backend_name not in known_backends:
+                return JSONResponse(
+                    {
+                        "ok": False,
+                        "error": f"unknown backend: {backend_name}",
+                    },
+                    status_code=400,
+                )
+    # apply
+    for modality, order in body.items():
+        cfg.chains[modality] = [str(x) for x in order]
+    try:
+        save_config(cfg, deps.paths.config_path)
+    except Exception as e:
+        log.warning("config save failed: %s", e)
+    return JSONResponse({"ok": True})

@@ -15,7 +15,7 @@ import sqlite3
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from .manifest import PackManifest
 
@@ -51,6 +51,10 @@ class AssetRow:
     analyzed_at: Optional[int]
     analysis_state: str
     analysis_error: Optional[str] = None
+    # M11 Phase 6 — 분석에 사용된 backend 이름 (modality 별)
+    backend_image: Optional[str] = None
+    backend_audio: Optional[str] = None
+    backend_embed: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -462,6 +466,7 @@ class Store:
         self.conn.executescript(_M4_SCHEMA)
         self._migrate_m6_animations_json()
         self._migrate_unity_imports()
+        self._migrate_m11_backend_columns()
 
     def _migrate_m6_animations_json(self) -> None:
         """M6 — sprite_meta.animations_json 컬럼 idempotent 추가."""
@@ -477,6 +482,21 @@ class Store:
         """M7 — unity_imports 테이블 + 인덱스 idempotent 생성."""
         with self.write_lock:
             self.conn.executescript(_M7_UNITY_SCHEMA)
+
+    def _migrate_m11_backend_columns(self) -> None:
+        """M11 — assets 테이블에 backend_image/audio/embed 컬럼 idempotent 추가.
+
+        분석에 사용된 backend 이름을 per-asset 메타데이터로 저장. 기존 row 는
+        NULL 로 남음 (legacy 분석은 어떤 backend 였는지 알 수 없음).
+        """
+        with self.write_lock:
+            cur = self.conn.execute("PRAGMA table_info(assets)")
+            cols = {r[1] for r in cur.fetchall()}
+            for col in ("backend_image", "backend_audio", "backend_embed"):
+                if col not in cols:
+                    self.conn.execute(
+                        f"ALTER TABLE assets ADD COLUMN {col} TEXT"
+                    )
 
     def close(self) -> None:
         try:
@@ -752,7 +772,8 @@ class Store:
     def assets_for_pack(self, pack_id: int) -> list[AssetRow]:
         rows = self.conn.execute(
             "SELECT id, pack_id, path, kind, file_hash, file_size, added_at,"
-            "       analyzed_at, analysis_state, analysis_error"
+            "       analyzed_at, analysis_state, analysis_error,"
+            "       backend_image, backend_audio, backend_embed"
             " FROM assets WHERE pack_id = ? ORDER BY path",
             (pack_id,),
         ).fetchall()
@@ -761,7 +782,8 @@ class Store:
     def list_assets(self, *, limit: int = 500, offset: int = 0) -> list[AssetRow]:
         rows = self.conn.execute(
             "SELECT id, pack_id, path, kind, file_hash, file_size, added_at,"
-            "       analyzed_at, analysis_state, analysis_error"
+            "       analyzed_at, analysis_state, analysis_error,"
+            "       backend_image, backend_audio, backend_embed"
             " FROM assets ORDER BY path LIMIT ? OFFSET ?",
             (limit, offset),
         ).fetchall()
@@ -784,7 +806,8 @@ class Store:
         with self.write_lock:
             row = self.conn.execute(
                 "SELECT id, pack_id, path, kind, file_hash, file_size, added_at,"
-                "       analyzed_at, analysis_state, analysis_error"
+                "       analyzed_at, analysis_state, analysis_error,"
+                "       backend_image, backend_audio, backend_embed"
                 " FROM assets WHERE id = ?",
                 (asset_id,),
             ).fetchone()
@@ -825,6 +848,39 @@ class Store:
             self.conn.execute(
                 "UPDATE assets SET analysis_state = 'pending' WHERE id = ?",
                 (asset_id,),
+            )
+
+    def mark_asset_backends(
+        self,
+        asset_id: int,
+        *,
+        image: str | None = None,
+        audio: str | None = None,
+        embed: str | None = None,
+    ) -> None:
+        """M11 — 분석에 사용된 backend 이름 기록 (modality 별).
+
+        partial update — None 으로 전달된 modality 는 SET 대상에서 제외해 기존
+        값 유지. 모두 None 이면 no-op.
+        """
+        updates: list[str] = []
+        params: list[Any] = []
+        if image is not None:
+            updates.append("backend_image = ?")
+            params.append(image)
+        if audio is not None:
+            updates.append("backend_audio = ?")
+            params.append(audio)
+        if embed is not None:
+            updates.append("backend_embed = ?")
+            params.append(embed)
+        if not updates:
+            return
+        params.append(asset_id)
+        with self.write_lock:
+            self.conn.execute(
+                f"UPDATE assets SET {', '.join(updates)} WHERE id = ?",
+                tuple(params),
             )
 
     def next_pending_asset(self) -> Optional[AssetRow]:
@@ -2300,6 +2356,10 @@ def _asset_row(r: tuple) -> AssetRow:
         analyzed_at=int(r[7]) if r[7] is not None else None,
         analysis_state=r[8],
         analysis_error=r[9] if len(r) > 9 else None,
+        # M11 Phase 6 — backend_image/audio/embed (구버전 SELECT 호환: 누락 시 None)
+        backend_image=r[10] if len(r) > 10 else None,
+        backend_audio=r[11] if len(r) > 11 else None,
+        backend_embed=r[12] if len(r) > 12 else None,
     )
 
 

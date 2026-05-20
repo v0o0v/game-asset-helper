@@ -141,6 +141,14 @@ def _asset_row_to_dict(row: Any) -> dict[str, Any]:
         "frame_count": None,
         "frame_w": None,
         "frame_h": None,
+        # M11 Phase 6 — backend 배지. AssetRow 의 backend_image/audio/embed 컬럼을
+        # 카드 템플릿이 기대하는 dict shape 으로 변환. 검색 (ResultRow) 경로와
+        # default (AssetRow) 경로 모두 같은 키 표시 — 카드 일관.
+        "backend_used": {
+            "image": row.backend_image,
+            "audio": row.backend_audio,
+            "embed": row.backend_embed,
+        },
     }
     return d
 
