@@ -151,6 +151,18 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
         concurrency=config.analysis_concurrency,
         library_root=library_root,
     )
+
+    # M11.1 Task 3.7 — BatchManager 주입 (AnalysisQueue 생성 직후, start/drain 전)
+    from .core.batch.manager import BatchManager as _BatchManager
+    _batch_manager = _BatchManager(
+        store=store,
+        chain_registry=registry_llm,
+        analysis_queue=queue,
+        cfg=config,
+        library_dir=library_root,
+    )
+    queue.set_batch_manager(_batch_manager)
+
     queue.start()
     queue.drain_pending()
 

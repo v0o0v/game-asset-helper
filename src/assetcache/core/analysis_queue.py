@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from .analyzer.sound import SoundAnalyzer
     from .analyzer.sprite import SpriteAnalyzer
     from .analyzer.spritesheet import SpritesheetAnalyzer
+    from .batch.manager import BatchManager
     from .store import Store
 
 log = logging.getLogger(__name__)
@@ -84,6 +85,7 @@ class AnalysisQueue(QObject):
         eta_window: int = 10,
         clock: Callable[[], float] = time.monotonic,
         library_root: Path | None = None,
+        batch_manager: Optional["BatchManager"] = None,
     ) -> None:
         super().__init__()
         self.store = store
@@ -93,6 +95,7 @@ class AnalysisQueue(QObject):
         self.concurrency = max(1, int(concurrency))
         self.library_root = library_root
         self._clock = clock
+        self._batch_manager = batch_manager
 
         self._queue: "queue.Queue[int]" = queue.Queue()
         self._init_progress_tracker(window=eta_window)
@@ -104,6 +107,25 @@ class AnalysisQueue(QObject):
         self._stop_event = threading.Event()
         self._executor: ThreadPoolExecutor | None = None
         self._futures: list = []
+
+    # -- batch manager injection --------------------------------------
+
+    def set_batch_manager(self, bm) -> None:
+        """Post-construction BatchManager 주입 (instantiation 순서 때문에 setter 사용)."""
+        self._batch_manager = bm
+
+    def _try_batch_submit(self) -> None:
+        """BatchManager.try_submit 을 3 modality 에 대해 호출.
+
+        batch_manager 가 None 이면 no-op. 개별 modality 예외는 삼키고 나머지 계속 시도.
+        """
+        if self._batch_manager is None:
+            return
+        for modality in ("chat_image", "chat_audio", "text_embed"):
+            try:
+                self._batch_manager.try_submit(modality)
+            except Exception:
+                log.exception("batch try_submit failed modality=%s", modality)
 
     # -- progress tracker (also used by tests via __new__) -----------
 
@@ -149,6 +171,7 @@ class AnalysisQueue(QObject):
     def enqueue_asset(self, asset_id: int) -> None:
         self._queue.put(int(asset_id))
         self._emit_progress()
+        self._try_batch_submit()
 
     def pending_by_modality(self, modality: str) -> int:
         """DB pending count + queue size — BatchManager threshold check.
@@ -165,6 +188,7 @@ class AnalysisQueue(QObject):
         for row in rows:
             self._queue.put(row.id)
         self._emit_progress()
+        self._try_batch_submit()
         return len(rows)
 
     def dequeue_assets(self, asset_ids: list[int]) -> int:
@@ -194,6 +218,7 @@ class AnalysisQueue(QObject):
             self._queue.put(row.id)
             self._enqueued_packs.add(row.pack_id)
         self._emit_progress()
+        self._try_batch_submit()
         return len(rows)
 
     # -- progress snapshot -------------------------------------------

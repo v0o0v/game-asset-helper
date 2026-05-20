@@ -43,6 +43,65 @@ def test_dequeue_empty_noop():
     assert q._skip_ids == set()
 
 
+def test_enqueue_asset_calls_try_batch_submit():
+    from assetcache.core.analysis_queue import AnalysisQueue
+    from unittest.mock import MagicMock
+    bm = MagicMock()
+    q = AnalysisQueue(
+        store=MagicMock(), sprite=MagicMock(),
+        spritesheet=MagicMock(), sound=MagicMock(),
+    )
+    q.set_batch_manager(bm)
+    q.enqueue_asset(42)
+    # 3 modality try_submit
+    modalities = [c.args[0] for c in bm.try_submit.call_args_list]
+    assert set(modalities) == {"chat_image", "chat_audio", "text_embed"}
+
+
+def test_enqueue_pack_calls_try_batch_submit():
+    from assetcache.core.analysis_queue import AnalysisQueue
+    from unittest.mock import MagicMock
+    store = MagicMock()
+    store.pending_assets_for_pack.return_value = []
+    bm = MagicMock()
+    q = AnalysisQueue(
+        store=store, sprite=MagicMock(),
+        spritesheet=MagicMock(), sound=MagicMock(),
+    )
+    q.set_batch_manager(bm)
+    q.enqueue_pack(99)
+    assert bm.try_submit.call_count == 3
+
+
+def test_try_batch_submit_swallows_exceptions():
+    """1 modality 실패 → 다른 modality 계속 시도."""
+    from assetcache.core.analysis_queue import AnalysisQueue
+    from unittest.mock import MagicMock
+    bm = MagicMock()
+    bm.try_submit.side_effect = [RuntimeError("oops"), 1, 2]
+    q = AnalysisQueue(
+        store=MagicMock(), sprite=MagicMock(),
+        spritesheet=MagicMock(), sound=MagicMock(),
+    )
+    q.set_batch_manager(bm)
+    q.enqueue_asset(1)  # 예외 안 던짐
+    assert bm.try_submit.call_count == 3
+
+
+def test_no_batch_manager_noop():
+    """batch_manager 가 None 이면 try_submit 호출 안 됨."""
+    from assetcache.core.analysis_queue import AnalysisQueue
+    from unittest.mock import MagicMock
+    q = AnalysisQueue(
+        store=MagicMock(), sprite=MagicMock(),
+        spritesheet=MagicMock(), sound=MagicMock(),
+    )
+    # batch_manager 안 주입
+    q.enqueue_asset(1)  # 예외 없음
+    # _batch_manager 가 None 인지 확인
+    assert q._batch_manager is None
+
+
 def test_worker_loop_skips_dequeued_assets(monkeypatch):
     """Worker 가 큐에서 pop 한 asset_id 가 _skip_ids 에 있으면 _handle_one 안 호출 + set 에서 제거."""
     from assetcache.core.analysis_queue import AnalysisQueue

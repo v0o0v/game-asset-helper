@@ -13,6 +13,7 @@ import shutil
 import sys
 from dataclasses import asdict, dataclass, field
 from enum import Enum
+from typing import Literal
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -156,6 +157,21 @@ class UsageSource(str, Enum):
 
 
 @dataclass
+class BatchConfig:
+    """Gemini Batch API 동작 정책 (M11.1 Task 3.7).
+
+    threshold: 이 수 이상의 pending 에셋이 있으면 batch submit 시도.
+    poll_interval_seconds: BatchPoller 가 in_batch 작업을 폴링하는 간격 (초).
+    expiry_grace_seconds: batch_jobs created_at + 이 시간 이후에도 완료 안 되면 expired 처리.
+    toggle: "auto" = threshold 기반 자동 / "forced_on" = 항상 batch / "forced_off" = batch 비활성.
+    """
+    threshold: int = 30
+    poll_interval_seconds: int = 1800
+    expiry_grace_seconds: int = 172800
+    toggle: Literal["auto", "forced_on", "forced_off"] = "auto"
+
+
+@dataclass
 class Config:
     ollama_url: str = "http://127.0.0.1:11434"
     model_image: str = "gemma4:e4b"
@@ -245,6 +261,8 @@ class Config:
     # M11 — multi-backend LLM
     backends: dict[str, dict[str, Any]] = field(default_factory=_default_backends)
     chains: dict[str, list[str]] = field(default_factory=_default_chains)
+    # M11.1 — Gemini Batch API 정책
+    batch: BatchConfig = field(default_factory=BatchConfig)
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "Config":
@@ -298,6 +316,38 @@ class Config:
                 if modality in _VALID_CHAIN_MODALITIES and isinstance(order, list):
                     chains[modality] = [str(x) for x in order]
         filtered["chains"] = chains
+
+        # M11.1 — batch section migration (missing section → default)
+        batch_defaults = BatchConfig()
+        data_batch = data.get("batch") or {}
+        if isinstance(data_batch, dict):
+            _VALID_TOGGLES = ("auto", "forced_on", "forced_off")
+            threshold = data_batch.get("threshold", batch_defaults.threshold)
+            poll = data_batch.get("poll_interval_seconds", batch_defaults.poll_interval_seconds)
+            expiry = data_batch.get("expiry_grace_seconds", batch_defaults.expiry_grace_seconds)
+            toggle = data_batch.get("toggle", batch_defaults.toggle)
+            if toggle not in _VALID_TOGGLES:
+                toggle = batch_defaults.toggle
+            try:
+                threshold = int(threshold)
+            except (TypeError, ValueError):
+                threshold = batch_defaults.threshold
+            try:
+                poll = int(poll)
+            except (TypeError, ValueError):
+                poll = batch_defaults.poll_interval_seconds
+            try:
+                expiry = int(expiry)
+            except (TypeError, ValueError):
+                expiry = batch_defaults.expiry_grace_seconds
+            filtered["batch"] = BatchConfig(
+                threshold=threshold,
+                poll_interval_seconds=poll,
+                expiry_grace_seconds=expiry,
+                toggle=toggle,
+            )
+        else:
+            filtered["batch"] = batch_defaults
 
         return cls(**filtered)
 
