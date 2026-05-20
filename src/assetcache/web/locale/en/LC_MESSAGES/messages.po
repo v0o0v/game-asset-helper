@@ -833,3 +833,89 @@ msgstr "v{version} update available →"
 msgid "Upgrade command copied to clipboard"
 msgstr "Upgrade command copied to clipboard"
 
+# M11 Phase 5 — Multi-backend LLM settings
+
+#: src/assetcache/web/templates/settings.html
+msgid "Backends"
+msgstr "Backends"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Changes to backends require a restart to apply to running analyzers. The Test button uses current settings immediately."
+msgstr "Changes to backends require a restart to apply to running analyzers. The Test button uses current settings immediately."
+
+#: src/assetcache/web/templates/settings.html
+msgid "API key"
+msgstr "API key"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Image model"
+msgstr "Image model"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Audio model"
+msgstr "Audio model"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Embedding model"
+msgstr "Embedding model"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Base URL"
+msgstr "Base URL"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Test connection"
+msgstr "Test connection"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Connection succeeded"
+msgstr "Connection succeeded"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Connection failed"
+msgstr "Connection failed"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Modality chains"
+msgstr "Modality chains"
+
+#: src/assetcache/web/templates/settings.html
+msgid "The first backend in each chain is tried first; on transient errors (rate limit, network) the next backend is tried. Hard errors (auth, bad request) stop the chain immediately."
+msgstr "The first backend in each chain is tried first; on transient errors (rate limit, network) the next backend is tried. Hard errors (auth, bad request) stop the chain immediately."
+
+#: src/assetcache/web/templates/settings.html
+msgid "Image chain"
+msgstr "Image chain"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Audio chain"
+msgstr "Audio chain"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Embedding chain"
+msgstr "Embedding chain"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Move up"
+msgstr "Move up"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Move down"
+msgstr "Move down"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Remove"
+msgstr "Remove"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Add backend"
+msgstr "Add backend"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Add"
+msgstr "Add"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Save chains"
+msgstr "Save chains"
+

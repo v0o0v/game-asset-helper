@@ -262,3 +262,26 @@ def test_settings_page_shows_current_backend_state(client, web_deps):
     assert r.status_code == 200
     # Alpine 데이터 모델 또는 input value 로 표출
     assert "AIzaInPage" in r.text
+
+
+def test_settings_page_ko_translates_m11_msgids(client, web_deps):
+    """ko 로케일 — M11 신규 msgid 가 한글 번역으로 렌더링."""
+    web_deps.config.ui_language = "ko"
+    r = client.get("/settings", headers={"Accept-Language": "ko"})
+    assert r.status_code == 200
+    body = r.text
+    # 신규 msgid 의 한글 번역어 존재 확인
+    assert "백엔드" in body
+    assert "이미지 체인" in body
+    assert "연결 테스트" in body
+
+
+def test_settings_page_en_keeps_english(client, web_deps):
+    """en 로케일 — 영문 그대로 렌더링."""
+    web_deps.config.ui_language = "en"
+    r = client.get("/settings", headers={"Accept-Language": "en"})
+    assert r.status_code == 200
+    body = r.text
+    assert "Backends" in body
+    assert "Image chain" in body
+    assert "Test connection" in body
