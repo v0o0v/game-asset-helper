@@ -51,8 +51,13 @@ class EmbeddingEncoder:
 
         first-use dim lock — 후속 호출이 다른 dim 반환 시 warn (검색은 cosine 이라
         균일 dim 필수, 다른 backend 로 교체 시 재인덱싱 권유).
+
+        M11 — `self.model` 은 logging/디버깅용 metadata 만. backend 호출 시는
+        명시적 모델을 전달하지 않아 backend 자체 ``model_embed`` 가 쓰인다
+        (multi-backend chain 시대에 backend 별 모델이 다르기 때문 —
+        gemini-embedding-001, text-embedding-3-small, nomic-embed-text 등).
         """
-        result = self.client.embed(text, model=self.model)
+        result = self.client.embed(text)
         vec = _unwrap_embed_result(result)
         arr = np.asarray(vec, dtype=np.float32)
         if self._dim is None:
