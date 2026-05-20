@@ -215,5 +215,32 @@ class GeminiBackend:
             ) from e
         return job.name
 
+    def batch_embed(self, *, texts: list[str]) -> str:
+        """배치 임베딩 작업 제출. Gemini job name 'batches/xxx' 반환.
+
+        `client.batches.create_embeddings` 사용 — `chat` batch 와 다른 SDK 엔드포인트.
+        각 text → `inlined_requests` 의 한 항목 ({"content": {"parts": [{"text": t}], "role": "user"}}).
+        """
+        if not texts:
+            raise ValueError("batch_embed requires non-empty texts")
+        inlined = [
+            {"content": {"parts": [{"text": t}], "role": "user"}}
+            for t in texts
+        ]
+        try:
+            job = self._client.batches.create_embeddings(
+                model=self.model_embed,
+                src={"inlined_requests": inlined},
+                config={"display_name": f"assetcache-text_embed-{int(time.time())}"},
+            )
+        except Exception as e:
+            raise BackendError(
+                backend="gemini",
+                stage="batch_embed",
+                transient=_classify(e),
+                cause=e,
+            ) from e
+        return job.name
+
 
 _: LLMBackend = GeminiBackend.__new__(GeminiBackend)  # type: ignore[arg-type]

@@ -93,3 +93,31 @@ def test_batch_chat_hard_error_401(gemini_backend):
             BatchChatRequest(asset_id=1, messages=[ChatMessage(role="user", content="x")]),
         ])
     assert exc_info.value.transient is False
+
+
+def test_batch_embed_returns_job_name(gemini_backend):
+    backend, client = gemini_backend
+    fake_job = MagicMock()
+    fake_job.name = "batches/embed-1"
+    client.batches.create_embeddings.return_value = fake_job
+    name = backend.batch_embed(texts=["hello", "world"])
+    assert name == "batches/embed-1"
+    kw = client.batches.create_embeddings.call_args.kwargs
+    assert kw["model"] == "gemini-embedding-001"
+    assert "inlined_requests" in kw["src"]
+    assert len(kw["src"]["inlined_requests"]) == 2
+
+
+def test_batch_embed_empty_list_raises(gemini_backend):
+    backend, _ = gemini_backend
+    with pytest.raises(ValueError):
+        backend.batch_embed(texts=[])
+
+
+def test_batch_embed_transient_error(gemini_backend):
+    from assetcache.core.llm.base import BackendError
+    backend, client = gemini_backend
+    client.batches.create_embeddings.side_effect = RuntimeError("503 unavailable")
+    with pytest.raises(BackendError) as exc_info:
+        backend.batch_embed(texts=["x"])
+    assert exc_info.value.transient is True
