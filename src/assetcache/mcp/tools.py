@@ -146,6 +146,12 @@ def tool_find_asset(deps: ToolDeps, req: FindAssetRequest) -> FindAssetResult:
                 "matched_labels": r.matched_labels,
                 "why": r.why,
                 "meta": r.meta,
+                # M11 Phase 6 — modality 별 분석에 사용된 backend
+                "backend_used": (
+                    r.backend_used
+                    if r.backend_used
+                    else {"image": None, "audio": None, "embed": None}
+                ),
             }
             for r in results.results
         ],

@@ -31,6 +31,18 @@
           &#127902; {{ row.frame_count }} frames
         </span>
       {% endif %}
+      {# M11 Phase 6 — 분석 backend 배지 (image 우선) #}
+      {% if row.backend_used and row.backend_used.image %}
+        <span class="backend-badge"
+              title="image: {{ row.backend_used.image }}{% if row.backend_used.audio %} · audio: {{ row.backend_used.audio }}{% endif %}{% if row.backend_used.embed %} · embed: {{ row.backend_used.embed }}{% endif %}">
+          🤖 {{ row.backend_used.image }}
+        </span>
+      {% elif row.backend_used and row.backend_used.audio %}
+        <span class="backend-badge"
+              title="audio: {{ row.backend_used.audio }}{% if row.backend_used.embed %} · embed: {{ row.backend_used.embed }}{% endif %}">
+          🤖 {{ row.backend_used.audio }}
+        </span>
+      {% endif %}
       <span x-show="$store.search.cardMeta.size">
         {% if row.size_kb %} &middot; {{ row.size_kb }}KB{% endif %}
       </span>

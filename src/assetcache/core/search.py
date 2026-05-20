@@ -69,6 +69,9 @@ class ResultRow:
     why: str
     meta: dict
     kind: str = ""  # M6 — 카드 분기 (sprite/sound/spritesheet). 기본 "" = 폴백 generic
+    # M11 Phase 6 — modality 별 분석에 사용된 backend 이름.
+    # legacy row (마이그레이션 직후, AnalysisQueue write path 적용 전) 는 모두 None.
+    backend_used: dict[str, str | None] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -473,6 +476,9 @@ class HybridSearcher:
                 why=why,
                 meta=asset_meta[a].get("kind_meta", {}),
                 kind=asset_meta[a].get("kind", ""),
+                backend_used=asset_meta[a].get(
+                    "backend_used", {"image": None, "audio": None, "embed": None}
+                ),
             ))
 
         qid = self._log_query(project_row, req,
@@ -487,8 +493,9 @@ class HybridSearcher:
         placeholders = ",".join("?" * len(asset_ids))
         params: list = [int(x) for x in asset_ids]
         sql = (
-            f"SELECT a.id, a.pack_id, a.path, a.kind, p.name, p.vendor, p.aggregate_meta "
-            f"FROM assets a JOIN packs p ON p.id = a.pack_id "
+            "SELECT a.id, a.pack_id, a.path, a.kind, p.name, p.vendor, p.aggregate_meta, "
+            "       a.backend_image, a.backend_audio, a.backend_embed "
+            "FROM assets a JOIN packs p ON p.id = a.pack_id "
             f"WHERE a.id IN ({placeholders})"
         )
         if kind is not None:
@@ -500,7 +507,7 @@ class HybridSearcher:
         from .store import PackRow
 
         out: dict[int, dict] = {}
-        for aid, pack_id, path, k, pname, pvendor, pagg in rows:
+        for aid, pack_id, path, k, pname, pvendor, pagg, b_img, b_aud, b_emb in rows:
             try:
                 agg = _json.loads(pagg) if pagg else {}
             except (ValueError, TypeError):
@@ -537,6 +544,12 @@ class HybridSearcher:
                 "kind": k,
                 "pack_aggregate": agg,
                 "kind_meta": kind_meta,
+                # M11 Phase 6 — modality 별 분석에 사용된 backend 이름
+                "backend_used": {
+                    "image": b_img,
+                    "audio": b_aud,
+                    "embed": b_emb,
+                },
             }
         return out
 
