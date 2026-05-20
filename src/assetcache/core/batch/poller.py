@@ -79,6 +79,8 @@ class BatchPoller(threading.Thread):
             self.join(timeout=timeout)
 
     def run(self) -> None:
+        interval = max(0.01, float(self._cfg.batch.poll_interval_seconds))
+        log.info("BatchPoller daemon started (poll_interval=%.1fs)", interval)
         # 부팅 시 즉시 1회 sweep (재개 보장)
         self._poll_once()
         while not self._stop_event.is_set():
@@ -86,6 +88,7 @@ class BatchPoller(threading.Thread):
             if self._stop_event.wait(interval):
                 break
             self._poll_once()
+        log.info("BatchPoller daemon stopped")
 
     def _poll_once(self) -> None:
         try:
@@ -93,6 +96,10 @@ class BatchPoller(threading.Thread):
         except Exception:
             log.exception("list_active_batch_jobs failed — skipping sweep")
             return
+        if jobs:
+            log.info("BatchPoller tick: %d active job(s)", len(jobs))
+        else:
+            log.debug("BatchPoller tick: 0 active jobs")
         for job in jobs:
             try:
                 self._poll_job(job)
