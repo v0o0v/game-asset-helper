@@ -121,3 +121,52 @@ def test_batch_embed_transient_error(gemini_backend):
     with pytest.raises(BackendError) as exc_info:
         backend.batch_embed(texts=["x"])
     assert exc_info.value.transient is True
+
+
+def test_batch_get_succeeded_inline(gemini_backend):
+    backend, client = gemini_backend
+    fake_job = MagicMock()
+    fake_job.state.name = "JOB_STATE_SUCCEEDED"
+    fake_job.dest.inlined_responses = [MagicMock(), MagicMock()]
+    fake_job.dest.file_name = None
+    fake_job.error = None
+    client.batches.get.return_value = fake_job
+    status = backend.batch_get("batches/x")
+    assert status.state == "JOB_STATE_SUCCEEDED"
+    assert status.inlined_responses is not None
+    assert len(status.inlined_responses) == 2
+    assert status.file_name is None
+
+
+def test_batch_get_running_dest_none(gemini_backend):
+    backend, client = gemini_backend
+    fake_job = MagicMock()
+    fake_job.state.name = "JOB_STATE_RUNNING"
+    fake_job.dest = None
+    fake_job.error = None
+    client.batches.get.return_value = fake_job
+    status = backend.batch_get("batches/x")
+    assert status.state == "JOB_STATE_RUNNING"
+    assert status.inlined_responses is None
+    assert status.file_name is None
+
+
+def test_batch_cancel_calls_sdk(gemini_backend):
+    backend, client = gemini_backend
+    backend.batch_cancel("batches/x")
+    client.batches.cancel.assert_called_once_with(name="batches/x")
+
+
+def test_batch_cancel_swallows_error(gemini_backend):
+    """Best-effort cancel — 예외 안 던짐."""
+    backend, client = gemini_backend
+    client.batches.cancel.side_effect = RuntimeError("network down")
+    backend.batch_cancel("batches/x")  # 예외 없이 통과
+
+
+def test_batch_download_file(gemini_backend):
+    backend, client = gemini_backend
+    client.files.download.return_value = b"binary data"
+    data = backend.batch_download_file("files/abc")
+    assert data == b"binary data"
+    client.files.download.assert_called_once_with(file="files/abc")

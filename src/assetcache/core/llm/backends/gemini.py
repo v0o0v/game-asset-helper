@@ -23,7 +23,7 @@ from ..base import (
     ChatMessage,
     LLMBackend,
 )
-from ...batch.types import BatchChatRequest
+from ...batch.types import BatchChatRequest, GeminiBatchStatus
 
 log = logging.getLogger(__name__)
 
@@ -241,6 +241,47 @@ class GeminiBackend:
                 cause=e,
             ) from e
         return job.name
+
+    def batch_get(self, backend_job_id: str) -> GeminiBatchStatus:
+        """배치 작업 상태 폴링. 정규화된 GeminiBatchStatus 반환.
+
+        SDK 의 job.state 는 JOB_STATE_PENDING / RUNNING / SUCCEEDED / FAILED / CANCELLED / EXPIRED.
+        job.dest 는 SUCCEEDED 일 때만 의미 — inlined_responses 또는 file_name.
+        """
+        try:
+            job = self._client.batches.get(name=backend_job_id)
+        except Exception as e:
+            raise BackendError(
+                backend="gemini",
+                stage="batch_get",
+                transient=_classify(e),
+                cause=e,
+            ) from e
+        dest = getattr(job, "dest", None)
+        inlined = getattr(dest, "inlined_responses", None) if dest is not None else None
+        file_name = getattr(dest, "file_name", None) if dest is not None else None
+        error_val = getattr(job, "error", None)
+        error_str = str(error_val) if error_val else None
+        return GeminiBatchStatus(
+            state=job.state.name,
+            inlined_responses=inlined,
+            file_name=file_name,
+            error=error_str,
+        )
+
+    def batch_cancel(self, backend_job_id: str) -> None:
+        """Best-effort cancel — 실패해도 raise 안 함 (idempotent semantics).
+
+        BatchManager.cancel 가 호출 — 만료 / 이미 완료 / 네트워크 오류 등 모두 무시.
+        """
+        try:
+            self._client.batches.cancel(name=backend_job_id)
+        except Exception:
+            log.exception("batch_cancel failed (best-effort, swallowed)")
+
+    def batch_download_file(self, file_name: str) -> bytes:
+        """File destination 의 결과 다운로드 (v0.2.1 에서는 미사용, v0.2.x 후속)."""
+        return self._client.files.download(file=file_name)
 
 
 _: LLMBackend = GeminiBackend.__new__(GeminiBackend)  # type: ignore[arg-type]
