@@ -32,6 +32,7 @@
 | M10 — PyPI 배포 + AssetCacheMCP rename | ✅ 완료 ([PR #11](https://github.com/v0o0v/assetcache-mcp/pull/11) main 머지 + [PR #12](https://github.com/v0o0v/assetcache-mcp/pull/12) Node.js 24 workflow fix) | rename (`gah` → `assetcache`) + M9 cherry-pick (PyPI 알림 배너 + tray Signal) → **PyPI 1차 배포** + Trusted Publishing (OIDC). **+57 신규 테스트** (총 1103). [PyPI v0.1.0 Latest](https://pypi.org/project/assetcache-mcp/0.1.0/) + [GitHub release v0.1.0](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0). spec: [`docs/superpowers/specs/2026-05-19-m10-pypi-and-rename.md`](./docs/superpowers/specs/2026-05-19-m10-pypi-and-rename.md), plan: [`milestones/M10_plan.md`](./milestones/M10_plan.md) |
 | v0.1.1 yagni-clean (chore patch) + PyPI publish | ✅ 완료 ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14) main 머지 + [PyPI v0.1.1 publish](https://pypi.org/project/assetcache-mcp/0.1.1/) + [GitHub release v0.1.1](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.1)) | v0.0.1 마이그레이션 helper (Phase 1) 코드 + 테스트 + i18n 일괄 제거 → version 0.1.0 → 0.1.1 bump. 신규 의존성 0. **회귀 -24** (1103 → **1079**). MCP 20 도구 변동 없음. **Trusted Publishing (OIDC) 첫 자동 publish 검증 ✅ 32초 성공** ([run 26139260454](https://github.com/v0o0v/assetcache-mcp/actions/runs/26139260454)). spec: [`docs/superpowers/specs/2026-05-20-v011-yagni-clean-v001-compat-design.md`](./docs/superpowers/specs/2026-05-20-v011-yagni-clean-v001-compat-design.md) |
 | v0.1.2 PyPI 페이지 정직성 patch + PyPI publish | ✅ 완료 ([PR #15](https://github.com/v0o0v/assetcache-mcp/pull/15) main 머지 + [PyPI v0.1.2 publish](https://pypi.org/project/assetcache-mcp/0.1.2/) + [GitHub release v0.1.2](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.2)) | README PyInstaller exe 섹션 제거 (release artifact 0건 거짓 안내), DESIGN/docs stale 명령어 `python -m gah`/`game-asset-helper` → `assetcache` 갱신, pyproject classifiers 보강 (Games/Entertainment + Sound/Audio), CLAUDE.md M10 worktree 안내 제거. 코드 변경 0, 신규 의존성 0, 회귀 1079 그대로. **Trusted Publishing 2회째 자동 publish 29초 성공** ([run 26141958223](https://github.com/v0o0v/assetcache-mcp/actions/runs/26141958223)) — 패턴 안정성 확인 |
+| **M11 — Multi-backend LLM Architecture** | ✅ 완료 (`feat/m11-multi-backend-llm` 브랜치, main 머지 대기) | 6 backend (Ollama + Gemini + Claude + OpenAI + OpenRouter + HuggingFace) + modality 별 chain + 자동 fallback (transient만, hard 즉시 raise) + `/settings` 페이지 backend 카드 + chain ▲/▼ 우선순위 + i18n 20 msgid + DB `backend_image/audio/embed` 컬럼 + MCP `find_asset` 응답 `backend_used` + 검색 카드 🤖 배지. 신규 의존성 4 (`google-genai`/`anthropic`/`openai`/`huggingface_hub`). **+160 신규 테스트 + 13 옵트인 `llm_integration` 마커** (총 **1239**). spec: [`docs/superpowers/specs/2026-05-20-m11-multi-backend-llm-design.md`](./docs/superpowers/specs/2026-05-20-m11-multi-backend-llm-design.md), plan: [`milestones/M11_plan.md`](./milestones/M11_plan.md), verification: [`milestones/M11_verification.md`](./milestones/M11_verification.md). MCP 20 도구 그대로 (응답 schema 만 확장). 알려진 한계: AnalysisQueue → mark_asset_backends write hook 은 v0.2.x patch (schema 만 준비, read path 완성) |
 
 각 마일스톤의 상세 계획·체크리스트·검증 결과는 `milestones/M{N}_plan.md`, `M{N}_todo.md`, `M{N}_verification.md`.
 
@@ -147,7 +148,7 @@ pip install -e .[dev]
 pytest -q
 ```
 
-`pytest -q`가 **1079 passed + 1 skipped + 40 deselected** 로 떨어지면 준비 완료 (v0.1.1 yagni-clean 후 baseline; M0~M8 1046 + M10 +57 → 1103 에서 v0.0.1 마이그레이션 helper 제거로 -24). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m assetcache --mcp` subprocess + JSON-RPC, **20 도구** 응답) 추가 검증 가능. 마일스톤별 최종 검증 결과는 `milestones/M{N}_verification.md`. **M4 + M5 + M6 + M7 + M8 + M10 모두 main 머지 완료** ([PR #5](https://github.com/v0o0v/assetcache-mcp/pull/5), [PR #6](https://github.com/v0o0v/assetcache-mcp/pull/6), [PR #7](https://github.com/v0o0v/assetcache-mcp/pull/7), [PR #8](https://github.com/v0o0v/assetcache-mcp/pull/8), [PR #9](https://github.com/v0o0v/assetcache-mcp/pull/9) + [PR #10](https://github.com/v0o0v/assetcache-mcp/pull/10), [PR #11](https://github.com/v0o0v/assetcache-mcp/pull/11) + [PR #12](https://github.com/v0o0v/assetcache-mcp/pull/12)), **v0.1.1 yagni-clean** ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14) main 머지). **v0.1.0 PyPI publish 완료** — [PyPI Latest](https://pypi.org/project/assetcache-mcp/0.1.0/) + [GitHub release Latest](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0) + Trusted Publishing 자동. **현재 브랜치 = `main`** (M10 완료 + v0.1.1 yagni-clean 머지, repo rename `v0o0v/game-asset-helper` → `v0o0v/assetcache-mcp`).
+`pytest -q`가 **1239 passed + 1 skipped + 53 deselected** 로 떨어지면 준비 완료 (M11 implementation 후 baseline; v0.1.2 1079 → M11 Phase 0~7 +160 신규 테스트). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m assetcache --mcp` subprocess + JSON-RPC, **20 도구** 응답) 추가 검증 가능. `pytest -m llm_integration` 으로 13 케이스 (Gemini 3 + Claude 3 + OpenAI 3 + OpenRouter 2 + HuggingFace 2 — 각 backend 별 환경변수 셋업 필요). 마일스톤별 최종 검증 결과는 `milestones/M{N}_verification.md`. **M4~M10 + v0.1.1 + v0.1.2 모두 main 머지 완료** ([PR #5](https://github.com/v0o0v/assetcache-mcp/pull/5)~[PR #15](https://github.com/v0o0v/assetcache-mcp/pull/15)). **M11 implementation 완료 (`feat/m11-multi-backend-llm` 브랜치, main 머지 대기)** — Phase 0~7 모두 완료, 신규 의존성 4 (`google-genai`/`anthropic`/`openai`/`huggingface_hub`). **v0.1.0 ~ v0.1.2 PyPI publish 완료** — [PyPI Latest](https://pypi.org/project/assetcache-mcp/) + Trusted Publishing 자동.
 
 ## 7. 자주 쓰는 명령
 
@@ -181,7 +182,7 @@ MCP stdio 서버 모드:
 python -m assetcache --mcp
 ```
 
-## 8. 다음 작업 (v0.1.2 publish + 로드맵 brainstorm ✅ 완료, M11 implementation 자연)
+## 8. 다음 작업 (M11 implementation ✅ 완료 — main 머지 대기)
 
 v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) + **v0.1.1 yagni-clean** + **v0.1.2 PyPI 페이지 정직성 patch** 모두 publish 완료 + **M11~M18 로드맵 brainstorm + spec 작성 완료**. Trusted Publishing OIDC 자동 publish 2회 검증 (v0.1.1 32초 + v0.1.2 29초). M9 (코드 서명 + GitHub releases 자동 업데이트) 은 path pivot 으로 머지 보류 + **feat/m9 + feat/m10 브랜치 cleanup (2026-05-20 deleted)**, PyPI 흐름의 일부 모듈은 M10 Phase 2 에서 cherry-pick 됨. spec/plan 만 보존 (`docs/superpowers/{plans,specs}/2026-05-19-m9-*.md`).
 
@@ -195,15 +196,16 @@ v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) + **v0.1.1 yagni-clean** + **v0.1.2 P
 
 ### 8.1 현재 상태
 
-- **main** — `b3f8fe8` (roadmap spec) → `e76dd94` (docs v012 갱신) → `34ddde4` (PR #15 v0.1.2 patch merge) → `3d5b570` (version bump) → `a0badee` / `2715f83` / `44742e8` (PR #15 fix commits) → `8b793f4` (PR #14 v0.1.1 yagni-clean) → `d9a3862` (M10 PR #11). v0.1.2 tag = `34ddde4`
-- **현재 브랜치 = main** (origin/main 동기화 완료), 회귀 **1079 passed + 1 skipped + 40 deselected** (v0.1.1 yagni-clean 후 baseline 그대로 — v0.1.2 는 코드 변경 0, 로드맵 spec 도 docs only)
-- **local branches**: main 하나만 (feat/m9 + feat/m10 deleted 2026-05-20)
-- MCP **20 도구** (M10 신규 0, v0.1.1/v0.1.2 변동 없음, M11 implementation 시 변경 가능)
-- 설치: `pipx install assetcache-mcp` (v0.1.2 Latest)
+- **현재 브랜치 = `feat/m11-multi-backend-llm`** (main 머지 대기), 회귀 **1239 passed + 1 skipped + 53 deselected** (v0.1.2 baseline 1079 + M11 +160 신규)
+- **M11 Phase 0~7 완료** — 6 backend (Ollama + Gemini + Claude + OpenAI + OpenRouter + HuggingFace) + modality 별 chain + /settings UI + DB schema + find_asset backend_used + 카드 배지 + cross-backend integration + verification.md
+- **main 마지막 commit**: `34ddde4` (v0.1.2 tag)
+- **신규 의존성 4건**: `google-genai`/`anthropic`/`openai`/`huggingface_hub`
+- MCP **20 도구** (M11 신규 0, 응답 schema 만 확장: `find_asset.backend_used`)
+- 설치: `pipx install assetcache-mcp` (v0.1.2 Latest, M11 후속 publish 시 v0.2.0)
 - 콘솔 스크립트: `assetcache` (트레이/MCP 통합) + `assetcache-mcp` (MCP stdio 전용)
 - 사용자 데이터: `%APPDATA%\AssetCacheMCP\`
-- PyPI: [v0.1.2 Latest](https://pypi.org/project/assetcache-mcp/0.1.2/) + [v0.1.1](https://pypi.org/project/assetcache-mcp/0.1.1/) + [v0.1.0](https://pypi.org/project/assetcache-mcp/0.1.0/) (Trusted Publishing OIDC 자동 publish 활성)
-- **로드맵 spec**: [`docs/superpowers/specs/2026-05-20-roadmap-design.md`](docs/superpowers/specs/2026-05-20-roadmap-design.md) — M11 (Multi-backend LLM Architecture) design 확정 + M12~M18 정렬 + Reactive backlog
+- PyPI: [v0.1.2 Latest](https://pypi.org/project/assetcache-mcp/0.1.2/) (Trusted Publishing OIDC 자동 publish 활성)
+- **로드맵 spec**: [`docs/superpowers/specs/2026-05-20-roadmap-design.md`](docs/superpowers/specs/2026-05-20-roadmap-design.md) — M11 ✅ + M12~M18 정렬
 
 ### 8.2 다음 세션 진입 시 첫 작업
 
@@ -215,30 +217,22 @@ v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) + **v0.1.1 yagni-clean** + **v0.1.2 P
    cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
    ```
 
-2. **main 동기화**:
+2. **브랜치 확인 (M11 작업 브랜치)**:
    ```powershell
-   git checkout main
-   ```
-   ```powershell
-   git pull
+   git checkout feat/m11-multi-backend-llm
    ```
 
 3. **회귀 검증**:
    ```powershell
    pytest -q
    ```
-   → `1079 passed, 1 skipped, 40 deselected` 확인.
+   → `1239 passed, 1 skipped, 53 deselected` 확인.
 
-4. **다음 작업** — 자연스러운 우선 = **M11 implementation 시작**:
-   - 로드맵 spec 의 §4 M11 절 + 본 brainstorm session 의 web research (image+audio 6 backend 비교) 를 starting point 로
-   - `docs/superpowers/specs/YYYY-MM-DD-m11-multi-backend-llm-design.md` detail design spec 작성
-   - `writing-plans` skill → `milestones/M11_plan.md` 작성
-   - TDD cycle 시작 (test red → implementation green → verification)
-   - Phase 0 (Framework + Ollama migration) 부터 — 회귀 1079 보장
-   
-   또는 사용자 결정:
-   - 다른 마일스톤 시작 (M12~M18) — 같은 brainstorm→spec→plan→TDD 패턴
-   - **Reactive**: 사용자 피드백 모니터링 ([PyPI 통계](https://pypistats.org/packages/assetcache-mcp) + [GitHub Issues](https://github.com/v0o0v/assetcache-mcp/issues)) / v0.1.3+ patch ([[trusted-publishing-pattern]] 30초 자동)
+4. **다음 작업 옵션**:
+   - **M11 PR push + 머지**: 사용자가 `milestones/M11_verification.md` 수동 시나리오 6건 검증 후, `git push -u origin feat/m11-multi-backend-llm` + PR 생성 → main 머지 → `v0.2.0` tag publish
+   - **AnalysisQueue → mark_asset_backends write hook** (M11 후속 patch, v0.2.1 candidate): analyzer 가 chain.chat 의 backend name 을 받아 store 에 저장. M11 verification.md §"알려진 한계" 1번 항목
+   - **M12 시작** (C4 측정/학습/벤치마크 — 6 backend 정확도 비교): M11 결과를 활용한 평가 milestone
+   - **Reactive**: PyPI 통계 / GitHub Issues 피드백 모니터링
 
 ### 8.3 마일스톤 정렬
 
@@ -250,8 +244,8 @@ v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) + **v0.1.1 yagni-clean** + **v0.1.2 P
 | v0.1.1 yagni-clean + PyPI publish | v0.0.1 마이그레이션 helper 제거 + Trusted Publishing OIDC 첫 자동 publish | ✅ 완료 ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14) + [PyPI v0.1.1](https://pypi.org/project/assetcache-mcp/0.1.1/) + [GitHub release v0.1.1](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.1), 32초 자동) |
 | v0.1.2 PyPI 페이지 정직성 patch + PyPI publish | README/DESIGN/docs stale 일괄 갱신 + classifiers 보강 + Trusted Publishing 2회째 자동 publish | ✅ 완료 ([PR #15](https://github.com/v0o0v/assetcache-mcp/pull/15) + [PyPI v0.1.2 Latest](https://pypi.org/project/assetcache-mcp/0.1.2/) + [GitHub release v0.1.2](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.2), 29초 자동) |
 | **로드맵 brainstorm + spec** | M11~M18 8 마일스톤 정렬 + Reactive backlog ([roadmap-design.md](docs/superpowers/specs/2026-05-20-roadmap-design.md)) | ✅ 완료 (main `b3f8fe8`, 2026-05-20) |
-| **M11** | Multi-backend LLM Architecture (Ollama+Gemini+Claude+OpenAI+OpenRouter+HF, modality 별 chain + 자동 fallback) | 📋 design 확정, implementation 미시작 |
-| M12 | C4 측정 / 학습 / 벤치마크 (6 backend 정확도 비교) | 📋 미정 (M11 의존) |
+| **M11** | Multi-backend LLM Architecture (Ollama+Gemini+Claude+OpenAI+OpenRouter+HF, modality 별 chain + 자동 fallback) | ✅ implementation 완료 (`feat/m11-multi-backend-llm`, main 머지 대기). 회귀 1079 → 1239 (+160), 신규 의존성 4. [verification](milestones/M11_verification.md) |
+| M12 | C4 측정 / 학습 / 벤치마크 (6 backend 정확도 비교) | 📋 미정 (M11 의존, 이제 시작 가능) |
 | M13 | Mac/Linux 검증 + M11 cross-platform | 📋 미정 (M11 의존) |
 | M14 | MCP 원격 통신 (HTTP/SSE + 인증) | 📋 미정 |
 | M15 | Unity Editor 통합 (drag-drop / 자동 import) | 📋 미정 |

@@ -1,16 +1,16 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-20 (v0.1.2 PyPI publish + 브랜치 cleanup + 로드맵 brainstorm 완료)
-**마지막 완료 작업**: **M11~M18 로드맵 brainstorm + spec 작성** — [`docs/superpowers/specs/2026-05-20-roadmap-design.md`](docs/superpowers/specs/2026-05-20-roadmap-design.md) (main `b3f8fe8`). 8 마일스톤 + Reactive backlog 정렬. M11 (Multi-backend LLM Architecture) design 3/3 확정 (web research 6 backend 비교 포함). 직전 작업은 v0.1.2 PyPI publish (Trusted Publishing 29초 ✅, [run 26141958223](https://github.com/v0o0v/assetcache-mcp/actions/runs/26141958223), [GitHub release v0.1.2](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.2)) + feat/m10+m9 브랜치 cleanup (둘 다 deleted, memory `m9-pivot-state` 갱신).
-**M10/v0.1.x 결과**: [PyPI v0.1.2 Latest](https://pypi.org/project/assetcache-mcp/0.1.2/) + [v0.1.1](https://pypi.org/project/assetcache-mcp/0.1.1/) + [v0.1.0](https://pypi.org/project/assetcache-mcp/0.1.0/) + GitHub releases ([v0.1.2 Latest](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.2) + [v0.1.1](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.1) + [v0.1.0](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0)) + repo rename `v0o0v/assetcache-mcp`
-**현재 브랜치**: `main` (HEAD = `b3f8fe8` roadmap spec → `e76dd94` docs v012 갱신 → `34ddde4` PR #15 merge → `3d5b570` version bump 0.1.1→0.1.2). v0.1.2 tag = `34ddde4`
-**다음 세션 작업**: **M11 implementation 시작** 자연 — detail design spec 작성 → writing-plans skill → `milestones/M11_plan.md` → TDD cycle. 또는 사용자 결정 — 다른 마일스톤 (M12~M18) 시작 / Reactive (사용자 피드백 모니터링 / v0.1.3+ patch).
+**마지막 인계 시각**: 2026-05-20 (M11 implementation Phase 0~7 완료, main 머지 대기)
+**마지막 완료 작업**: **M11 — Multi-backend LLM Architecture implementation 완료** (`feat/m11-multi-backend-llm` 브랜치, HEAD = `ddabe3a` 또는 후속 문서 commit). Phase 0 (framework + Ollama wrap) → 1 (Gemini) → 2 (Claude image only) → 3 (OpenAI full modality) → 4 (OpenRouter + HuggingFace) → 5 (/settings UI + i18n) → 6 (DB schema + find_asset backend_used + 카드 배지) → 7 (cross-backend integration + verification.md). 회귀 **1079 → 1239** (+160 신규 + 13 옵트인 `llm_integration`). 신규 의존성 4 (`google-genai`/`anthropic`/`openai`/`huggingface_hub`). MCP 20 도구 그대로 (응답 schema 만 확장).
+**M11 결과**: 6 backend (Ollama + Gemini + Claude + OpenAI + OpenRouter + HuggingFace) + modality 별 chain + 자동 fallback (transient만, hard 즉시 raise) + `/settings` 페이지 backend 카드 + chain ▲/▼ 우선순위 + DB `backend_image/audio/embed` 컬럼 + MCP `find_asset.backend_used` + 검색 카드 🤖 배지. spec: [`docs/superpowers/specs/2026-05-20-m11-multi-backend-llm-design.md`](docs/superpowers/specs/2026-05-20-m11-multi-backend-llm-design.md), verification: [`milestones/M11_verification.md`](milestones/M11_verification.md)
+**현재 브랜치**: `feat/m11-multi-backend-llm` (main 머지 대기, 17 commits since main `34ddde4`)
+**다음 세션 작업**: 사용자 결정 — (a) M11 수동 검증 6 시나리오 → PR push + 머지 + v0.2.0 publish, (b) AnalysisQueue → mark_asset_backends write hook (v0.2.x patch, M11 verification.md §"알려진 한계" 1번), (c) M12 (C4 측정/학습/벤치마크 — 6 backend 정확도 비교).
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가"를 한 번에 파악하도록 작성된 스냅샷이다.
 
 ## 1. 한 줄 요약
 
-M10 (v2 PyPI 배포 + rename) + v0.1.1 yagni-clean + v0.1.2 PyPI 페이지 정직성 patch 모두 publish 완료 + **M11~M18 로드맵 brainstorm + spec 작성 완료**. main `b3f8fe8` (roadmap spec) → `e76dd94` (docs v012 갱신) → `34ddde4` (PR #15 merge). **1079 passed + 1 skipped + 40 deselected** (v0.1.1 yagni-clean baseline 그대로), MCP 20 도구. **Trusted Publishing (OIDC) 자동 publish 검증 2회 ✅ (v0.1.1 32초 + v0.1.2 29초)** — `git tag vX.Y.Z && git push origin vX.Y.Z` 한 줄 → GitHub Actions workflow PyPI publish (GitHub release 는 별도 `gh release create`). repo rename `v0o0v/game-asset-helper` → `v0o0v/assetcache-mcp`. **로드맵 spec**: `docs/superpowers/specs/2026-05-20-roadmap-design.md` — M11 (Multi-backend LLM Architecture) 1차 implement 대상, M12~M18 후속, Reactive backlog 별도. feat/m10 + feat/m9 브랜치 deleted (cleanup 완료).
+**M11 implementation 완료** (`feat/m11-multi-backend-llm` 브랜치, main 머지 대기). 6 backend (Ollama + Gemini + Claude + OpenAI + OpenRouter + HuggingFace) + modality 별 chain + 자동 fallback + /settings UI + per-asset backend_used 가시화 + 카드 배지. 회귀 **1239 passed + 1 skipped + 53 deselected** (v0.1.2 baseline 1079 + M11 Phase 0~7 +160 신규 + 13 옵트인 `llm_integration` 마커). 신규 의존성 4 (`google-genai`/`anthropic`/`openai`/`huggingface_hub`). MCP 20 도구 그대로 (응답 schema 만 확장: `find_asset.backend_used`). main 마지막 = `34ddde4` (v0.1.2 tag). **Trusted Publishing (OIDC)** v0.1.1+v0.1.2 검증 ✅ — M11 머지 후 v0.2.0 tag push 한 줄로 자동 publish 가능. 알려진 한계: AnalysisQueue → mark_asset_backends write hook 은 후속 patch (v0.2.x, schema 만 준비, read path 완성).
 
 ## 2. 검증된 사실 (M10 완료 시점)
 
@@ -70,7 +70,19 @@ git pull
 pytest -q
 ```
 
-→ `1079 passed, 1 skipped, 40 deselected` 확인 후 다음 작업 진입 (v0.1.1 yagni-clean 후 baseline; M10 완료 시점 1103 에서 -24).
+→ `1239 passed, 1 skipped, 53 deselected` 확인 (M11 implementation 완료 후 baseline; v0.1.2 1079 + Phase 0~7 +160).
+
+**현재 브랜치 = `feat/m11-multi-backend-llm`** (main 머지 대기). main 으로 돌아가려면:
+
+```powershell
+git checkout main
+```
+
+```powershell
+git pull
+```
+
+→ main 회귀는 v0.1.2 baseline `1079 passed, 1 skipped, 40 deselected`.
 
 ## 5. 다음 세션 진입 절차 (로드맵 brainstorm 후 — M11 implementation 자연)
 
@@ -117,8 +129,8 @@ pytest -q
 | v0.1.1 | v0.0.1 마이그레이션 helper 제거 + 첫 Trusted Publishing OIDC 자동 publish | ✅ 완료 ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14) + 32초 publish) |
 | v0.1.2 | PyPI 페이지 정직성 patch (README/DESIGN/docs/CLAUDE stale 일괄 정리, classifiers 보강) + Trusted Publishing 2회째 자동 publish | ✅ 완료 ([PR #15](https://github.com/v0o0v/assetcache-mcp/pull/15) + 29초 publish) |
 | **로드맵 brainstorm** | M11~M18 8 마일스톤 design + Reactive backlog ([roadmap-design.md](docs/superpowers/specs/2026-05-20-roadmap-design.md)) | ✅ 완료 (main `b3f8fe8`) |
-| **M11** | Multi-backend LLM Architecture (Ollama+Gemini+Claude+OpenAI+OpenRouter+HF) | 📋 design 확정, implementation 미시작 |
-| M12~M18 | 측정/Mac-Linux/원격 통신/Unity Editor/유사 검색/성능/분산 | 📋 미정 (사용자 결정) |
+| **M11** | Multi-backend LLM Architecture (Ollama+Gemini+Claude+OpenAI+OpenRouter+HF) | ✅ implementation 완료 (`feat/m11-multi-backend-llm`, main 머지 대기). Phase 0~7 모두 완료, 회귀 1079 → 1239 (+160). 신규 의존성 4. [verification](milestones/M11_verification.md) |
+| M12~M18 | 측정/Mac-Linux/원격 통신/Unity Editor/유사 검색/성능/분산 | 📋 미정 (사용자 결정, M11 머지 후 M12 가 자연) |
 
 ## 7. M10 후속 정리거리 (해결됨/잔존)
 
