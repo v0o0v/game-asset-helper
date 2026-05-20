@@ -116,6 +116,17 @@ class BackendRegistry:
     def get_chain(self, modality: Modality) -> BackendChain:
         return self._chains[modality]
 
+    def first_backend(self, modality: Modality) -> LLMBackend | None:
+        """chain[modality] 의 첫 번째 eligible backend. 없으면 None.
+
+        BatchManager 가 modality 별 첫 backend 의 name/supports_batch 를 검사하는 데 사용.
+        """
+        chain = self._chains.get(modality)
+        if chain is None:
+            return None
+        eligible = chain._eligible()
+        return eligible[0] if eligible else None
+
     def get_backend(self, name: str) -> LLMBackend | None:
         return self._instances.get(name)
 
