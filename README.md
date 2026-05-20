@@ -104,7 +104,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-→ `1103 passed, 1 skipped, 40 deselected` 가 나오면 준비 완료 (M10 Phase 0~3 기준).
+→ `1079 passed, 1 skipped, 40 deselected` 가 나오면 준비 완료 (v0.1.1 yagni-clean 후 baseline).
 
 ## 실행
 

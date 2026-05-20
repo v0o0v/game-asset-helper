@@ -30,6 +30,7 @@
 | **M7 — Unity Asset Store 임포트 (1주)** | **✅ 완료** ([PR #8](https://github.com/v0o0v/game-asset-helper/pull/8) main 머지) + 후속 patch 19건 | `.unitypackage` 파서·캐시 스캐너·임포터 + 활성 프로젝트 + 프로젝트 페이지 + 자산별 선호도 + 20 MCP 도구. 신규 의존성 0. **+124 신규 테스트** (총 1002). spec: [`docs/superpowers/specs/2026-05-18-m7-unity-asset-store-import.md`](./docs/superpowers/specs/2026-05-18-m7-unity-asset-store-import.md), plan: [`milestones/M7_plan.md`](./milestones/M7_plan.md) |
 | **M8 — 패키징 + i18n (1주)** | **✅ 완료** ([PR #9](https://github.com/v0o0v/game-asset-helper/pull/9) + [PR #10](https://github.com/v0o0v/game-asset-helper/pull/10) main 머지 + 후속 fix 2건 main 직접 누적, 수동 검증 통과) | PyInstaller `--onefile` + Babel gettext (ko/en) + 다크모드 토글 + Windows autostart. 신규 의존성 2 (Babel>=2.14, pyinstaller>=6 dev). **+44 신규 테스트** (총 1046). `dist/GameAssetHelper.exe` 308MB 부팅 검증 통과. spec: [`docs/superpowers/specs/2026-05-19-m8-packaging-and-i18n-design.md`](./docs/superpowers/specs/2026-05-19-m8-packaging-and-i18n-design.md), plan: [`milestones/M8_plan.md`](./milestones/M8_plan.md) |
 | M10 — PyPI 배포 + AssetCacheMCP rename | ✅ 완료 ([PR #11](https://github.com/v0o0v/assetcache-mcp/pull/11) main 머지 + [PR #12](https://github.com/v0o0v/assetcache-mcp/pull/12) Node.js 24 workflow fix) | rename (`gah` → `assetcache`) + M9 cherry-pick (PyPI 알림 배너 + tray Signal) → **PyPI 1차 배포** + Trusted Publishing (OIDC). **+57 신규 테스트** (총 1103). [PyPI v0.1.0 Latest](https://pypi.org/project/assetcache-mcp/0.1.0/) + [GitHub release v0.1.0](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0). spec: [`docs/superpowers/specs/2026-05-19-m10-pypi-and-rename.md`](./docs/superpowers/specs/2026-05-19-m10-pypi-and-rename.md), plan: [`milestones/M10_plan.md`](./milestones/M10_plan.md) |
+| v0.1.1 yagni-clean (chore patch) | ✅ 완료 ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14) main 머지) | v0.0.1 마이그레이션 helper (Phase 1) 코드 + 테스트 + i18n 일괄 제거 → version 0.1.0 → 0.1.1 bump. 신규 의존성 0. **회귀 -24** (1103 → **1079**). MCP 20 도구 변동 없음. PyPI publish 미수행 (Trusted Publishing 첫 자동 검증 후보). spec: [`docs/superpowers/specs/2026-05-20-v011-yagni-clean-v001-compat-design.md`](./docs/superpowers/specs/2026-05-20-v011-yagni-clean-v001-compat-design.md) |
 
 각 마일스톤의 상세 계획·체크리스트·검증 결과는 `milestones/M{N}_plan.md`, `M{N}_todo.md`, `M{N}_verification.md`.
 
@@ -141,7 +142,7 @@ cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
 pytest -q
 ```
 
-`pytest -q`가 **1103 passed + 1 skipped + 40 deselected** 로 떨어지면 준비 완료 (M0~M8 의 1046 baseline + M10 +57). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m assetcache --mcp` subprocess + JSON-RPC, **20 도구** 응답) 추가 검증 가능. 마일스톤별 최종 검증 결과는 `milestones/M{N}_verification.md`. **M4 + M5 + M6 + M7 + M8 + M10 모두 main 머지 완료** ([PR #5](https://github.com/v0o0v/assetcache-mcp/pull/5), [PR #6](https://github.com/v0o0v/assetcache-mcp/pull/6), [PR #7](https://github.com/v0o0v/assetcache-mcp/pull/7), [PR #8](https://github.com/v0o0v/assetcache-mcp/pull/8), [PR #9](https://github.com/v0o0v/assetcache-mcp/pull/9) + [PR #10](https://github.com/v0o0v/assetcache-mcp/pull/10), [PR #11](https://github.com/v0o0v/assetcache-mcp/pull/11) + [PR #12](https://github.com/v0o0v/assetcache-mcp/pull/12)). **v0.1.0 PyPI publish 완료** — [PyPI Latest](https://pypi.org/project/assetcache-mcp/0.1.0/) + [GitHub release Latest](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0) + Trusted Publishing 자동. **현재 브랜치 = `main`** (M10 완료, repo rename `v0o0v/game-asset-helper` → `v0o0v/assetcache-mcp`).
+`pytest -q`가 **1079 passed + 1 skipped + 40 deselected** 로 떨어지면 준비 완료 (v0.1.1 yagni-clean 후 baseline; M0~M8 1046 + M10 +57 → 1103 에서 v0.0.1 마이그레이션 helper 제거로 -24). `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m assetcache --mcp` subprocess + JSON-RPC, **20 도구** 응답) 추가 검증 가능. 마일스톤별 최종 검증 결과는 `milestones/M{N}_verification.md`. **M4 + M5 + M6 + M7 + M8 + M10 모두 main 머지 완료** ([PR #5](https://github.com/v0o0v/assetcache-mcp/pull/5), [PR #6](https://github.com/v0o0v/assetcache-mcp/pull/6), [PR #7](https://github.com/v0o0v/assetcache-mcp/pull/7), [PR #8](https://github.com/v0o0v/assetcache-mcp/pull/8), [PR #9](https://github.com/v0o0v/assetcache-mcp/pull/9) + [PR #10](https://github.com/v0o0v/assetcache-mcp/pull/10), [PR #11](https://github.com/v0o0v/assetcache-mcp/pull/11) + [PR #12](https://github.com/v0o0v/assetcache-mcp/pull/12)), **v0.1.1 yagni-clean** ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14) main 머지). **v0.1.0 PyPI publish 완료** — [PyPI Latest](https://pypi.org/project/assetcache-mcp/0.1.0/) + [GitHub release Latest](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0) + Trusted Publishing 자동. **현재 브랜치 = `main`** (M10 완료 + v0.1.1 yagni-clean 머지, repo rename `v0o0v/game-asset-helper` → `v0o0v/assetcache-mcp`).
 
 ## 7. 자주 쓰는 명령
 
@@ -175,9 +176,9 @@ MCP stdio 서버 모드:
 python -m assetcache --mcp
 ```
 
-## 8. 다음 작업 (M10 ✅ 완료 — v0.1.0 PyPI publish 후)
+## 8. 다음 작업 (M10 + v0.1.1 yagni-clean ✅ 완료 — v0.1.1 PyPI publish 후보)
 
-v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) 모두 main 머지 완료. M9 (코드 서명 + GitHub releases 자동 업데이트) 은 path pivot 으로 머지 보류 (`feat/m9` 브랜치 보존, PyPI 흐름의 일부 모듈은 M10 Phase 2 에서 cherry-pick 됨).
+v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) + **v0.1.1 yagni-clean** 모두 main 머지 완료. v0.1.1 version bump 까지 main 에 반영됐고 (`f30381b`), PyPI publish 는 미수행 — 다음 세션에서 사용자 결정. M9 (코드 서명 + GitHub releases 자동 업데이트) 은 path pivot 으로 머지 보류 (`feat/m9` 브랜치 보존, PyPI 흐름의 일부 모듈은 M10 Phase 2 에서 cherry-pick 됨).
 
 **M10 최종 결과**:
 
@@ -189,9 +190,9 @@ v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) 모두 main 머지 완료. M9 (코드
 
 ### 8.1 현재 상태
 
-- **main** — `7ba6551` (workflow Node.js 24 fix) → `d9a3862` (M10 PR #11 merge) → M0~M8 base
-- **현재 브랜치 = main**, 회귀 **1103 passed + 1 skipped + 40 deselected**
-- MCP **20 도구** (M10 신규 0)
+- **main** — `8b793f4` (v0.1.1 yagni-clean PR #14 merge) → `7ba6551` (workflow Node.js 24 fix) → `d9a3862` (M10 PR #11 merge) → M0~M8 base
+- **현재 브랜치 = main**, 회귀 **1079 passed + 1 skipped + 40 deselected** (v0.1.1 yagni-clean 후 baseline; v0.0.1 마이그레이션 helper 제거 -24)
+- MCP **20 도구** (M10 신규 0, v0.1.1 변동 없음)
 - 설치: `pipx install assetcache-mcp` 또는 `pip install assetcache-mcp`
 - 콘솔 스크립트: `assetcache` (트레이/MCP 통합) + `assetcache-mcp` (MCP stdio 전용)
 - 사용자 데이터: `%APPDATA%\AssetCacheMCP\`
@@ -218,18 +219,12 @@ v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) 모두 main 머지 완료. M9 (코드
    ```powershell
    pytest -q
    ```
-   → `1103 passed, 1 skipped, 40 deselected` 확인.
+   → `1079 passed, 1 skipped, 40 deselected` 확인.
 
 4. **다음 작업 후보** — 사용자 결정:
+   - **v0.1.1 PyPI publish**: `git tag v0.1.1; git push origin v0.1.1` 한 줄로 Trusted Publishing (OIDC) 첫 자동 publish 검증 (version bump 는 이미 main 에 반영됨, `f30381b`)
    - M11 후보: Mac/Linux 검증 (PyPI 패키지 cross-platform 호환 정식 검증)
-   - v0.1.1 patch: 발견된 bug fix 누적, Trusted Publishing 첫 자동 publish 검증
    - 사용자 피드백 수집: [PyPI download 통계](https://pypistats.org/packages/assetcache-mcp) + GitHub Issues
-
-5. **worktree 정리** (선택):
-   ```powershell
-   git worktree remove .claude/worktrees/brave-tesla-80fb0e
-   ```
-   단 worktree 의 `claude/brave-tesla-80fb0e` branch 의 `0009a10` (Task 5.2/5.3 todo 마크) 가 main 의 cleanup PR 에서 동일 내용 반영됐는지 확인 후.
 
 ### 8.3 마일스톤 정렬
 
@@ -238,7 +233,8 @@ v1 (M0~M8) + M10 (v2 PyPI 배포 + rename) 모두 main 머지 완료. M9 (코드
 | M0~M8 | v1 (뼈대 ~ 패키징 + i18n) | ✅ 완료 (main 머지) |
 | M9 | 코드 서명 + 자동 업데이트 (GitHub releases) | ⚠️ implementation 완료 / **머지 보류** (PyPI 채택으로 path pivot, 일부 모듈은 M10 Phase 2 cherry-pick) |
 | M10 | PyPI 배포 + AssetCacheMCP rename | ✅ 완료 (PR #11 + #12 머지, v0.1.0 PyPI Latest) |
-| M11+ | Mac/Linux 검증 + v0.1.1 patch + 사용자 피드백 대응 | 📋 미정 |
+| v0.1.1 yagni-clean | v0.0.1 마이그레이션 helper (Phase 1) 코드+테스트+i18n 일괄 제거 | ✅ 완료 ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14) main 머지, 회귀 -24, version 0.1.0 → 0.1.1) |
+| M11+ | v0.1.1 PyPI publish (Trusted Publishing 첫 검증) + Mac/Linux 검증 + 사용자 피드백 대응 | 📋 미정 |
 
 참고 DESIGN: §3 (아키텍처), §4.9 (Unity Asset Store Importer — M7), §4.10 (활성 프로젝트/프로젝트 페이지 — M7), §4.5 (MCP — 20 도구), §4.8 (트레이 + 웹 UI), §11 (로드맵).
 
