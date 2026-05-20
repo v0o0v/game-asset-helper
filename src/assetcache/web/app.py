@@ -22,6 +22,7 @@ from .deps import WebDeps
 from .i18n import _load_translations, setup_jinja_i18n
 from .locale_middleware import LocaleMiddleware
 from .routers import (
+    analyzing,
     feedback,
     filters,
     health,
@@ -154,6 +155,7 @@ def build_app(deps: WebDeps) -> FastAPI:
     app.include_router(projects_pages_router)       # M7 Phase 6 — 프로젝트 HTML 페이지
     app.include_router(settings_router.router)       # M8 — 설정 페이지
     app.include_router(updates_router.router)        # M10 — PyPI 업데이트 알림 API
+    app.include_router(analyzing.router)             # M11.1 Phase 5 — 분석 진행 대시보드
 
     # ── 전역 에러 핸들러 ──────────────────────────────────────────────
     # /api/* 경로는 JSON 응답 유지; 그 외 경로는 친절한 HTML 에러 페이지 반환.

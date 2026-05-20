@@ -359,6 +359,21 @@ class AnalysisQueue(QObject):
                 embed=backend_used.get("embed"),
             )
 
+    def snapshot_queue(self, *, limit: int = 50) -> list:
+        """큐 내용 peek (비우지 않음). queue.Queue.mutex 안에서 안전 copy.
+
+        queue.Queue 에 peek API 없음 → internal mutex + deque copy.
+        sentinel(-1) 는 걸러냄. AssetRow 를 store 조회로 반환. limit 이상 잘라냄.
+        """
+        with self._queue.mutex:
+            ids = [aid for aid in list(self._queue.queue)[:limit] if aid != -1]
+        rows = []
+        for aid in ids:
+            row = self.store.get_asset_by_id(aid)
+            if row is not None:
+                rows.append(row)
+        return rows
+
     def _maybe_finalize_pack(self, pack_id: int) -> None:
         # 팩에 pending 이 0 개면 aggregate_meta 한 번 새로 씀
         if not self.store.pending_assets_for_pack(pack_id):

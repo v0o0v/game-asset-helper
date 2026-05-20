@@ -1,0 +1,58 @@
+{# M11.1 task 5.2 — /analyzing sections A (요약) + B (즉시 분석 큐).
+   HTMX 5초 polling target: hx-get="/analyzing/partial" hx-trigger="every 5s"
+   Sections C+D (배치 job 목록 + 취소) 는 task 5.3 에서 추가.
+#}
+<div id="analyzing-partial"
+     hx-get="/analyzing/partial"
+     hx-trigger="every 5s"
+     hx-swap="outerHTML">
+
+  {# ── Section A — 요약 ──────────────────────────────────────────── #}
+  <section class="analyzing-summary">
+    <h2>{{ _("Summary") }}</h2>
+    <p>
+      {{ _("Interactive queue") }}: <strong>{{ summary.interactive_count }}</strong>
+      · {{ _("Batch image") }}: <strong>{{ summary.batch_image }}</strong>
+      · {{ _("Batch audio") }}: <strong>{{ summary.batch_audio }}</strong>
+      · {{ _("Batch embed") }}: <strong>{{ summary.batch_embed }}</strong>
+      {% if summary.eta_seconds is not none and summary.eta_seconds > 0 %}
+      · ETA: ~{{ (summary.eta_seconds / 60) | round(0) | int }} {{ _("minutes") }}
+      {% endif %}
+    </p>
+  </section>
+
+  {# ── Section B — 즉시 분석 큐 ─────────────────────────────────── #}
+  <section class="analyzing-interactive">
+    <h2>{{ _("Interactive queue") }}</h2>
+
+    {% if interactive.in_flight_path %}
+    <p class="in-flight">
+      <strong>{{ _("Now analyzing") }}:</strong>
+      <code>{{ interactive.in_flight_path }}</code>
+    </p>
+    {% endif %}
+
+    {% if interactive.queue %}
+    <table class="analyzing-queue-table">
+      <thead>
+        <tr>
+          <th>path</th>
+          <th>kind</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in interactive.queue %}
+        <tr>
+          <td>{{ a.path }}</td>
+          <td>{{ a.kind }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="analyzing-empty"><em>{{ _("Queue empty") }}</em></p>
+    {% endif %}
+  </section>
+
+  {# Sections C+D 는 Task 5.3 에서 추가 #}
+</div>
