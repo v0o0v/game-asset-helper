@@ -48,6 +48,16 @@ def _default_gemini_factory(*, settings: dict, cfg: Config) -> LLMBackend:
     )
 
 
+def _default_claude_factory(*, settings: dict, cfg: Config) -> LLMBackend:
+    from .backends.claude import ClaudeBackend
+
+    return ClaudeBackend(
+        api_key=settings.get("api_key") or _env("ANTHROPIC_API_KEY"),
+        model_image=settings["model_image"],
+        timeout=cfg.analysis_timeout_seconds,
+    )
+
+
 class BackendRegistry:
     """instantiated backends + composed chains.
 
@@ -83,6 +93,7 @@ class BackendRegistry:
     ) -> "BackendRegistry":
         ollama_factory = ollama_factory or _default_ollama_factory
         gemini_factory = gemini_factory or _default_gemini_factory
+        claude_factory = claude_factory or _default_claude_factory
         factories: dict[str, BackendFactory | None] = {
             "ollama": ollama_factory,
             "gemini": gemini_factory,

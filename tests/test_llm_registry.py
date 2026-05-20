@@ -175,3 +175,95 @@ def test_default_gemini_factory_settings_api_key_wins(monkeypatch):
     settings["api_key"] = "explicit-AIza"
     reg_mod._default_gemini_factory(settings=settings, cfg=cfg)
     assert captured["api_key"] == "explicit-AIza"
+
+
+# ---- Claude (Phase 2) ----
+
+
+def test_registry_claude_via_default_factory(monkeypatch):
+    """claude_factory 미지정 시 _default_claude_factory 로 chain 구성."""
+    cfg = Config()
+    cfg.backends["claude"]["enabled"] = True
+    cfg.backends["claude"]["api_key"] = "sk-ant-test"
+    cfg.chains["chat_image"] = ["claude"]
+
+    from assetcache.core.llm import registry as reg_mod
+
+    monkeypatch.setattr(
+        reg_mod,
+        "_default_claude_factory",
+        lambda settings, cfg: _FakeBackend("claude", aud=False, emb=False),
+    )
+    reg = BackendRegistry.from_config(cfg)
+    chain = reg.get_chain("chat_image")
+    assert len(chain.backends) == 1
+    assert chain.backends[0].info.name == "claude"
+
+
+def test_default_claude_factory_reads_env_for_api_key(monkeypatch):
+    """settings.api_key 비어있어도 ANTHROPIC_API_KEY env 있으면 사용."""
+    from assetcache.core.llm import registry as reg_mod
+
+    captured = {}
+
+    class _StubClaude:
+        def __init__(self, **kw):
+            captured.update(kw)
+
+    monkeypatch.setattr(
+        "assetcache.core.llm.backends.claude.ClaudeBackend", _StubClaude
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-key-CLD")
+
+    cfg = Config()
+    settings = dict(cfg.backends["claude"])
+    settings["api_key"] = ""
+    reg_mod._default_claude_factory(settings=settings, cfg=cfg)
+    assert captured["api_key"] == "env-key-CLD"
+    assert captured["model_image"] == cfg.backends["claude"]["model_image"]
+    assert captured["timeout"] == cfg.analysis_timeout_seconds
+
+
+def test_default_claude_factory_settings_api_key_wins(monkeypatch):
+    """settings.api_key 값이 있으면 env 보다 우선."""
+    from assetcache.core.llm import registry as reg_mod
+
+    captured = {}
+
+    class _StubClaude:
+        def __init__(self, **kw):
+            captured.update(kw)
+
+    monkeypatch.setattr(
+        "assetcache.core.llm.backends.claude.ClaudeBackend", _StubClaude
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-key-DDD")
+
+    cfg = Config()
+    settings = dict(cfg.backends["claude"])
+    settings["api_key"] = "sk-ant-explicit"
+    reg_mod._default_claude_factory(settings=settings, cfg=cfg)
+    assert captured["api_key"] == "sk-ant-explicit"
+
+
+def test_registry_claude_audio_chain_falls_back_to_ollama(monkeypatch):
+    """claude+ollama enabled, chat_audio=[claude, ollama] → audio 호출은 ollama."""
+    from assetcache.core.llm import registry as reg_mod
+
+    cfg = Config()
+    cfg.backends["claude"]["enabled"] = True
+    cfg.backends["claude"]["api_key"] = "sk-ant-test"
+    cfg.chains["chat_audio"] = ["claude", "ollama"]
+
+    monkeypatch.setattr(
+        reg_mod,
+        "_default_claude_factory",
+        lambda settings, cfg: _FakeBackend("claude", aud=False, emb=False),
+    )
+    reg = BackendRegistry.from_config(cfg)
+    chain = reg.get_chain("chat_audio")
+    # claude 가 capability audio=False 이므로 chain.chat 호출 시 skip
+    from assetcache.core.llm.base import ChatMessage
+
+    _, used = chain.chat([ChatMessage("user", "hi")])
+    assert used == "ollama"
