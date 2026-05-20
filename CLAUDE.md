@@ -71,13 +71,13 @@
 - 설계 문서/코드에 모델명·버전 같은 고정값을 박기 전에 반드시 검증.
 
 ### 4.5 작업 폴더와 분리
-- 코드/문서 변경: `D:\ClaudeCowork\game-asset-helper\game-asset-helper\` (이 저장소 안). M10 진행 중에는 worktree `D:\ClaudeCowork\game-asset-helper\game-asset-helper\.claude\worktrees\brave-tesla-80fb0e\` 에서 작업
+- 코드/문서 변경: 이 저장소 안에서. 워크트리는 사용하지 않는다 (메인 저장소에서 직접 branch checkout).
 - venv·런타임 데이터: 저장소 바깥. venv는 `%USERPROFILE%\.venvs\gah\` (이름은 그대로 유지), AssetCacheMCP 런타임 데이터는 `%APPDATA%\AssetCacheMCP\`.
 
 ## 5. 디렉터리 구조
 
 ```
-game-asset-helper/
+assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 로 GitHub repo rename
 ├── CLAUDE.md                 # 이 파일
 ├── HANDOFF.md                # 현재 인계 스냅샷
 ├── DESIGN.md                 # 전체 아키텍처 / MCP 도구 명세 / 데이터 스키마
@@ -123,6 +123,14 @@ game-asset-helper/
 ## 6. 개발 환경 셋업 (새 PC에서)
 
 ```powershell
+git clone https://github.com/v0o0v/assetcache-mcp.git
+```
+
+```powershell
+cd assetcache-mcp
+```
+
+```powershell
 python -m venv $env:USERPROFILE\.venvs\gah
 ```
 
@@ -131,11 +139,7 @@ python -m venv $env:USERPROFILE\.venvs\gah
 ```
 
 ```powershell
-pip install -e D:\ClaudeCowork\game-asset-helper\game-asset-helper[dev]
-```
-
-```powershell
-cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
+pip install -e .[dev]
 ```
 
 ```powershell
