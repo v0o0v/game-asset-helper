@@ -10,7 +10,7 @@
 
 ## 1. 한 줄 요약
 
-Gemini Batch API (50% 비용 절감, 24h target / 48h hard expire, multimodal + embedding) 를 `image / audio / embed` 모든 modality 에 적용. `AnalysisQueue` pending 이 임계값 (default 30) 을 넘고 해당 modality chain 1순위가 Gemini 면 자동 batch. 사용자가 status bar 토글로 `auto / forced_on / forced_off` 강제 가능. drop 1장은 임계값 미만 → interactive 그대로. 신설 `core/batch/` + DB `batch_jobs` table + `assets.batch_job_id/batch_state` 컬럼. 신규 의존성 0 (`google-genai` 이미 v0.2.0 에 포함).
+Gemini Batch API (50% 비용 절감, 24h target / 48h hard expire, multimodal + embedding) 를 `image / audio / embed` 모든 modality 에 적용. `AnalysisQueue` pending 이 임계값 (default 30) 을 넘고 해당 modality chain 1순위가 Gemini 면 자동 batch. 사용자가 status bar 토글로 `auto / forced_on / forced_off` 강제 가능. drop 1장은 임계값 미만 → interactive 그대로. 신설 `core/batch/` (Manager + Poller daemon) + DB `batch_jobs` table + `assets.batch_job_id/batch_state` 컬럼 + 신규 페이지 `/analyzing` (interactive 큐 + batch jobs + 최근 실패 통합 dashboard, HTMX 5초 polling). 신규 의존성 0 (`google-genai` 이미 v0.2.0 에 포함).
 
 ## 2. Context — 현재 코드 표면 (M11 v0.2.0 baseline)
 
@@ -587,7 +587,7 @@ Gemini Batch API (50% 비용 절감, 최대 24시간)
 - 진행 중 batch job 카드: `hx-get /settings/batch/jobs` 폴링 (10초)
 - cancel 버튼: `hx-post /settings/batch/jobs/<id>/cancel` → BatchManager.cancel → Gemini cancel + 모든 asset interactive 재enqueue
 
-### 13.3 i18n msgid 추가 (총 12개)
+### 13.3 i18n msgid 추가 (총 18개)
 
 ko/en `.po` 신규:
 
@@ -603,6 +603,88 @@ ko/en `.po` 신규:
 10. `"Forced on"` / `"강제 ON"`
 11. `"Forced off"` / `"강제 OFF"`
 12. `"Batch mode (Gemini): %s"` / `"배치 모드 (Gemini): %s"` (status bar)
+13. `"Analysis progress"` / `"분석 진행"` (§13.4 페이지 nav 링크 + 페이지 제목)
+14. `"Summary"` / `"요약"`
+15. `"Interactive queue"` / `"즉시 분석 큐"`
+16. `"Batch jobs"` / `"배치 작업"`
+17. `"Recent failures"` / `"최근 실패"`
+18. `"Worker #%d (%.1fs elapsed)"` / `"워커 #%d (%.1f초 경과)"`
+
+### 13.4 분석 진행 페이지 `/analyzing` (사용자 요청 2026-05-20)
+
+분석 중인 asset 의 현재 상태를 한 화면에서 볼 수 있는 dashboard. 메인 창 상단 nav 에 "분석 진행" 링크 추가.
+
+#### URL 구조
+
+| Method · URL | 용도 |
+|---|---|
+| `GET /analyzing` | 전체 dashboard HTML (초기 렌더) |
+| `GET /analyzing/partial` | HTMX 갱신용 부분 HTML (5초 polling) |
+| `POST /analyzing/batch/<batch_job_id>/cancel` | 진행 중 batch job cancel — `/settings/batch/jobs/<id>/cancel` 의 alias (편의용) |
+
+#### 페이지 섹션
+
+**섹션 A: 요약 (상단)**
+```
+요약: 즉시 분석 큐 12 · 배치 image 80 · 배치 audio 3 · 실패 2
+ETA: 약 2시간 14분 (auto 추정 — interactive 평균 × 12 + batch 24h SLO max)
+```
+
+**섹션 B: Interactive queue**
+| path | kind | state | 처리 |
+|---|---|---|---|
+| `pack/foo/bar.png` | sprite | analyzing | 워커 #1 (3.2초 경과) |
+| `pack/foo/baz.png` | sprite | pending | 큐 #1 |
+| `pack/foo/qux.wav` | sound | pending | 큐 #2 |
+
+— 최대 50 행. 그 이상은 `+N more` summary.
+
+**섹션 C: Batch jobs**
+```
+[image · job #1] gemini · 80 장 · 제출 2시간 12분 전 / 24시간 SLO        [cancel]
+  ├ pack/foo/file_001.png · queued
+  ├ pack/foo/file_002.png · queued
+  └ +78 more
+
+[text_embed · job #2] gemini · 80 장 · 제출 2시간 12분 전 / 24시간 SLO   [cancel]
+  └ +80 more
+```
+
+각 batch job 카드는 expand/collapse (HTMX `hx-target` swap). 기본은 collapsed (상위 정보만).
+
+**섹션 D: 최근 실패 (interactive 재시도 후에도 실패)**
+| path | kind | error | 시간 |
+|---|---|---|---|
+| `pack/x/bad.png` | sprite | non-json response | 5분 전 |
+| `pack/y/zip.wav` | sound | timeout after 60s | 12분 전 |
+
+— `assets.state='failed' AND batch_state IN ('failed','none')` 의 최근 20개. `error` 컬럼 표시.
+
+#### 새로고침
+
+- HTMX `hx-get="/analyzing/partial" hx-trigger="every 5s" hx-swap="outerHTML"` polling
+- SSE 는 v0.2.x 후속 — polling 단순화 우선
+- AnalysisProgress Signal 변경 시 즉시 갱신은 Qt 트레이 전용 — 웹 페이지는 polling
+
+#### 신규 router
+
+`web/routers/analyzing.py`:
+- `get_dashboard()` → `templates/analyzing/index.html`
+- `get_partial()` → `templates/analyzing/_partial.html` (섹션 A~D 통합)
+- `cancel_batch_job(batch_job_id)` → BatchManager.cancel(batch_job_id) → 302 redirect
+
+#### 데이터 소스
+
+- 큐 상태: `AnalysisQueue.progress()` + `AnalysisQueue.snapshot_queue()` (신규 helper, 큐 내부 최대 50개 path 노출)
+- in-flight: `AnalysisQueue._in_flight_path` (이미 있음)
+- batch job: `store.list_active_batch_jobs()` + `store.list_assets_in_batch(job_id, limit=2)`
+- 최근 실패: `store.list_recent_failures(limit=20)` (신규)
+
+#### 신규 의존성 / 회귀 영향
+
+- 신규 의존성 0 (HTMX 이미 M5 에서 사용)
+- 신규 테스트 +10:
+  - `tests/test_web_routers_analyzing.py` — `GET /analyzing` 200 / `GET /analyzing/partial` 부분 HTML / 4 섹션 렌더 / batch cancel POST / 최근 실패 표시 / 빈 큐 상태 정상 렌더
 
 ## 14. Embed dim 일관성
 
@@ -650,11 +732,12 @@ toggle = "auto"
 | BatchPoller | `tests/test_batch_poller.py` | poll_once with mock backend / succeeded path / failed path / cancelled / expired / 부팅 재개 / 단일 job 실패가 다른 job 영향 X | +15 |
 | Gemini batch SDK wrap | `tests/test_llm_backend_gemini_batch.py` | mock `client.batches.create / get / cancel` + result parsing | +12 |
 | AnalysisQueue hook | `tests/test_analysis_queue_batch_hook.py` | dequeue_assets / skip_ids worker behavior / try_submit hook on enqueue | +8 |
-| UI router | `tests/test_web_routers_settings_batch.py` | GET batch panel / POST toggle / POST cancel / GET active jobs | +10 |
-| i18n msgid | `tests/test_locale_batch_msgid.py` | ko/en 둘 다 12 신규 msgid 존재 (§13.3 목록) | +5 |
+| UI router (settings) | `tests/test_web_routers_settings_batch.py` | GET batch panel / POST toggle / POST cancel / GET active jobs | +10 |
+| UI router (analyzing) | `tests/test_web_routers_analyzing.py` | GET dashboard / GET partial / 4 섹션 렌더 / batch cancel POST / 최근 실패 표시 / 빈 큐 상태 | +10 |
+| i18n msgid | `tests/test_locale_batch_msgid.py` | ko/en 둘 다 18 신규 msgid 존재 (§13.3 목록) | +5 |
 | End-to-end (mock backend) | `tests/test_batch_end_to_end.py` | enqueue 50 → batch submit → mock poll → succeeded → DB 반영 / 일부 실패 → interactive 재enqueue | +5 |
 
-**합계 신규 ~98 tests** → 1252 + 98 = **~1350** (옵트인 제외, 옵트인 +3 별도).
+**합계 신규 ~108 tests** → 1252 + 108 = **~1360** (옵트인 제외, 옵트인 +3 별도).
 
 ### 16.2 옵트인 integration 테스트
 
@@ -682,10 +765,10 @@ Phase 0 (skeleton + Protocol 확장만) → 회귀 1252 그대로. 이후 Phase 
 | 2 | `GeminiBackend.batch_chat / batch_embed / batch_get / batch_cancel / batch_download_file` + `BatchChatRequest / GeminiBatchStatus` dataclass | +12 | 1289 |
 | 3 | `BatchManager.try_submit` + chain check + race lock + AnalysisQueue hook (`pending_by_modality` / `dequeue_assets` / `_skip_ids`) | +18 + 8 | 1315 |
 | 4 | `BatchPoller` daemon + 부팅 복구 + 만료 처리 + 부분 실패 → interactive 재enqueue | +15 | 1330 |
-| 5 | UI — status bar 토글 + `/settings` batch 카드 + i18n + AnalysisProgress 확장 | +10 + 5 | 1345 |
-| 6 | end-to-end + 옵트인 integration + docs (HANDOFF / CLAUDE / DESIGN §4.x / README batch 섹션) + verification | +5 + 3 옵트인 | **1350 + 3 옵트인** |
+| 5 | UI — status bar 토글 + `/settings` batch 카드 + `/analyzing` dashboard + AnalysisQueue.snapshot_queue + store.list_recent_failures + i18n 18 msgid | +10 + 10 + 5 | 1355 |
+| 6 | end-to-end + 옵트인 integration + docs (HANDOFF / CLAUDE / DESIGN §4.x / README batch 섹션) + verification | +5 + 3 옵트인 | **1360 + 3 옵트인** |
 
-**목표**: ~1350 회귀 + 16 옵트인 (기존 13 + 신규 3).
+**목표**: ~1360 회귀 + 16 옵트인 (기존 13 + 신규 3).
 
 ## 18. 알려진 한계 + 후속 마일스톤 의존
 
