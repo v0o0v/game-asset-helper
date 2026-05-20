@@ -54,5 +54,51 @@
     {% endif %}
   </section>
 
-  {# Sections C+D 는 Task 5.3 에서 추가 #}
+  {# ── Section C — 진행 중 Batch jobs ──────────────────────────────── #}
+  <section class="analyzing-batch-jobs">
+    <h2>{{ _("Batch jobs") }}</h2>
+    {% if batch_jobs %}
+    {% for job in batch_jobs %}
+    <div class="batch-job-card">
+      <strong>{{ job.modality }} #{{ job.id }}</strong> ·
+      {{ job.backend }} · {{ job.asset_count }} {{ _("assets") }} ·
+      {{ job.submitted_minutes_ago }} {{ _("minutes ago") }} / 24h SLO ·
+      {{ job.state }}
+      <form method="post" action="/analyzing/batch/{{ job.id }}/cancel" style="display:inline">
+        <button type="submit">{{ _("Cancel") }}</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="analyzing-empty"><em>{{ _("No active batch jobs") }}</em></p>
+    {% endif %}
+  </section>
+
+  {# ── Section D — 최근 실패 ────────────────────────────────────────── #}
+  <section class="analyzing-failures">
+    <h2>{{ _("Recent failures") }}</h2>
+    {% if recent_failures %}
+    <table class="analyzing-failures-table">
+      <thead>
+        <tr>
+          <th>path</th>
+          <th>kind</th>
+          <th>error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in recent_failures %}
+        <tr>
+          <td>{{ a.path }}</td>
+          <td>{{ a.kind }}</td>
+          <td>{{ a.analysis_error or "" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="analyzing-empty"><em>{{ _("No recent failures") }}</em></p>
+    {% endif %}
+  </section>
+
 </div>

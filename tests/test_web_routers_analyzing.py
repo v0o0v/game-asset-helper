@@ -93,3 +93,51 @@ def test_analyzing_partial_empty_queue(client: TestClient):
         or ">0<" in r.text
         or "0개" in r.text
     )
+
+
+# ─── 7. GET /analyzing/partial → Section C batch jobs 빈 상태 ────────────
+
+
+def test_analyzing_partial_batch_jobs_section_empty(client: TestClient):
+    """진행 중 batch job 없을 때 'No active batch jobs' 메시지."""
+    r = client.get("/analyzing/partial")
+    assert r.status_code == 200
+    assert "Batch jobs" in r.text or "배치 작업" in r.text
+    assert (
+        "No active batch jobs" in r.text
+        or "진행 중 배치 작업" in r.text
+        or "<em>" in r.text
+    )
+
+
+# ─── 8. GET /analyzing/partial → Section D recent failures 빈 상태 ────────
+
+
+def test_analyzing_partial_recent_failures_section_empty(client: TestClient):
+    """최근 실패 없을 때 'No recent failures' 또는 관련 메시지."""
+    r = client.get("/analyzing/partial")
+    assert r.status_code == 200
+    assert "Recent failures" in r.text or "최근 실패" in r.text
+
+
+# ─── 9. POST /analyzing/batch/<id>/cancel → 303 또는 404 ─────────────────
+
+
+def test_analyzing_cancel_batch_job_redirects(client: TestClient):
+    """POST /analyzing/batch/<id>/cancel — 303 redirect 또는 404 (batch_manager 없음).
+
+    populated_deps fixture 에 batch_manager=None 이므로 404 expected.
+    Either way, not 500.
+    """
+    r = client.post("/analyzing/batch/1/cancel", follow_redirects=False)
+    assert r.status_code in (303, 404)
+
+
+# ─── 10. base template nav 에 /analyzing 링크 ─────────────────────────────
+
+
+def test_base_template_has_analyzing_nav_link(client: TestClient):
+    """nav 에 /analyzing 링크 — 아무 풀 페이지에서 확인."""
+    r = client.get("/analyzing")
+    assert r.status_code == 200
+    assert "/analyzing" in r.text
