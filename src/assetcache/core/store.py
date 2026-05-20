@@ -2533,6 +2533,28 @@ class Store:
         rows = self.conn.execute(sql, args).fetchall()
         return [AssetRow(*r) for r in rows]
 
+    def count_pending_by_modality(self, modality: str) -> int:
+        """analysis_state='pending' AND batch_state='none' AND kind matches modality.
+
+        used by BatchManager.try_submit threshold check.
+        """
+        kinds = _MODALITY_KIND_FILTER.get(modality)
+        if kinds is None:  # text_embed — 모든 kind
+            sql = """
+                SELECT COUNT(*) FROM assets
+                WHERE analysis_state = 'pending' AND batch_state = 'none'
+            """
+            args: tuple = ()
+        else:
+            kind_ph = ",".join("?" * len(kinds))
+            sql = f"""
+                SELECT COUNT(*) FROM assets
+                WHERE analysis_state = 'pending' AND batch_state = 'none'
+                  AND kind IN ({kind_ph})
+            """
+            args = tuple(kinds)
+        return self.conn.execute(sql, args).fetchone()[0]
+
     def list_assets_in_batch(self, batch_job_id: int) -> list[AssetRow]:
         """모든 asset where batch_job_id = ?. order by id."""
         rows = self.conn.execute(

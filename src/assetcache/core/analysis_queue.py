@@ -149,6 +149,15 @@ class AnalysisQueue(QObject):
         self._queue.put(int(asset_id))
         self._emit_progress()
 
+    def pending_by_modality(self, modality: str) -> int:
+        """DB pending count + queue size — BatchManager threshold check.
+
+        modality 별로 큐 size 분리는 over-engineering (DB 가 대부분).
+        """
+        db_count = self.store.count_pending_by_modality(modality)
+        queue_count = self._queue.qsize()
+        return db_count + queue_count
+
     def enqueue_pack(self, pack_id: int) -> int:
         rows = self.store.pending_assets_for_pack(pack_id)
         self._enqueued_packs.add(pack_id)

@@ -339,3 +339,22 @@ def test_mark_asset_backends_no_args_noop(fresh_store, _seed_assets):
     ids = _seed_assets(1)
     fresh_store.mark_asset_backends(ids[0])  # 모든 None — UPDATE 안 함
     # 예외 없이 통과
+
+
+# ── Task 3.5: count_pending_by_modality ─────────────────────────────
+
+
+def test_count_pending_by_modality_chat_image(fresh_store, _seed_assets):
+    _seed_assets(3)  # 3 sprite
+    assert fresh_store.count_pending_by_modality("chat_image") == 3
+
+
+def test_count_pending_by_modality_chat_audio_zero(fresh_store, _seed_assets):
+    _seed_assets(3)  # sprite only
+    assert fresh_store.count_pending_by_modality("chat_audio") == 0
+
+
+def test_count_pending_by_modality_excludes_queued(fresh_store, _seed_assets):
+    ids = _seed_assets(5)
+    fresh_store.mark_assets_batch_queued(ids[:2])
+    assert fresh_store.count_pending_by_modality("chat_image") == 3
