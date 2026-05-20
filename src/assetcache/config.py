@@ -102,8 +102,15 @@ def _default_backends() -> dict[str, dict[str, Any]]:
         "gemini": {
             "enabled": False,
             "api_key": "",
-            "model_image": "gemini-2.5-flash",
-            "model_audio": "gemini-2.5-flash",
+            # M11+ — gemini-3.1-flash-lite (GA 2026-03) 가 default.
+            # 2.5-flash 대비 input -17% ($0.30 → $0.25/1M), output -40% ($2.50 → $1.50/1M),
+            # 속도 +64% (232 → 381 TPS), Intelligence Index +62% (21 → 34).
+            # multimodal MMMU-Pro 76.8%. 일반적인 sprite/sound 분석에 권장.
+            # 더 어려운 케이스 (frontier 정확도 필요) 는 'gemini-3.5-flash' (5× 비용)
+            # 또는 'gemini-2.5-flash' (기존 stable production) 로 /settings 에서 변경.
+            "model_image": "gemini-3.1-flash-lite",
+            "model_audio": "gemini-3.1-flash-lite",
+            # embedding 은 별도 family — 모델 변경 불필요 (gemini-embedding-001 그대로).
             "model_embed": "gemini-embedding-001",
         },
         "claude": {

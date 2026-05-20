@@ -65,6 +65,19 @@ def test_default_config_has_all_six_backends(tmp_path):
         assert cfg.backends[name]["enabled"] is False
 
 
+def test_default_gemini_model_is_3_1_flash_lite(tmp_path):
+    """Gemini default chat 모델 = gemini-3.1-flash-lite (GA 2026-03, 비용 -40% vs 2.5-flash).
+
+    cfg default 만 변경 — 기존 사용자의 cfg.toml 은 영향 없음 (각자의 model_image
+    값 유지). 신규 install / 새 cfg 생성 시 적용.
+    """
+    cfg = Config()
+    assert cfg.backends["gemini"]["model_image"] == "gemini-3.1-flash-lite"
+    assert cfg.backends["gemini"]["model_audio"] == "gemini-3.1-flash-lite"
+    # embedding 모델은 별도 (gemini-embedding-001 그대로 — embedding 은 별도 family)
+    assert cfg.backends["gemini"]["model_embed"] == "gemini-embedding-001"
+
+
 def test_save_then_load_roundtrip(tmp_path):
     p = tmp_path / "config.toml"
     cfg = Config()
