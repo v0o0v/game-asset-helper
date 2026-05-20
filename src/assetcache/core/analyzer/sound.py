@@ -171,8 +171,10 @@ class SoundAnalyzer:
                     samples_mono, language=language,
                     duration_ms=duration_ms,
                 )
-            except OllamaError as e:
-                last_err = f"ollama: {e}"
+            except (OllamaError, BackendError) as e:
+                # M11 — chain 호환 (BackendError 도 catch) + 정확한 backend 이름 표기.
+                backend_name = getattr(e, "backend", None) or "chat"
+                last_err = f"chat backend ({backend_name}): {e}"
                 payload = None
                 break
             except Exception as e:  # noqa: BLE001
@@ -206,8 +208,9 @@ class SoundAnalyzer:
                     payload = self._call_gemma_image(
                         spec_path, language=language
                     )
-                except OllamaError as e:
-                    last_err = f"ollama: {e}"
+                except (OllamaError, BackendError) as e:
+                    backend_name = getattr(e, "backend", None) or "chat"
+                    last_err = f"chat backend ({backend_name}): {e}"
                     payload = None
                     break
                 if payload is None:

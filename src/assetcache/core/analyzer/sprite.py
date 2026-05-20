@@ -244,17 +244,22 @@ class SpriteAnalyzer:
                     messages, force_json=True, num_ctx=8000
                 ))
             except (OllamaError, BackendError) as e:
+                # M11 — backend 이름을 명시 (이전 "ollama:" hardcoded prefix 는 chain 시대
+                # 에 misleading — 실제 호출된 backend 가 gemini/claude/openai 등일 수 있음).
+                backend_name = getattr(e, "backend", None) or "chat"
                 return ({"description": "", "subject": "",
                          "category": _CATEGORY_FALLBACK,
                          "style": _STYLE_FALLBACK, "mood": [], "palette": [],
                          "animation_hint": [], "confidence": 0.0},
-                        "partial", f"ollama: {e}")
+                        "partial", f"chat backend ({backend_name}): {e}")
             ok, err, fixed = self._validate_payload(payload)
             if ok:
                 return payload, "ok", None
             last_fixed = fixed
             last_err = err
-        return last_fixed or {}, "partial", last_err
+        # M11 — 3회 retry 모두 enum validation 실패. backend 응답 자체는 받음.
+        # 메시지에 "validation:" prefix 로 backend error 와 구분.
+        return last_fixed or {}, "partial", f"validation (3 retries failed): {last_err}"
 
     def _build_system_prompt(self, *, language: str) -> str:
         # 라벨 enum 동적 주입
