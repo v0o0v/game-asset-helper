@@ -919,3 +919,33 @@ msgstr "Add"
 msgid "Save chains"
 msgstr "Save chains"
 
+# M11+ — Backend cards pricing & setup help
+
+#: src/assetcache/web/templates/settings.html
+msgid "ⓘ Pricing & setup"
+msgstr "ⓘ Pricing & setup"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Download Ollama →"
+msgstr "Download Ollama →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get key from Google AI Studio →"
+msgstr "Get key from Google AI Studio →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get key from Anthropic Console →"
+msgstr "Get key from Anthropic Console →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get key from OpenAI Platform →"
+msgstr "Get key from OpenAI Platform →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get key from OpenRouter Settings →"
+msgstr "Get key from OpenRouter Settings →"
+
+#: src/assetcache/web/templates/settings.html
+msgid "Get token from HuggingFace →"
+msgstr "Get token from HuggingFace →"
+

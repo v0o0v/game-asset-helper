@@ -77,11 +77,29 @@
           <label :for="`bk-${name}-enabled`" x-text="name"></label>
         </legend>
 
+        {# M11+ — 가격 + 셋업 안내 (접힘 기본). Alpine x-if 로 매칭되는 backend 의
+           ko/en partial 만 보이고, 다른 5개는 표시 안 됨 (DOM 에는 6 partial 다 렌더링). #}
+        <details class="backend-help">
+          <summary>{{ _("ⓘ Pricing & setup") }}</summary>
+          {% for bname in ["ollama", "gemini", "claude", "openai", "openrouter", "huggingface"] %}
+            <template x-if="name === '{{ bname }}'">
+              <div>
+                {% include "settings/help_" + bname + "_" + lang + ".html" %}
+              </div>
+            </template>
+          {% endfor %}
+        </details>
+
         <label class="field" x-show="'api_key' in backends[name]">
           <span>{{ _("API key") }}</span>
           <input type="password" autocomplete="off"
                  x-model="backends[name].api_key"
                  placeholder="—">
+          {# M11+ — direct link to provider's API key page #}
+          <small class="setup-link">
+            <a :href="setupUrls[name]" target="_blank" rel="noopener noreferrer"
+               x-text="setupLinkLabels[name]"></a>
+          </small>
         </label>
 
         <label class="field" x-show="'model_image' in backends[name]">
@@ -190,6 +208,24 @@ function settingsForm() {
         backendSaving: {},
         backendTesting: {},
         backendTestResult: {},
+
+        // M11+ — backend 별 API key 발급 페이지 URL + 한 줄 link label (i18n)
+        setupUrls: {
+            ollama: "https://ollama.com/download",
+            gemini: "https://aistudio.google.com/apikey",
+            claude: "https://console.anthropic.com/settings/keys",
+            openai: "https://platform.openai.com/api-keys",
+            openrouter: "https://openrouter.ai/settings/keys",
+            huggingface: "https://huggingface.co/settings/tokens",
+        },
+        setupLinkLabels: {
+            ollama: "{{ _('Download Ollama →') }}",
+            gemini: "{{ _('Get key from Google AI Studio →') }}",
+            claude: "{{ _('Get key from Anthropic Console →') }}",
+            openai: "{{ _('Get key from OpenAI Platform →') }}",
+            openrouter: "{{ _('Get key from OpenRouter Settings →') }}",
+            huggingface: "{{ _('Get token from HuggingFace →') }}",
+        },
 
         // M11 — chains
         chains: chainsInit,

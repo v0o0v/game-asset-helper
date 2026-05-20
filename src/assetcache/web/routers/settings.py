@@ -48,9 +48,15 @@ class SettingsUpdate(BaseModel):
 
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request) -> HTMLResponse:
-    """설정 페이지 — 언어 / 테마 / 자동 시작 옵션."""
+    """설정 페이지 — 언어 / 테마 / 자동 시작 + M11 backend / chain."""
     deps = request.app.state.deps
     templates = request.app.state.templates
+    # M11+ — partial include 에 사용할 lang 변수. LocaleMiddleware 가
+    # request.state.locale 셋팅 (정확한 키는 'locale' — locale_middleware.py 참조).
+    # 없거나 ko/en 외 값이면 "en" 폴백.
+    lang = getattr(request.state, "locale", "en")
+    if lang not in ("ko", "en"):
+        lang = "en"
     return templates.TemplateResponse(
         request=request,
         name="settings.html",
@@ -58,6 +64,7 @@ async def settings_page(request: Request) -> HTMLResponse:
             "page": "settings",
             "config": deps.config,
             "autostart_actual": _autostart_mod.is_autostart_enabled(),
+            "lang": lang,
         },
     )
 

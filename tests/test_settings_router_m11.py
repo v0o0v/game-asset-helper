@@ -285,3 +285,32 @@ def test_settings_page_en_keeps_english(client, web_deps):
     assert "Backends" in body
     assert "Image chain" in body
     assert "Test connection" in body
+
+
+# ---- backend-help-cards partial 통합 (M11 후속) ----
+
+
+def test_settings_page_includes_ko_partial_for_gemini(client, web_deps):
+    """ko locale 일 때 gemini 카드의 details block 안에 ko partial 본문 포함."""
+    web_deps.config.ui_language = "ko"
+    r = client.get("/settings", headers={"Accept-Language": "ko"})
+    assert r.status_code == 200
+    body = r.text
+    # gemini ko partial 의 식별 가능한 본문
+    assert "무료 tier 있음" in body
+    assert "1,500 req/day" in body
+    # setup link label (i18n msgid)
+    assert "Google AI Studio" in body
+
+
+def test_settings_page_includes_en_partial_for_claude(client, web_deps):
+    """en locale 일 때 claude 카드의 details block 안에 en partial 본문 포함."""
+    web_deps.config.ui_language = "en"
+    r = client.get("/settings", headers={"Accept-Language": "en"})
+    assert r.status_code == 200
+    body = r.text
+    # claude en partial 의 식별 가능한 본문
+    assert "Paid only" in body
+    assert "claude-haiku-4-5" in body
+    # setup link label (en msgid)
+    assert "Anthropic Console" in body
