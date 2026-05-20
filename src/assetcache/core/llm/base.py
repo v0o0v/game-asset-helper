@@ -78,3 +78,10 @@ class LLMBackend(Protocol):
     def embed(self, text: str, *, model: str | None = None) -> list[float]: ...
 
     def test_connection(self) -> bool: ...
+
+    def supports_batch(self) -> bool:
+        """True iff backend exposes batch_chat/batch_embed/batch_get/batch_cancel.
+
+        Default False — Phase 2 에서 GeminiBackend 만 True.
+        """
+        ...

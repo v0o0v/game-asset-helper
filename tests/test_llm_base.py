@@ -93,4 +93,7 @@ def test_llm_backend_protocol_satisfied_by_stub():
         def test_connection(self):
             return True
 
+        def supports_batch(self):
+            return False
+
     assert isinstance(_Stub(), LLMBackend)

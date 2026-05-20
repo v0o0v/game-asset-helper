@@ -170,5 +170,8 @@ class GeminiBackend:
         except Exception:
             return False
 
+    def supports_batch(self) -> bool:
+        return False  # Phase 2 task 2.1 에서 True 로 변경
+
 
 _: LLMBackend = GeminiBackend.__new__(GeminiBackend)  # type: ignore[arg-type]
