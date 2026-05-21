@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{# M11.1 task 5.2 — 분석 진행 대시보드 page shell #}
+
+{% block title %}{{ _("Analysis progress") }} · {{ _("AssetCacheMCP") }}{% endblock %}
+
+{% block content %}
+<section class="analyzing-page">
+  <h1>{{ _("Analysis progress") }}</h1>
+  {% include "analyzing/_partial.html" %}
+</section>
+{% endblock %}

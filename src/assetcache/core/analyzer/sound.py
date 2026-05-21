@@ -103,7 +103,7 @@ class SoundAnalyzer:
             bpm_val = None
 
         # ── 2~4. Gemma 호출 (3 단 폴백) ─────────────────────────────
-        payload, path_used, state, error = self._gemma_with_fallback(
+        payload, path_used, state, error, audio_backend = self._gemma_with_fallback(
             samples_mono, duration_ms=duration_ms,
             asset_id=inp.asset_id, rel_path=inp.rel_path,
             language=inp.language,
@@ -135,12 +135,20 @@ class SoundAnalyzer:
             description=payload.get("description", "") or "",
             rel_path=inp.rel_path,
         )
+        embed_backend: str | None = None
         try:
             blob, dim = self.embedder.encode_text(searchable.for_embed)
+            embed_backend = self.embedder.last_backend_name
         except OllamaError:
             blob, dim = b"", 0
             if state == "ok":
                 state = "partial"
+
+        backend_used: dict = {}
+        if audio_backend:
+            backend_used["audio"] = audio_backend
+        if embed_backend:
+            backend_used["embed"] = embed_backend
 
         return AnalyzerResult(
             kind="sound", state=state, error=error,
@@ -149,6 +157,7 @@ class SoundAnalyzer:
             embedding_vector=blob, embedding_dim=dim,
             embedding_model=self.embedder.model,
             description=payload.get("description", "") or "",
+            backend_used=backend_used,
         )
 
     # -- Gemma orchestration ----------------------------------------
@@ -162,12 +171,18 @@ class SoundAnalyzer:
         rel_path: str,
         language: str,
     ):
+        """3-stage fallback. Returns (payload, path_used, state, error, backend_name).
+
+        M11.1 Task 1.5 — 5번째 반환값으로 실제 호출된 audio backend 이름 노출.
+        heuristic 경로는 backend 없으므로 None 반환.
+        """
         # 1차: 네이티브 오디오 — 최대 3 회까지 retry (whitelist 위반 검출 시).
         last_fixed: dict | None = None
         last_err: str | None = None
+        last_backend: str | None = None
         for _ in range(3):
             try:
-                payload = self._call_gemma_audio(
+                payload, last_backend = self._call_gemma_audio(
                     samples_mono, language=language,
                     duration_ms=duration_ms,
                 )
@@ -186,11 +201,11 @@ class SoundAnalyzer:
                 break
             ok, fixed, err = self._validate(payload)
             if ok:
-                return fixed, "native", "ok", None
+                return fixed, "native", "ok", None, last_backend
             last_fixed, last_err = fixed, err
         if last_fixed is not None:
             # JSON 자체는 받았지만 enum 위반이 끝까지 풀리지 않은 경우 — partial 로 native 결과 채택.
-            return last_fixed, "native", "partial", last_err
+            return last_fixed, "native", "partial", last_err, last_backend
 
         # 2차: 멜 스펙트로그램 비전 — 동일하게 최대 3 회 retry.
         try:
@@ -203,9 +218,10 @@ class SoundAnalyzer:
 
         if spec_path is not None:
             last_fixed = None
+            last_backend = None
             for _ in range(3):
                 try:
-                    payload = self._call_gemma_image(
+                    payload, last_backend = self._call_gemma_image(
                         spec_path, language=language
                     )
                 except (OllamaError, BackendError) as e:
@@ -218,21 +234,23 @@ class SoundAnalyzer:
                     break
                 ok, fixed, err = self._validate(payload)
                 if ok:
-                    return fixed, "spectrogram", "ok", None
+                    return fixed, "spectrogram", "ok", None, last_backend
                 last_fixed, last_err = fixed, err
             if last_fixed is not None:
-                return last_fixed, "spectrogram", "partial", last_err
+                return last_fixed, "spectrogram", "partial", last_err, last_backend
 
         # 3차: 휴리스틱
         heuristic = self._heuristic_payload(rel_path=rel_path,
                                             duration_ms=duration_ms)
-        return heuristic, "heuristic", "partial", "both gemma paths failed"
+        return heuristic, "heuristic", "partial", "both gemma paths failed", None
 
     def _call_gemma_audio(self, samples_mono, *, language: str,
                           duration_ms: int):
+        """Returns (merged_payload, backend_name). backend_name from first successful clip."""
         clips = self._select_clips(samples_mono, strategy=self.chunk_strategy,
                                     duration_ms=duration_ms)
         merged_payload: dict | None = None
+        first_backend: str | None = None
         for clip_samples in clips:
             b64 = encode_audio_clip(clip_samples, sample_rate=16000)
             msgs = [
@@ -243,15 +261,23 @@ class SoundAnalyzer:
                             audio_b64=[(b64, "audio/wav")]),
             ]
             try:
-                resp = unwrap_chat_result(self.ollama.chat(msgs, force_json=True, num_ctx=8000))
+                raw = self.ollama.chat(msgs, force_json=True, num_ctx=8000)
+                # BackendChain → (dict, str), OllamaClient → dict
+                if isinstance(raw, tuple) and len(raw) == 2 and isinstance(raw[1], str):
+                    resp, backend_name = raw[0], raw[1]
+                else:
+                    resp, backend_name = raw, None
             except (OllamaError, BackendError):
                 continue
             if not isinstance(resp, dict):
                 continue
+            if first_backend is None:
+                first_backend = backend_name
             merged_payload = self._merge_payloads(merged_payload, resp)
-        return merged_payload
+        return merged_payload, first_backend
 
     def _call_gemma_image(self, spec_path: Path, *, language: str):
+        """Returns (payload, backend_name). Both None on failure."""
         b64 = encode_image(spec_path)
         msgs = [
             ChatMessage(role="system",
@@ -261,10 +287,17 @@ class SoundAnalyzer:
                         images_b64=[b64]),
         ]
         try:
-            resp = unwrap_chat_result(self.ollama.chat(msgs, force_json=True, num_ctx=8000))
+            raw = self.ollama.chat(msgs, force_json=True, num_ctx=8000)
+            # BackendChain → (dict, str), OllamaClient → dict
+            if isinstance(raw, tuple) and len(raw) == 2 and isinstance(raw[1], str):
+                resp, backend_name = raw[0], raw[1]
+            else:
+                resp, backend_name = raw, None
         except (OllamaError, BackendError):
-            return None
-        return resp if isinstance(resp, dict) else None
+            return None, None
+        if not isinstance(resp, dict):
+            return None, None
+        return resp, backend_name
 
     def _build_prompt(self, *, language: str) -> str:
         slots = {

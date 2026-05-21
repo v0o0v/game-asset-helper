@@ -1,16 +1,16 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-20 (M11 v0.2.0 PyPI publish 완료)
-**마지막 완료 작업**: **M11 v0.2.0 publish 완료** — PR [#16](https://github.com/v0o0v/assetcache-mcp/pull/16) squash merge → main `f68ef88` → v0.2.0 tag → Trusted Publishing OIDC 자동 publish (3회째 검증) → [PyPI v0.2.0 Latest](https://pypi.org/project/assetcache-mcp/0.2.0/) + [GitHub release v0.2.0](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.2.0). 회귀 **1252 passed + 1 skipped + 53 deselected** (v0.1.2 baseline 1079 + 173 신규 + 13 옵트인 `llm_integration`). 신규 의존성 4 (`google-genai`/`anthropic`/`openai`/`huggingface_hub`).
-**M11 결과**: 6 backend (Ollama + Gemini + Claude + OpenAI + OpenRouter + HuggingFace) + modality 별 chain + 자동 fallback + `/settings` 페이지 backend 카드 + chain ▲/▼ 우선순위 + DB `backend_image/audio/embed` 컬럼 + MCP `find_asset.backend_used` + 검색 카드 🤖 배지 + backend 카드 가격·셋업 안내 (ko/en partial). spec: [`docs/superpowers/specs/2026-05-20-m11-multi-backend-llm-design.md`](docs/superpowers/specs/2026-05-20-m11-multi-backend-llm-design.md), verification: [`milestones/M11_verification.md`](milestones/M11_verification.md)
-**현재 브랜치**: `main` (v0.2.0 tag = `f68ef88`, feat/m11-multi-backend-llm deleted by --delete-branch)
-**다음 세션 작업**: **Gemini Batch API** 작업 (사용자 명시) — M11.1 또는 M12. 50% 비용 할인 + 24h SLO turnaround. brainstorm → spec → plan → TDD. 적합 use case: library 초기 import / failed bulk 재분석 / 수천 장 일괄. drop 1장은 interactive 유지 — hybrid 정책 spec 필요. WebSearch 사전 조사 완료 ([batch-api docs](https://ai.google.dev/gemini-api/docs/batch-api), [batch vs caching](https://yingtu.ai/en/blog/gemini-api-batch-vs-caching), [batch mode blog](https://developers.googleblog.com/scale-your-ai-workloads-batch-mode-gemini-api/)).
+**마지막 인계 시각**: 2026-05-21 (M11.1 Gemini Batch API + /analyzing dashboard 완료)
+**마지막 완료 작업**: **M11.1 완료** — feat/m11-1-gemini-batch-api 브랜치 (PR 대기). Gemini Batch API hybrid 정책 (50% 비용, 24h SLO) + `/analyzing` dashboard + M11 알려진 한계(`mark_asset_backends` write hook) 동시 해결. 회귀 **1252 → 1426 (+174) + 옵트인 13 → 16**. 신규 의존성 0.
+**M11.1 결과**: `core/batch/` 패키지 (types/manager/poller) + DB `batch_jobs` table + `assets.batch_job_id/batch_state` + Store 13 신규 메서드 + GeminiBackend batch_chat/embed/get/cancel/download + BatchManager(try_submit/cancel) + BatchPoller(daemon, 30분 주기) + AnalysisQueue hook + BatchConfig + /settings batch 카드 + /analyzing dashboard + Qt tray toggle + i18n 18 msgid. spec: [`docs/superpowers/specs/2026-05-20-gemini-batch-api-design.md`](docs/superpowers/specs/2026-05-20-gemini-batch-api-design.md), verification: [`milestones/M11_1_verification.md`](milestones/M11_1_verification.md)
+**현재 브랜치**: `feat/m11-1-gemini-batch-api` (PR 대기 — main `f68ef88` 기준)
+**다음 세션 작업**: **PR 생성 + main 머지 + v0.2.1 tag → PyPI publish** (Trusted Publishing OIDC, ~30초). 그 후 M12 (C4 측정/학습/벤치마크) 또는 M13 (Mac/Linux 검증) 사용자 결정.
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가"를 한 번에 파악하도록 작성된 스냅샷이다.
 
 ## 1. 한 줄 요약
 
-**M11 v0.2.0 publish 완료** (main `f68ef88`, PyPI Latest). 6 backend (Ollama + Gemini + Claude + OpenAI + OpenRouter + HuggingFace) + modality 별 chain + /settings UI + per-asset backend_used 가시화 + 카드 배지 + 가격·셋업 안내. 회귀 **1252 passed + 1 skipped + 53 deselected** (v0.1.2 1079 + 173 신규 + 13 옵트인). 신규 의존성 4. MCP 20 도구 그대로 (응답 schema 만 확장). Gemini default = `gemini-3.1-flash-lite` (output -40% 비용 vs 2.5-flash). **Trusted Publishing OIDC** 자동 publish 3회째 성공 (v0.1.1/v0.1.2/v0.2.0 — 평균 30초). 다음 세션: **Gemini Batch API** (사용자 명시).
+**M11.1 완료** (feat/m11-1-gemini-batch-api 브랜치, PR 대기). Gemini Batch API hybrid 정책 (50% 비용, 24h SLO) + `/analyzing` dashboard + M11 한계 (`mark_asset_backends`) 해결. 회귀 **1426 passed + 1 skipped + 56 deselected** (M11 v0.2.0 1252 + 174 신규 + 3 옵트인 추가). 신규 의존성 0. MCP 20 도구 그대로. 다음 세션: **PR 생성 + v0.2.1 PyPI publish** (Trusted Publishing OIDC, ~30초).
 
 ## 2. 검증된 사실 (M10 완료 시점)
 
@@ -70,11 +70,13 @@ git pull
 pytest -q
 ```
 
-→ `1252 passed, 1 skipped, 53 deselected` 확인 (M11 v0.2.0 publish 후 main baseline; v0.1.2 1079 + 173 신규).
+→ main 기준: `1252 passed, 1 skipped, 53 deselected` (M11 v0.2.0 baseline).
 
-**현재 브랜치 = `main`** (v0.2.0 tag = `f68ef88`, feat/m11-multi-backend-llm deleted by --delete-branch). 추가 회귀나 다음 작업은 새 브랜치에서.
+feat/m11-1-gemini-batch-api 브랜치에서 PR 머지 후: `1426 passed, 1 skipped, 56 deselected` 예상.
 
-## 5. 다음 세션 진입 절차 (로드맵 brainstorm 후 — M11 implementation 자연)
+**현재 브랜치 = `feat/m11-1-gemini-batch-api`** (PR 대기, main `f68ef88` 기준). PR 머지 후 v0.2.1 tag push → Trusted Publishing 자동 publish.
+
+## 5. 다음 세션 진입 절차 (M11.1 완료 — v0.2.1 publish 후 M12/M13)
 
 ### 5.1 로드맵 (2026-05-20 brainstorm 확정)
 
@@ -91,7 +93,7 @@ pytest -q
 | 3 | M17 | 성능 (대량 라이브러리 처리량 + 메모리/시작 시간) | 독립 |
 | 3 | M18 | 분산 분석 (여러 PC 라이브러리 공유 + 분석 분담) | **M14 필수** |
 
-권장 다음: M11 implementation 시작 — detail design spec 작성 → writing-plans → `milestones/M11_plan.md` → TDD cycle.
+권장 다음: **PR 생성 + main 머지 + v0.2.1 tag push** → Trusted Publishing OIDC 자동 publish (패턴 검증 4회째). 그 후 M12 (C4 측정/학습) 또는 M13 (Mac/Linux 검증) 사용자 결정.
 
 ### 5.2 Reactive backlog (별도 트리거 시)
 
@@ -120,7 +122,7 @@ pytest -q
 | v0.1.2 | PyPI 페이지 정직성 patch (README/DESIGN/docs/CLAUDE stale 일괄 정리, classifiers 보강) + Trusted Publishing 2회째 자동 publish | ✅ 완료 ([PR #15](https://github.com/v0o0v/assetcache-mcp/pull/15) + 29초 publish) |
 | **로드맵 brainstorm** | M11~M18 8 마일스톤 design + Reactive backlog ([roadmap-design.md](docs/superpowers/specs/2026-05-20-roadmap-design.md)) | ✅ 완료 (main `b3f8fe8`) |
 | **M11** | Multi-backend LLM Architecture (Ollama+Gemini+Claude+OpenAI+OpenRouter+HF) | ✅ v0.2.0 publish 완료 ([PR #16](https://github.com/v0o0v/assetcache-mcp/pull/16) main 머지 `f68ef88`, [PyPI v0.2.0 Latest](https://pypi.org/project/assetcache-mcp/0.2.0/), [GitHub release v0.2.0](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.2.0)). 회귀 1079 → 1252 (+173 + 13 옵트인). 신규 의존성 4. Trusted Publishing 3회째 자동 (~30초). [verification](milestones/M11_verification.md) |
-| **M11.1 / M12** | Gemini Batch API (50% 비용, 24h SLO) | 📋 다음 세션 (사용자 명시) — brainstorm → spec → plan → TDD. [batch-api docs](https://ai.google.dev/gemini-api/docs/batch-api) |
+| **M11.1** | Gemini Batch API (50% 비용, 24h SLO) + /analyzing dashboard + M11 한계 해결 | ✅ 구현 완료 (feat/m11-1-gemini-batch-api 브랜치, **PR + v0.2.1 publish 대기**). 회귀 1252 → 1426 (+174 + 3 옵트인). 신규 의존성 0. [verification](milestones/M11_1_verification.md) |
 | M12~M18 | 측정/Mac-Linux/원격 통신/Unity Editor/유사 검색/성능/분산 | 📋 미정 (사용자 결정) |
 
 ## 7. M10 후속 정리거리 (해결됨/잔존)

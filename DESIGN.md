@@ -486,6 +486,77 @@ GAH는 한 번에 하나의 **활성 프로젝트**를 기억한다.
 | I-5 | project_A 의 feedback/usage 가 project_B 점수에 반영되지 않음 |
 
 
+### 4.11 Batch processing — Gemini Batch API ✅ M11.1 구현 완료
+
+> M11.1 에서 신설. 대량 에셋 분석을 50% 비용으로 처리하는 hybrid 정책 + `/analyzing` dashboard.
+
+#### 4.11.1 Hybrid 정책
+
+| 상황 | 처리 경로 |
+|---|---|
+| 1장 드롭 / 소수 drop | interactive (Ollama/Gemini realtime) — 즉시 카드 반영 |
+| 30+ 장 동시 drop + chain 1순위 = Gemini + toggle = auto | Gemini Batch API 자동 진입 |
+| toggle = forced_on | 수량 무관 Gemini Batch API 강제 |
+| toggle = forced_off | 수량 무관 interactive 유지 |
+| chain 1순위 != Gemini | toggle 무관하게 interactive 유지 |
+
+임계값(기본 30)과 toggle 은 `/settings` Batch 패널 + tray 우클릭 메뉴에서 사용자 조정 가능.
+
+#### 4.11.2 아키텍처
+
+```
+AnalysisQueue
+    │  pending 30+ 감지 (_try_batch_submit hook)
+    ▼
+BatchManager.try_submit(modality, chain, store, config)
+    │  toggle/chain/threshold 결정 + race lock
+    │  dequeue_assets → Gemini Batch API JSONL submit
+    ▼
+    DB: batch_jobs INSERT (state=submitted) + assets.batch_job_id/batch_state 갱신
+    │
+    ▼
+BatchPoller (daemon Thread, 기본 30분 interval)
+    │  list_active_batch_jobs → batch_get 상태 확인
+    │  succeeded → JSONL 결과 파싱 → modality 별 persist + mark_asset_backends
+    │  terminal_failure → assets interactive fallback 재투입
+    ▼
+    DB: analysis_state='ok' + backend_image/audio/embed = 'gemini'
+```
+
+#### 4.11.3 신설 모듈
+
+```
+src/assetcache/core/batch/
+├── __init__.py
+├── types.py       # BatchJob, BatchState, BatchJobRecord dataclass
+├── manager.py     # BatchManager — try_submit + _do_submit + cancel
+└── poller.py      # BatchPoller — daemon Thread + poll/handle_succeeded/terminal_failure
+src/assetcache/core/analyzer/
+└── messages.py    # 분석기 공통 메시지 빌더 (Gemini chat 요청 생성)
+```
+
+#### 4.11.4 DB 추가 컬럼/테이블 (§5.1 갱신)
+
+- `batch_jobs` 테이블 (신설): `id`, `backend`, `modality`, `backend_job_id` (UNIQUE), `asset_count`, `submitted_at`, `expires_at`, `state`, `completed_at`, `success_count`, `failure_count`, `error`, `display_name`
+- `assets` 테이블 추가 컬럼: `batch_job_id INTEGER REFERENCES batch_jobs(id)`, `batch_state TEXT NOT NULL DEFAULT 'none'` (`none`/`queued`/`submitted`/`completed`/`failed`/`expired`)
+
+#### 4.11.5 웹 UI 신규 페이지 및 엔드포인트
+
+| 경로 | 설명 |
+|---|---|
+| `GET /analyzing` | 분석 진행 상황 dashboard (interactive 큐 + batch jobs + 최근 실패) |
+| `GET /analyzing/partial` | 5초 주기 auto-refresh 대상 partial HTML |
+| `POST /analyzing/batch/<id>/cancel` | 진행 중 batch job 취소 |
+| `POST /settings/batch` | BatchConfig 저장 (threshold/toggle/polling_interval) |
+| `POST /settings/batch/jobs/<id>/cancel` | /settings 에서 batch job 취소 |
+
+#### 4.11.6 알려진 한계
+
+- Image/audio Gemini 결과 → labels 실제 파싱 미구현 (empty labels + mark ok). M12 candidate.
+- 파일 크기 > 20MB inline 제한 — file destination batch 방식은 v0.2.x 후속.
+- OpenAI/Anthropic Batch API — v0.3.0 candidate.
+
+
 ## 5. 데이터 스키마
 
 ### 5.1 SQLite 테이블

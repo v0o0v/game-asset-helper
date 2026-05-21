@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import time
 
 from google import genai
 from google.genai import types as genai_types
@@ -22,6 +23,7 @@ from ..base import (
     ChatMessage,
     LLMBackend,
 )
+from ...batch.types import BatchChatRequest, GeminiBatchStatus
 
 log = logging.getLogger(__name__)
 
@@ -169,6 +171,117 @@ class GeminiBackend:
             return True
         except Exception:
             return False
+
+    def supports_batch(self) -> bool:
+        return True  # M11.1 Phase 2 — Gemini Batch API 지원
+
+    def batch_chat(
+        self,
+        *,
+        modality: str,
+        requests: list[BatchChatRequest],
+    ) -> str:
+        """배치 chat 작업 제출. Gemini job name 'batches/xxx' 반환.
+
+        modality: 'chat_image' (model_image 사용) 또는 'chat_audio' (model_audio 사용).
+        text_embed 는 batch_embed() 사용.
+        """
+        if modality == "chat_image":
+            model = self.model_image
+        elif modality == "chat_audio":
+            model = self.model_audio
+        else:
+            raise ValueError(f"batch_chat invalid modality: {modality!r}")
+
+        inlined = []
+        for r in requests:
+            item: dict = {"contents": self._to_contents(r.messages)}
+            if r.force_json:
+                item["config"] = {"response_mime_type": "application/json"}
+            inlined.append(item)
+
+        try:
+            job = self._client.batches.create(
+                model=model,
+                src=inlined,
+                config={"display_name": f"assetcache-{modality}-{int(time.time())}"},
+            )
+        except Exception as e:
+            raise BackendError(
+                backend="gemini",
+                stage=f"batch_{modality}",
+                transient=_classify(e),
+                cause=e,
+            ) from e
+        return job.name
+
+    def batch_embed(self, *, texts: list[str]) -> str:
+        """배치 임베딩 작업 제출. Gemini job name 'batches/xxx' 반환.
+
+        `client.batches.create_embeddings` 사용 — `chat` batch 와 다른 SDK 엔드포인트.
+        각 text → `inlined_requests` 의 한 항목 ({"content": {"parts": [{"text": t}], "role": "user"}}).
+        """
+        if not texts:
+            raise ValueError("batch_embed requires non-empty texts")
+        inlined = [
+            {"content": {"parts": [{"text": t}], "role": "user"}}
+            for t in texts
+        ]
+        try:
+            job = self._client.batches.create_embeddings(
+                model=self.model_embed,
+                src={"inlined_requests": inlined},
+                config={"display_name": f"assetcache-text_embed-{int(time.time())}"},
+            )
+        except Exception as e:
+            raise BackendError(
+                backend="gemini",
+                stage="batch_embed",
+                transient=_classify(e),
+                cause=e,
+            ) from e
+        return job.name
+
+    def batch_get(self, backend_job_id: str) -> GeminiBatchStatus:
+        """배치 작업 상태 폴링. 정규화된 GeminiBatchStatus 반환.
+
+        SDK 의 job.state 는 JOB_STATE_PENDING / RUNNING / SUCCEEDED / FAILED / CANCELLED / EXPIRED.
+        job.dest 는 SUCCEEDED 일 때만 의미 — inlined_responses 또는 file_name.
+        """
+        try:
+            job = self._client.batches.get(name=backend_job_id)
+        except Exception as e:
+            raise BackendError(
+                backend="gemini",
+                stage="batch_get",
+                transient=_classify(e),
+                cause=e,
+            ) from e
+        dest = getattr(job, "dest", None)
+        inlined = getattr(dest, "inlined_responses", None) if dest is not None else None
+        file_name = getattr(dest, "file_name", None) if dest is not None else None
+        error_val = getattr(job, "error", None)
+        error_str = str(error_val) if error_val else None
+        return GeminiBatchStatus(
+            state=job.state.name,
+            inlined_responses=inlined,
+            file_name=file_name,
+            error=error_str,
+        )
+
+    def batch_cancel(self, backend_job_id: str) -> None:
+        """Best-effort cancel — 실패해도 raise 안 함 (idempotent semantics).
+
+        BatchManager.cancel 가 호출 — 만료 / 이미 완료 / 네트워크 오류 등 모두 무시.
+        """
+        try:
+            self._client.batches.cancel(name=backend_job_id)
+        except Exception:
+            log.exception("batch_cancel failed (best-effort, swallowed)")
+
+    def batch_download_file(self, file_name: str) -> bytes:
+        """File destination 의 결과 다운로드 (v0.2.1 에서는 미사용, v0.2.x 후속)."""
+        return self._client.files.download(file=file_name)
 
 
 _: LLMBackend = GeminiBackend.__new__(GeminiBackend)  # type: ignore[arg-type]

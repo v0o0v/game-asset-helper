@@ -199,5 +199,8 @@ class OpenAIBackend:
         except Exception:
             return False
 
+    def supports_batch(self) -> bool:
+        return False
+
 
 _: LLMBackend = OpenAIBackend.__new__(OpenAIBackend)  # type: ignore[arg-type]

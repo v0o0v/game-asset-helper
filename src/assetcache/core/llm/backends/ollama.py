@@ -70,5 +70,8 @@ class OllamaBackend:
         except Exception:
             return False
 
+    def supports_batch(self) -> bool:
+        return False
+
 
 _: LLMBackend = OllamaBackend.__new__(OllamaBackend)  # type: ignore[arg-type]

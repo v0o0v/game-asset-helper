@@ -1,0 +1,56 @@
+{# M11.1 Phase 5 task 5.1 — Batch API 설정 카드 partial.
+   settings.html 에서 {% include "settings/_batch_card.html" %} 로 포함.
+   context 변수: config (Config), active_batch_jobs (list[BatchJobRow]).
+#}
+<section class="settings-section" id="batch-settings">
+  <h2>{{ _("Batch analysis") }}</h2>
+  <p class="hint">{{ _("Gemini Batch API — 50% cost reduction, 24h SLO. Applied automatically on large imports.") }}</p>
+
+  <form method="post" action="/settings/batch">
+    <label class="field">
+      <span>{{ _("Threshold") }} ({{ _("assets") }}):</span>
+      <input type="number" name="threshold" value="{{ config.batch.threshold }}" min="1" max="200">
+    </label>
+
+    <fieldset>
+      <legend>{{ _("Toggle") }}:</legend>
+      <label>
+        <input type="radio" name="toggle" value="auto"{% if config.batch.toggle == 'auto' %} checked{% endif %}>
+        {{ _("Auto") }}
+      </label>
+      <label>
+        <input type="radio" name="toggle" value="forced_on"{% if config.batch.toggle == 'forced_on' %} checked{% endif %}>
+        {{ _("Forced on") }}
+      </label>
+      <label>
+        <input type="radio" name="toggle" value="forced_off"{% if config.batch.toggle == 'forced_off' %} checked{% endif %}>
+        {{ _("Forced off") }}
+      </label>
+    </fieldset>
+
+    <label class="field">
+      <span>{{ _("Polling interval") }} ({{ _("seconds") }}):</span>
+      <input type="number" name="poll_interval_seconds" value="{{ config.batch.poll_interval_seconds }}" min="60" max="3600">
+    </label>
+
+    <button type="submit">{{ _("Save") }}</button>
+  </form>
+
+  <h3>{{ _("In-progress batch jobs") }}</h3>
+  {% if active_batch_jobs %}
+  <ul class="batch-jobs-list">
+    {% for job in active_batch_jobs %}
+    <li class="batch-job-row">
+      <span class="badge">{{ job.modality }}</span>
+      #{{ job.id }} &middot; {{ job.backend }} &middot; {{ job.asset_count }} {{ _("assets") }} &middot;
+      <em>{{ job.state }}</em>
+      <form method="post" action="/settings/batch/jobs/{{ job.id }}/cancel" style="display:inline">
+        <button type="submit">{{ _("Cancel") }}</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p><em>{{ _("No active batch jobs") }}</em></p>
+  {% endif %}
+</section>

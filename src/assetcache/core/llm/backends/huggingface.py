@@ -212,5 +212,8 @@ class HuggingFaceBackend:
         except Exception:
             return False
 
+    def supports_batch(self) -> bool:
+        return False
+
 
 _: LLMBackend = HuggingFaceBackend.__new__(HuggingFaceBackend)  # type: ignore[arg-type]

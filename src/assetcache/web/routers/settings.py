@@ -4,14 +4,18 @@ M11 Phase 5 — multi-backend LLM 설정용 3 endpoint 추가:
 - POST /api/settings/backends/{name}      — backend 설정 갱신
 - POST /api/settings/backends/{name}/test — backend.test_connection 호출
 - POST /api/settings/chains               — chain 순서 갱신
+
+M11.1 Phase 5 (task 5.1) — Gemini Batch API 설정 endpoint 추가:
+- POST /settings/batch               — cfg.batch 업데이트 + save_config
+- POST /settings/batch/jobs/{id}/cancel — BatchManager.cancel(id) 호출
 """
 from __future__ import annotations
 
 import logging
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from assetcache.config import Config, save_config
@@ -48,7 +52,7 @@ class SettingsUpdate(BaseModel):
 
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request) -> HTMLResponse:
-    """설정 페이지 — 언어 / 테마 / 자동 시작 + M11 backend / chain."""
+    """설정 페이지 — 언어 / 테마 / 자동 시작 + M11 backend / chain + M11.1 batch."""
     deps = request.app.state.deps
     templates = request.app.state.templates
     # M11+ — partial include 에 사용할 lang 변수. LocaleMiddleware 가
@@ -57,6 +61,11 @@ async def settings_page(request: Request) -> HTMLResponse:
     lang = getattr(request.state, "locale", "en")
     if lang not in ("ko", "en"):
         lang = "en"
+    # M11.1 — active batch jobs (state IN ('submitted', 'running'))
+    try:
+        active_batch_jobs = deps.store.list_active_batch_jobs()
+    except Exception:
+        active_batch_jobs = []
     return templates.TemplateResponse(
         request=request,
         name="settings.html",
@@ -65,6 +74,7 @@ async def settings_page(request: Request) -> HTMLResponse:
             "config": deps.config,
             "autostart_actual": _autostart_mod.is_autostart_enabled(),
             "lang": lang,
+            "active_batch_jobs": active_batch_jobs,
         },
     )
 
@@ -215,3 +225,59 @@ async def update_chains(request: Request) -> JSONResponse:
     except Exception as e:
         log.warning("config save failed: %s", e)
     return JSONResponse({"ok": True})
+
+
+# ---- M11.1 Phase 5 task 5.1: batch settings ----
+
+_VALID_TOGGLES = frozenset({"auto", "forced_on", "forced_off"})
+
+
+@router.post("/settings/batch")
+async def post_batch_settings(
+    request: Request,
+    threshold: int = Form(...),
+    toggle: str = Form(...),
+    poll_interval_seconds: int = Form(1800),
+) -> RedirectResponse:
+    """cfg.batch 업데이트 + save_config → /settings 리다이렉트.
+
+    threshold: 1~200 clamp.
+    toggle: auto/forced_on/forced_off (그 외 → "auto" 폴백).
+    poll_interval_seconds: 그대로 저장.
+    """
+    deps = request.app.state.deps
+    cfg: Config = deps.config
+
+    # 유효성 검사 + clamp
+    threshold = max(1, min(threshold, 200))
+    if toggle not in _VALID_TOGGLES:
+        toggle = "auto"
+
+    cfg.batch.threshold = threshold
+    cfg.batch.toggle = toggle  # type: ignore[assignment]
+    cfg.batch.poll_interval_seconds = poll_interval_seconds
+
+    try:
+        save_config(cfg, deps.paths.config_path)
+    except Exception as e:
+        log.warning("batch config save failed: %s", e)
+
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/batch/jobs/{job_id}/cancel")
+async def post_cancel_batch_job(
+    request: Request,
+    job_id: int,
+) -> RedirectResponse:
+    """BatchManager.cancel(job_id) 호출 → /settings 리다이렉트.
+
+    deps.batch_manager 가 None 이면 404 반환 (배치 기능 미설정).
+    """
+    deps = request.app.state.deps
+    bm = deps.batch_manager
+    if bm is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="batch_manager not configured")
+    bm.cancel(job_id)
+    return RedirectResponse("/settings", status_code=303)

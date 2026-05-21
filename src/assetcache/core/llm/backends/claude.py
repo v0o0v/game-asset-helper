@@ -165,5 +165,8 @@ class ClaudeBackend:
         except Exception:
             return False
 
+    def supports_batch(self) -> bool:
+        return False
+
 
 _: LLMBackend = ClaudeBackend.__new__(ClaudeBackend)  # type: ignore[arg-type]

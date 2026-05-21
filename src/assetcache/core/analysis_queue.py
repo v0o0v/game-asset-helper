@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from .analyzer.sound import SoundAnalyzer
     from .analyzer.sprite import SpriteAnalyzer
     from .analyzer.spritesheet import SpritesheetAnalyzer
+    from .batch.manager import BatchManager
     from .store import Store
 
 log = logging.getLogger(__name__)
@@ -84,6 +85,7 @@ class AnalysisQueue(QObject):
         eta_window: int = 10,
         clock: Callable[[], float] = time.monotonic,
         library_root: Path | None = None,
+        batch_manager: Optional["BatchManager"] = None,
     ) -> None:
         super().__init__()
         self.store = store
@@ -93,6 +95,7 @@ class AnalysisQueue(QObject):
         self.concurrency = max(1, int(concurrency))
         self.library_root = library_root
         self._clock = clock
+        self._batch_manager = batch_manager
 
         self._queue: "queue.Queue[int]" = queue.Queue()
         self._init_progress_tracker(window=eta_window)
@@ -100,9 +103,29 @@ class AnalysisQueue(QObject):
         self._completed_in_session = 0
         self._enqueued_packs: set[int] = set()
         self._touched_packs: set[int] = set()
+        self._skip_ids: set[int] = set()
         self._stop_event = threading.Event()
         self._executor: ThreadPoolExecutor | None = None
         self._futures: list = []
+
+    # -- batch manager injection --------------------------------------
+
+    def set_batch_manager(self, bm) -> None:
+        """Post-construction BatchManager 주입 (instantiation 순서 때문에 setter 사용)."""
+        self._batch_manager = bm
+
+    def _try_batch_submit(self) -> None:
+        """BatchManager.try_submit 을 3 modality 에 대해 호출.
+
+        batch_manager 가 None 이면 no-op. 개별 modality 예외는 삼키고 나머지 계속 시도.
+        """
+        if self._batch_manager is None:
+            return
+        for modality in ("chat_image", "chat_audio", "text_embed"):
+            try:
+                self._batch_manager.try_submit(modality)
+            except Exception:
+                log.exception("batch try_submit failed modality=%s", modality)
 
     # -- progress tracker (also used by tests via __new__) -----------
 
@@ -148,6 +171,16 @@ class AnalysisQueue(QObject):
     def enqueue_asset(self, asset_id: int) -> None:
         self._queue.put(int(asset_id))
         self._emit_progress()
+        self._try_batch_submit()
+
+    def pending_by_modality(self, modality: str) -> int:
+        """DB pending count + queue size — BatchManager threshold check.
+
+        modality 별로 큐 size 분리는 over-engineering (DB 가 대부분).
+        """
+        db_count = self.store.count_pending_by_modality(modality)
+        queue_count = self._queue.qsize()
+        return db_count + queue_count
 
     def enqueue_pack(self, pack_id: int) -> int:
         rows = self.store.pending_assets_for_pack(pack_id)
@@ -155,7 +188,16 @@ class AnalysisQueue(QObject):
         for row in rows:
             self._queue.put(row.id)
         self._emit_progress()
+        self._try_batch_submit()
         return len(rows)
+
+    def dequeue_assets(self, asset_ids: list[int]) -> int:
+        """Mark asset_ids 를 worker 가 skip 하도록 등록 (queue.Queue 가 random-access 불가).
+
+        BatchManager 가 batch submit 후 호출 — 워커가 큐에서 pop 시 _skip_ids 체크하여 skip.
+        """
+        self._skip_ids.update(asset_ids)
+        return len(asset_ids)
 
     def drain_pending(self) -> int:
         """Boot-time helper: enqueue everything currently marked pending."""
@@ -176,6 +218,7 @@ class AnalysisQueue(QObject):
             self._queue.put(row.id)
             self._enqueued_packs.add(row.pack_id)
         self._emit_progress()
+        self._try_batch_submit()
         return len(rows)
 
     # -- progress snapshot -------------------------------------------
@@ -230,6 +273,9 @@ class AnalysisQueue(QObject):
                 continue
             if asset_id == -1:  # sentinel
                 return
+            if asset_id in self._skip_ids:
+                self._skip_ids.discard(asset_id)
+                continue  # skip — batch 가 처리 중
             self._handle_one(asset_id)
 
     def _handle_one(self, asset_id: int) -> None:
@@ -303,6 +349,30 @@ class AnalysisQueue(QObject):
             asset_id, result.state, error=result.error,
             analyzed_at=int(time.time()),
         )
+        # M11.1 Task 1.5 — backend_used write hook (M11 verification 알려진 한계 해결)
+        backend_used = getattr(result, "backend_used", {}) or {}
+        if backend_used:
+            self.store.mark_asset_backends(
+                asset_id,
+                image=backend_used.get("image"),
+                audio=backend_used.get("audio"),
+                embed=backend_used.get("embed"),
+            )
+
+    def snapshot_queue(self, *, limit: int = 50) -> list:
+        """큐 내용 peek (비우지 않음). queue.Queue.mutex 안에서 안전 copy.
+
+        queue.Queue 에 peek API 없음 → internal mutex + deque copy.
+        sentinel(-1) 는 걸러냄. AssetRow 를 store 조회로 반환. limit 이상 잘라냄.
+        """
+        with self._queue.mutex:
+            ids = [aid for aid in list(self._queue.queue)[:limit] if aid != -1]
+        rows = []
+        for aid in ids:
+            row = self.store.get_asset_by_id(aid)
+            if row is not None:
+                rows.append(row)
+        return rows
 
     def _maybe_finalize_pack(self, pack_id: int) -> None:
         # 팩에 pending 이 0 개면 aggregate_meta 한 번 새로 씀

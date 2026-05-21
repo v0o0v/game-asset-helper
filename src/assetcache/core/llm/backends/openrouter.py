@@ -64,5 +64,8 @@ class OpenRouterBackend(OpenAIBackend):
             ),
         )
 
+    def supports_batch(self) -> bool:
+        return False
+
 
 _: LLMBackend = OpenRouterBackend.__new__(OpenRouterBackend)  # type: ignore[arg-type]

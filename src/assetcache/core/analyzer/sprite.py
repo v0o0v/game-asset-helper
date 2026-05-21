@@ -78,7 +78,7 @@ class SpriteAnalyzer:
         img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
 
         # ── 3. Gemma 호출 + 검증 + (위반 시) 재시도 ──────────────────
-        gemma_payload, state, error = self._call_gemma_with_validation(
+        gemma_payload, state, error, image_backend = self._call_gemma_with_validation(
             img_b64=img_b64, language=inp.language,
         )
 
@@ -111,12 +111,20 @@ class SpriteAnalyzer:
             description=gemma_payload.get("description", "") or "",
             rel_path=inp.rel_path,
         )
+        embed_backend: str | None = None
         try:
             blob, dim = self.embedder.encode_text(searchable.for_embed)
+            embed_backend = self.embedder.last_backend_name
         except OllamaError:
             blob, dim = b"", 0
             if state == "ok":
                 state = "partial"
+
+        backend_used: dict = {}
+        if image_backend:
+            backend_used["image"] = image_backend
+        if embed_backend:
+            backend_used["embed"] = embed_backend
 
         return AnalyzerResult(
             kind="sprite", state=state, error=error,
@@ -125,6 +133,7 @@ class SpriteAnalyzer:
             embedding_vector=blob, embedding_dim=dim,
             embedding_model=self.embedder.model,
             description=gemma_payload.get("description", "") or "",
+            backend_used=backend_used,
         )
 
     # -- technical helpers ------------------------------------------
@@ -222,13 +231,16 @@ class SpriteAnalyzer:
 
     def _call_gemma_with_validation(
         self, *, img_b64: str, language: str
-    ) -> tuple[dict, str, str | None]:
+    ) -> tuple[dict, str, str | None, str | None]:
         """Call Gemma + validate the enum payload, retrying on violations.
 
         ``OllamaClient`` already retries 200-but-bad-JSON internally, so
         the loop here covers the analyzer-specific failure mode:
         whitelist violations.  We try up to 3 times before demoting the
         offending fields to ``other`` and returning ``partial``.
+
+        Returns ``(payload, state, error, backend_name_used)``.
+        M11.1 Task 1.5 — 4번째 반환값으로 실제 호출된 backend 이름 노출.
         """
         system_prompt = self._build_system_prompt(language=language)
         messages = [
@@ -238,11 +250,15 @@ class SpriteAnalyzer:
         ]
         last_fixed: dict | None = None
         last_err: str | None = None
+        last_backend: str | None = None
         for _ in range(3):
             try:
-                payload = unwrap_chat_result(self.ollama.chat(
-                    messages, force_json=True, num_ctx=8000
-                ))
+                raw = self.ollama.chat(messages, force_json=True, num_ctx=8000)
+                # BackendChain → (dict, str), OllamaClient → dict
+                if isinstance(raw, tuple) and len(raw) == 2 and isinstance(raw[1], str):
+                    payload, last_backend = raw[0], raw[1]
+                else:
+                    payload, last_backend = raw, None
             except (OllamaError, BackendError) as e:
                 # M11 — backend 이름을 명시 (이전 "ollama:" hardcoded prefix 는 chain 시대
                 # 에 misleading — 실제 호출된 backend 가 gemini/claude/openai 등일 수 있음).
@@ -251,15 +267,15 @@ class SpriteAnalyzer:
                          "category": _CATEGORY_FALLBACK,
                          "style": _STYLE_FALLBACK, "mood": [], "palette": [],
                          "animation_hint": [], "confidence": 0.0},
-                        "partial", f"chat backend ({backend_name}): {e}")
+                        "partial", f"chat backend ({backend_name}): {e}", None)
             ok, err, fixed = self._validate_payload(payload)
             if ok:
-                return payload, "ok", None
+                return payload, "ok", None, last_backend
             last_fixed = fixed
             last_err = err
         # M11 — 3회 retry 모두 enum validation 실패. backend 응답 자체는 받음.
         # 메시지에 "validation:" prefix 로 backend error 와 구분.
-        return last_fixed or {}, "partial", f"validation (3 retries failed): {last_err}"
+        return last_fixed or {}, "partial", f"validation (3 retries failed): {last_err}", last_backend
 
     def _build_system_prompt(self, *, language: str) -> str:
         # 라벨 enum 동적 주입

@@ -70,7 +70,7 @@ class SpritesheetAnalyzer:
         composite.save(buf, format="PNG")
         img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
 
-        gemma_payload, state, error = self._call_gemma(
+        gemma_payload, state, error, image_backend = self._call_gemma(
             img_b64=img_b64, language=inp.language,
         )
 
@@ -157,12 +157,20 @@ class SpritesheetAnalyzer:
             rel_path=inp.rel_path,
         )
 
+        embed_backend: str | None = None
         try:
             blob, dim = self.embedder.encode_text(searchable.for_embed)
+            embed_backend = self.embedder.last_backend_name
         except OllamaError:
             blob, dim = b"", 0
             if state == "ok":
                 state = "partial"
+
+        backend_used: dict = {}
+        if image_backend:
+            backend_used["image"] = image_backend
+        if embed_backend:
+            backend_used["embed"] = embed_backend
 
         return AnalyzerResult(
             kind="spritesheet", state=state, error=error,
@@ -171,11 +179,16 @@ class SpritesheetAnalyzer:
             embedding_vector=blob, embedding_dim=dim,
             embedding_model=self.embedder.model,
             description=gemma_payload.get("description", "") or "",
+            backend_used=backend_used,
         )
 
     def _call_gemma(
         self, *, img_b64: str, language: str,
-    ) -> tuple[dict, str, str | None]:
+    ) -> tuple[dict, str, str | None, str | None]:
+        """Returns (payload, state, error, backend_name_used).
+
+        M11.1 Task 1.5 — 4번째 반환값으로 실제 호출된 backend 이름 노출.
+        """
         anim_enum = ", ".join(self.registry.list_labels("animation"))
         system = (
             "You are a game animation labeler. Respond ONLY with valid JSON.\n\n"
@@ -196,12 +209,17 @@ class SpritesheetAnalyzer:
                        images_b64=[img_b64]),
         ]
         try:
-            payload = unwrap_chat_result(self.ollama.chat(messages, force_json=True, num_ctx=4000))
-            return payload, "ok", None
+            raw = self.ollama.chat(messages, force_json=True, num_ctx=4000)
+            # BackendChain → (dict, str), OllamaClient → dict
+            if isinstance(raw, tuple) and len(raw) == 2 and isinstance(raw[1], str):
+                payload, backend_name = raw[0], raw[1]
+            else:
+                payload, backend_name = unwrap_chat_result(raw), None
+            return payload, "ok", None, backend_name
         except (OllamaError, BackendError) as e:
             # M11 — backend 이름 정확히 표시 (chain 시대에 ollama 가 아닌 backend 호출 가능)
             backend_name = getattr(e, "backend", None) or "chat"
             return ({"animation_hint": [], "description": "",
                     "subject": "", "category": "other",
                     "style": "other", "mood": [], "palette": [],
-                    "confidence": 0.0}, "partial", f"chat backend ({backend_name}): {e}")
+                    "confidence": 0.0}, "partial", f"chat backend ({backend_name}): {e}", None)

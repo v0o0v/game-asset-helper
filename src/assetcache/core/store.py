@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+from .batch.types import BatchJobRow
 from .manifest import PackManifest
 
 log = logging.getLogger(__name__)
@@ -424,6 +425,33 @@ CREATE INDEX IF NOT EXISTS idx_unity_imports_state ON unity_imports(import_state
 """
 
 
+_M11_1_BATCH_SCHEMA = """
+CREATE TABLE IF NOT EXISTS batch_jobs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    backend         TEXT NOT NULL,
+    modality        TEXT NOT NULL,
+    backend_job_id  TEXT NOT NULL UNIQUE,
+    asset_count     INTEGER NOT NULL,
+    submitted_at    INTEGER NOT NULL,
+    expires_at      INTEGER NOT NULL,
+    state           TEXT NOT NULL,
+    completed_at    INTEGER,
+    success_count   INTEGER NOT NULL DEFAULT 0,
+    failure_count   INTEGER NOT NULL DEFAULT 0,
+    error           TEXT,
+    display_name    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_batch_jobs_state ON batch_jobs(state);
+CREATE INDEX IF NOT EXISTS idx_batch_jobs_backend_job_id ON batch_jobs(backend_job_id);
+"""
+
+_MODALITY_KIND_FILTER: dict[str, tuple[str, ...]] = {
+    "chat_image": ("sprite", "spritesheet"),
+    "chat_audio": ("sound",),
+    # text_embed → 모든 kind (dict 에 없으면 kind 필터 미적용)
+}
+
+
 # ── Store ────────────────────────────────────────────────────────────
 
 
@@ -459,7 +487,7 @@ class Store:
     # -- lifecycle ----------------------------------------------------
 
     def initialize(self) -> None:
-        """Create M1 + M2 + M3 + M4 + M7 tables.  Safe to call repeatedly."""
+        """Create M1 + M2 + M3 + M4 + M7 + M11.1 tables.  Safe to call repeatedly."""
         self.conn.executescript(_M1_SCHEMA)
         self.conn.executescript(_M2_SCHEMA)
         self.conn.executescript(_M3_SCHEMA)
@@ -467,6 +495,7 @@ class Store:
         self._migrate_m6_animations_json()
         self._migrate_unity_imports()
         self._migrate_m11_backend_columns()
+        self._migrate_m11_1_batch_schema()
 
     def _migrate_m6_animations_json(self) -> None:
         """M6 — sprite_meta.animations_json 컬럼 idempotent 추가."""
@@ -497,6 +526,33 @@ class Store:
                     self.conn.execute(
                         f"ALTER TABLE assets ADD COLUMN {col} TEXT"
                     )
+
+    def _migrate_m11_1_batch_schema(self) -> None:
+        """M11.1 — batch_jobs 테이블 + assets.batch_job_id/batch_state 컬럼 idempotent 추가.
+
+        순서:
+        1. batch_jobs 테이블 + 인덱스 생성 (CREATE TABLE IF NOT EXISTS — idempotent)
+        2. assets 에 batch_job_id (FK → batch_jobs.id) 컬럼 ALTER TABLE (없을 때만)
+        3. assets 에 batch_state TEXT NOT NULL DEFAULT 'none' 컬럼 ALTER TABLE (없을 때만)
+        4. idx_assets_batch_state 인덱스 생성 (컬럼 확보 후 — CREATE INDEX IF NOT EXISTS)
+        """
+        with self.write_lock:
+            # 1. batch_jobs 테이블 + state/backend_job_id 인덱스
+            self.conn.executescript(_M11_1_BATCH_SCHEMA)
+            # 2 & 3. assets ALTER TABLE — idempotent
+            cols = {r[1] for r in self.conn.execute("PRAGMA table_info(assets)").fetchall()}
+            if "batch_job_id" not in cols:
+                self.conn.execute(
+                    "ALTER TABLE assets ADD COLUMN batch_job_id INTEGER REFERENCES batch_jobs(id)"
+                )
+            if "batch_state" not in cols:
+                self.conn.execute(
+                    "ALTER TABLE assets ADD COLUMN batch_state TEXT NOT NULL DEFAULT 'none'"
+                )
+            # 4. idx_assets_batch_state (컬럼이 있어야 생성 가능)
+            self.conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_assets_batch_state ON assets(batch_state)"
+            )
 
     def close(self) -> None:
         try:
@@ -1075,6 +1131,18 @@ class Store:
                 (asset_id, searchable_text),
             )
 
+    def get_searchable_text(self, asset_id: int) -> str | None:
+        """assets_fts 에서 저장된 searchable_text 반환.
+
+        분석 완료 전 또는 FTS 미등록 자산이면 None.
+        BatchManager._build_embed_texts 가 사용.
+        """
+        row = self.conn.execute(
+            "SELECT searchable_text FROM assets_fts WHERE asset_id = ?",
+            (asset_id,),
+        ).fetchone()
+        return row[0] if row else None
+
     # -- M2: CLIP label vector cache ----------------------------------
 
     def clip_label_cache_get(self, label: str, model: str) -> bytes | None:
@@ -1103,26 +1171,32 @@ class Store:
             "SELECT id, axis, label, description, source, enabled FROM labels"
         )
         params: list = []
-        where: list[str] = []
+        where: list[str] = ["id IS NOT NULL"]  # M11.1 defensive — race condition 보호
         if axis is not None:
             where.append("axis = ?")
             params.append(axis)
         if enabled_only:
             where.append("enabled = 1")
-        if where:
-            sql += " WHERE " + " AND ".join(where)
+        sql += " WHERE " + " AND ".join(where)
         sql += " ORDER BY axis, label"
-        return [
-            LabelRow(
-                id=int(r[0]),
-                axis=r[1],
-                label=r[2],
-                description=r[3],
-                source=r[4],
-                enabled=bool(r[5]),
+        rows: list[LabelRow] = []
+        for r in self.conn.execute(sql, params).fetchall():
+            if r[0] is None:
+                # WHERE id IS NOT NULL 로 1차 차단되지만 SQLite WAL transient
+                # race 시 reader 가 partial row 볼 가능성 — log + skip 으로 방어.
+                log.warning("labels row with NULL id — skipping (race?): %s", r)
+                continue
+            rows.append(
+                LabelRow(
+                    id=int(r[0]),
+                    axis=r[1],
+                    label=r[2],
+                    description=r[3],
+                    source=r[4],
+                    enabled=bool(r[5]),
+                )
             )
-            for r in self.conn.execute(sql, params).fetchall()
-        ]
+        return rows
 
     def get_label_by_id(self, label_id: int) -> Optional[LabelRow]:
         """label_id 로 라벨 조회. 없으면 None."""
@@ -2305,6 +2379,218 @@ class Store:
             (str(package_path),),
         ).fetchone()
         return _unity_import_row(row) if row else None
+
+    # -- M11.1: batch_jobs CRUD ------------------------------------------
+
+    def save_batch_job(
+        self,
+        *,
+        backend: str,
+        modality: str,
+        backend_job_id: str,
+        asset_count: int,
+        submitted_at: int,
+        expires_at: int,
+        display_name: str | None,
+    ) -> int:
+        """Insert new batch_jobs row with state='submitted'. Return id."""
+        with self.write_lock:
+            cur = self.conn.execute(
+                """
+                INSERT INTO batch_jobs (
+                    backend, modality, backend_job_id, asset_count,
+                    submitted_at, expires_at, state, display_name
+                ) VALUES (?, ?, ?, ?, ?, ?, 'submitted', ?)
+                """,
+                (backend, modality, backend_job_id, asset_count,
+                 submitted_at, expires_at, display_name),
+            )
+            return cur.lastrowid
+
+    def update_batch_job_state(
+        self,
+        batch_job_id: int,
+        *,
+        state: str,
+        completed_at: int | None = None,
+        success_count: int | None = None,
+        failure_count: int | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Partial update — only provided kwargs are SET."""
+        sets = ["state = ?"]
+        args: list = [state]
+        if completed_at is not None:
+            sets.append("completed_at = ?")
+            args.append(completed_at)
+        if success_count is not None:
+            sets.append("success_count = ?")
+            args.append(success_count)
+        if failure_count is not None:
+            sets.append("failure_count = ?")
+            args.append(failure_count)
+        if error is not None:
+            sets.append("error = ?")
+            args.append(error)
+        args.append(batch_job_id)
+        with self.write_lock:
+            self.conn.execute(
+                f"UPDATE batch_jobs SET {', '.join(sets)} WHERE id = ?", args
+            )
+
+    def get_batch_job(self, batch_job_id: int) -> BatchJobRow | None:
+        """단일 row by id. 없으면 None."""
+        row = self.conn.execute(
+            """
+            SELECT id, backend, modality, backend_job_id, asset_count,
+                   submitted_at, expires_at, state, completed_at,
+                   success_count, failure_count, error, display_name
+            FROM batch_jobs WHERE id = ?
+            """,
+            (batch_job_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return BatchJobRow(*row)
+
+    def list_active_batch_jobs(self) -> list[BatchJobRow]:
+        """state IN ('submitted', 'running') 만 반환."""
+        rows = self.conn.execute(
+            """
+            SELECT id, backend, modality, backend_job_id, asset_count,
+                   submitted_at, expires_at, state, completed_at,
+                   success_count, failure_count, error, display_name
+            FROM batch_jobs
+            WHERE state IN ('submitted', 'running')
+            ORDER BY id
+            """
+        ).fetchall()
+        return [BatchJobRow(*r) for r in rows]
+
+    # -- M11.1: assets batch_state ----------------------------------------
+
+    def mark_assets_batch_queued(self, asset_ids: list[int]) -> None:
+        """Bulk UPDATE — set batch_state='queued' for asset_ids (race condition 방지)."""
+        if not asset_ids:
+            return
+        placeholders = ",".join("?" * len(asset_ids))
+        with self.write_lock:
+            self.conn.execute(
+                f"UPDATE assets SET batch_state = 'queued' WHERE id IN ({placeholders})",
+                asset_ids,
+            )
+
+    def mark_assets_batch_submitted(self, asset_ids: list[int], batch_job_id: int) -> None:
+        """Bulk UPDATE — set batch_state='submitted' + batch_job_id."""
+        if not asset_ids:
+            return
+        placeholders = ",".join("?" * len(asset_ids))
+        with self.write_lock:
+            self.conn.execute(
+                f"UPDATE assets SET batch_state = 'submitted', batch_job_id = ? WHERE id IN ({placeholders})",
+                [batch_job_id, *asset_ids],
+            )
+
+    def mark_asset_batch_state(self, asset_id: int, batch_state: str) -> None:
+        """Single asset UPDATE — used during rollback / individual completion."""
+        with self.write_lock:
+            self.conn.execute(
+                "UPDATE assets SET batch_state = ? WHERE id = ?",
+                (batch_state, asset_id),
+            )
+
+    def fetch_pending_by_modality(
+        self,
+        modality: str,
+        *,
+        batch_state_in: tuple[str, ...] = ("none",),
+        limit: int = 1000,
+    ) -> list[AssetRow]:
+        """analysis_state='pending' AND batch_state IN (...) AND modality kind 필터."""
+        kinds = _MODALITY_KIND_FILTER.get(modality)
+        state_ph = ",".join("?" * len(batch_state_in))
+        if kinds is None:
+            # text_embed — 모든 kind
+            sql = f"""
+                SELECT id, pack_id, path, kind, file_hash, file_size,
+                       added_at, analyzed_at, analysis_state, analysis_error,
+                       backend_image, backend_audio, backend_embed
+                FROM assets
+                WHERE analysis_state = 'pending'
+                  AND batch_state IN ({state_ph})
+                ORDER BY id
+                LIMIT ?
+            """
+            args: list = [*batch_state_in, limit]
+        else:
+            kind_ph = ",".join("?" * len(kinds))
+            sql = f"""
+                SELECT id, pack_id, path, kind, file_hash, file_size,
+                       added_at, analyzed_at, analysis_state, analysis_error,
+                       backend_image, backend_audio, backend_embed
+                FROM assets
+                WHERE analysis_state = 'pending'
+                  AND batch_state IN ({state_ph})
+                  AND kind IN ({kind_ph})
+                ORDER BY id
+                LIMIT ?
+            """
+            args = [*batch_state_in, *kinds, limit]
+        rows = self.conn.execute(sql, args).fetchall()
+        return [AssetRow(*r) for r in rows]
+
+    def count_pending_by_modality(self, modality: str) -> int:
+        """analysis_state='pending' AND batch_state='none' AND kind matches modality.
+
+        used by BatchManager.try_submit threshold check.
+        """
+        kinds = _MODALITY_KIND_FILTER.get(modality)
+        if kinds is None:  # text_embed — 모든 kind
+            sql = """
+                SELECT COUNT(*) FROM assets
+                WHERE analysis_state = 'pending' AND batch_state = 'none'
+            """
+            args: tuple = ()
+        else:
+            kind_ph = ",".join("?" * len(kinds))
+            sql = f"""
+                SELECT COUNT(*) FROM assets
+                WHERE analysis_state = 'pending' AND batch_state = 'none'
+                  AND kind IN ({kind_ph})
+            """
+            args = tuple(kinds)
+        return self.conn.execute(sql, args).fetchone()[0]
+
+    def list_assets_in_batch(self, batch_job_id: int) -> list[AssetRow]:
+        """모든 asset where batch_job_id = ?. order by id."""
+        rows = self.conn.execute(
+            """
+            SELECT id, pack_id, path, kind, file_hash, file_size,
+                   added_at, analyzed_at, analysis_state, analysis_error,
+                   backend_image, backend_audio, backend_embed
+            FROM assets
+            WHERE batch_job_id = ?
+            ORDER BY id
+            """,
+            (batch_job_id,),
+        ).fetchall()
+        return [AssetRow(*r) for r in rows]
+
+    def list_recent_failures(self, *, limit: int = 20) -> list[AssetRow]:
+        """analysis_state='failed' order by analyzed_at DESC, id DESC limit ?."""
+        rows = self.conn.execute(
+            """
+            SELECT id, pack_id, path, kind, file_hash, file_size,
+                   added_at, analyzed_at, analysis_state, analysis_error,
+                   backend_image, backend_audio, backend_embed
+            FROM assets
+            WHERE analysis_state = 'failed'
+            ORDER BY analyzed_at DESC, id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [AssetRow(*r) for r in rows]
 
 
 # ── helpers ──────────────────────────────────────────────────────────

@@ -185,6 +185,9 @@
     <span x-show="chainSaving">{{ _("Saving...") }}</span>
   </button>
   <span x-show="chainSaveError" class="error" x-text="chainSaveError"></span>
+
+  {# M11.1 Phase 5 — Batch API 설정 카드 #}
+  {% include "settings/_batch_card.html" %}
 </section>
 
 <script>

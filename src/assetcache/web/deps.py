@@ -30,6 +30,7 @@ class WebDeps:
     tray_bridge: Any | None = None  # Phase 4 task 4.10 에서 QObject 주입
     library_root: Path | None = None  # M5 bugfix — None 이면 paths.library_dir 폴백 (test 편의)
     llm_registry: Any | None = None  # M11 — BackendRegistry (settings UI 가 test_connection 등에서 사용). None 이면 라우터가 즉시 재생성
+    batch_manager: Any | None = None  # M11.1 Phase 5 — BatchManager (cancel UI 용). None 이면 cancel 라우터 no-op
 
 
 def resolve_asset_path(deps: WebDeps, rel_path: str) -> Path:

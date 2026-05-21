@@ -27,14 +27,6 @@ class _EmbedCapable(Protocol):
     def embed(self, text: str, *, model: str | None = None) -> list[float]: ...
 
 
-def _unwrap_embed_result(result: Any) -> list[float]:
-    """BackendChain.embed → (vec, name) / legacy → list[float] 양쪽 흡수."""
-    if isinstance(result, tuple) and len(result) == 2:
-        vec, _name = result
-        return list(vec)
-    return list(result)
-
-
 class EmbeddingEncoder:
     def __init__(
         self,
@@ -45,6 +37,10 @@ class EmbeddingEncoder:
         self.client = client
         self.model = model
         self._dim: int | None = None
+        # M11.1 Task 1.5 — 마지막 embed 호출에 사용된 backend 이름.
+        # BackendChain 이면 chain.embed() 가 (vec, name) 반환 → 여기서 저장.
+        # duck-typed legacy 면 None 유지.
+        self.last_backend_name: str | None = None
 
     def encode_text(self, text: str) -> tuple[bytes, int]:
         """Return ``(blob, dim)`` for ``text``.
@@ -56,9 +52,17 @@ class EmbeddingEncoder:
         명시적 모델을 전달하지 않아 backend 자체 ``model_embed`` 가 쓰인다
         (multi-backend chain 시대에 backend 별 모델이 다르기 때문 —
         gemini-embedding-001, text-embedding-3-small, nomic-embed-text 등).
+
+        M11.1 Task 1.5 — 호출 후 ``self.last_backend_name`` 에 backend 이름 저장.
         """
         result = self.client.embed(text)
-        vec = _unwrap_embed_result(result)
+        # BackendChain.embed → (vec, name), legacy → list[float]
+        if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], str):
+            vec_raw, self.last_backend_name = result
+        else:
+            vec_raw = result
+            self.last_backend_name = None
+        vec = list(vec_raw)
         arr = np.asarray(vec, dtype=np.float32)
         if self._dim is None:
             self._dim = int(arr.size)

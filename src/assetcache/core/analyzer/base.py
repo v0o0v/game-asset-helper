@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -38,6 +38,10 @@ class AnalyzerResult:
     embedding_dim: int
     embedding_model: str
     description: str
+    # M11.1 Task 1.5 — 분석에 사용된 backend 이름 (modality → backend name).
+    # {"image": "gemini", "embed": "ollama"} 형태. chain.chat/embed 호출 후 채움.
+    # 기본 empty dict — 기존 코드 / 테스트 영향 0.
+    backend_used: dict[str, str] = field(default_factory=dict)
 
 
 class AnalyzerError(RuntimeError):
