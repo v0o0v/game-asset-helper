@@ -216,3 +216,55 @@ def test_spritesheet_response_does_not_use_other_fallback(gemini) -> None:
             assert value.lower() != "other", (
                 f"{axis} 응답이 'other': {out!r}"
             )
+
+
+# === M11.7 — inventory_item mood 차단 (A2) + mood OPTIONAL (A1) =======
+
+
+def test_crown_icon_response_has_no_mood_labels(gemini) -> None:
+    """M11.7 A2 — crown_icon (inventory_item) 응답에 mood 라벨 빈 배열.
+
+    M11.6 LIVE 의 별도 발견 (crown_icon 에 mood=heroic/playful 합산) 가
+    M11.7 A2 (category 별 mood 차단 가이드) 로 차단되는지 직접 단언.
+    LIVE driver 결과 crown_icon mood = 0 토큰 — `M11_7_verification.md §3`.
+    """
+    img_b64 = _make_crown_icon_png()
+    out = gemini.chat(
+        [ChatMessage("user", BATCH_IMAGE_PROMPT, images_b64=[img_b64])],
+        force_json=True,
+    )
+    category = (out.get("category") or "").lower()
+    mood = out.get("mood") or []
+    # category 가 inventory_item / item 으로 분류된 케이스에만 mood 차단 단언
+    # (만에 하나 character 로 응답된 경우는 다른 strict test 가 잡음).
+    if category in {"inventory_item", "item"}:
+        assert isinstance(mood, list), (
+            f"mood 응답이 list 가 아님: {mood!r} (full={out!r})"
+        )
+        assert len(mood) == 0, (
+            f"inventory_item 자산에 mood 라벨이 응답됨 (A2 가이드 위반): "
+            f"{mood!r} (full={out!r})"
+        )
+
+
+def test_ui_button_response_has_no_mood_labels(gemini) -> None:
+    """M11.7 A2 — ui_button (ui_icon) 응답에 mood 라벨 빈 배열.
+
+    ui_icon 도 inventory_item 과 같은 정적 객체 — A2 가이드에 따라
+    mood 차단 단언.
+    """
+    img_b64 = _make_ui_button_png()
+    out = gemini.chat(
+        [ChatMessage("user", BATCH_IMAGE_PROMPT, images_b64=[img_b64])],
+        force_json=True,
+    )
+    category = (out.get("category") or "").lower()
+    mood = out.get("mood") or []
+    if category in {"ui_icon", "ui"}:
+        assert isinstance(mood, list), (
+            f"mood 응답이 list 가 아님: {mood!r} (full={out!r})"
+        )
+        assert len(mood) == 0, (
+            f"ui_icon 자산에 mood 라벨이 응답됨 (A2 가이드 위반): "
+            f"{mood!r} (full={out!r})"
+        )
