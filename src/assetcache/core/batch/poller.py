@@ -10,15 +10,31 @@ from __future__ import annotations
 
 import json
 import logging
-import struct
 import threading
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 
+from ..analyzer.payload_parser import (
+    audio_payload_to_labels,
+    collect_label_descriptions,
+    image_payload_to_labels,
+    validate_audio_payload,
+    validate_image_payload,
+)
+from ..analyzer.spritesheet_meta import (
+    detection_to_animation_labels,
+    enrich_sprite_meta_with_sheet,
+)
+from ..analyzer.tech_meta import compute_sound_meta, compute_sprite_meta
+from ..searchable import build_searchable
+from ..sheet.detect import detect_sheet
+
 if TYPE_CHECKING:
     from ..analysis_queue import AnalysisQueue
+    from ..labels import LabelRegistry
     from ..llm.registry import BackendRegistry
     from ..store import Store
     from ...config import Config
@@ -63,12 +79,20 @@ class BatchPoller(threading.Thread):
         chain_registry: "BackendRegistry",
         analysis_queue: "AnalysisQueue",
         cfg: "Config",
+        registry: "LabelRegistry | None" = None,
+        library_dir: Path | None = None,
     ) -> None:
         super().__init__(daemon=True, name="assetcache-batch-poller")
         self._store = store
         self._chain = chain_registry
         self._aq = analysis_queue
         self._cfg = cfg
+        # M11.1 patch — LabelRegistry 가 있을 때만 batch 결과 → label 변환을 수행.
+        # None 이면 (이전 동작) labels 빈 채로 mark ok — 기존 옵트인 테스트 호환.
+        self._registry = registry
+        # v0.2.x patch — library_dir 가 있으면 batch 경로도 sprite_meta /
+        # sound_meta 를 sync 와 동등하게 채움.  None 이면 meta 충전 skip.
+        self._library_dir = library_dir
         self._stop_event = threading.Event()
 
     def stop(self, timeout: float = 5.0) -> None:
@@ -169,11 +193,11 @@ class BatchPoller(threading.Thread):
             try:
                 if job.modality == "chat_image":
                     payload = json.loads(resp.response.text)
-                    self._persist_image_payload(asset.id, payload)
+                    self._persist_image_payload(asset, payload)
                     self._store.mark_asset_backends(asset.id, image="gemini")
                 elif job.modality == "chat_audio":
                     payload = json.loads(resp.response.text)
-                    self._persist_audio_payload(asset.id, payload)
+                    self._persist_audio_payload(asset, payload)
                     self._store.mark_asset_backends(asset.id, audio="gemini")
                 elif job.modality == "text_embed":
                     vec = list(resp.embedding.values)
@@ -207,27 +231,162 @@ class BatchPoller(threading.Thread):
         self._store.mark_asset_batch_state(asset.id, "failed")
         self._aq.enqueue_asset(asset.id)
 
-    def _persist_image_payload(self, asset_id: int, payload: dict) -> None:
-        """이미지 결과 최소 persist — 빈 라벨 + analyzed_at 마킹.
+    def _persist_image_payload(self, asset, payload: dict) -> None:
+        """이미지 batch 결과를 실 labels + sprite_meta + searchable text 로 persist.
 
-        TODO M12: SpriteAnalyzer payload 파서 통합으로 실제 라벨 추출.
-        현재 v0.2.1: 완료 표시만 하고 라벨은 비워둔다.
+        sync SpriteAnalyzer 와 동일한 ``validate_image_payload`` →
+        ``image_payload_to_labels`` 경로를 사용한다.  enum whitelist
+        위반은 ``other`` 로 demote 되며, 모두 demote 됐어도 ``state='ok'``
+        (partial 라벨이라도 검색은 가능).
+
+        ``self._library_dir`` 가 있으면:
+          * ``compute_sprite_meta`` 로 tech 메타 (width/height/alpha/
+            pixel_art/dominant_colors) 채움.
+          * ``detect_sheet`` 로 spritesheet 검출 → 시트면 frame_w/h/count
+            + animations_json (Aseprite frameTags) 채움 + frameTags 기반
+            animation 라벨 추가 + kind='spritesheet' promote.
+
+        ``self._registry`` 가 None 이면 (테스트 fallback) 이전 동작 —
+        labels 빈 채로 mark ok.
+
+        한계: batch prompt 는 시트를 의식하지 않으므로 sync 와 달리 Gemma
+        의 ``animation_hint`` 추측 라벨은 없음.  Aseprite frameTags 가
+        없는 grid-only 시트는 animation 라벨이 비어 있음.
         """
-        self._store.save_asset_labels(asset_id, [])
+        analyzed_at = int(time.time())
+        if self._registry is None:
+            self._store.save_asset_labels(asset.id, [])
+            self._store.mark_asset_state(
+                asset.id, "ok", error=None, analyzed_at=analyzed_at,
+            )
+            return
+
+        ok, err, fixed = validate_image_payload(payload, self._registry)
+        if not ok:
+            log.info(
+                "batch image payload validation: asset_id=%d %s",
+                asset.id, err,
+            )
+        labels = image_payload_to_labels(fixed)
+
+        sprite_meta = self._try_compute_sprite_meta(asset)
+        if sprite_meta is not None:
+            sheet_result = self._try_enrich_with_sheet(asset, sprite_meta)
+            if sheet_result is not None:
+                sprite_meta, anim_labels = sheet_result
+                labels.extend(anim_labels)
+                self._store.update_asset_kind(asset.id, "spritesheet")
+            self._store.save_sprite_meta(asset.id, sprite_meta)
+
+        descs = collect_label_descriptions(labels, self._registry)
+        searchable = build_searchable(
+            meta=sprite_meta,
+            labels=labels,
+            label_descriptions=descs,
+            description=fixed.get("description") or "",
+            rel_path=asset.path,
+        )
+        self._store.save_asset_labels(asset.id, labels)
+        self._store.update_fts(asset.id, searchable.for_fts)
         self._store.mark_asset_state(
-            asset_id, "ok", error=None, analyzed_at=int(time.time()),
+            asset.id, "ok", error=None, analyzed_at=analyzed_at,
         )
 
-    def _persist_audio_payload(self, asset_id: int, payload: dict) -> None:
-        """오디오 결과 최소 persist — 빈 라벨 + analyzed_at 마킹.
+    def _try_compute_sprite_meta(self, asset):
+        """library_dir 가 있으면 파일에서 SpriteMeta 계산, 실패 시 None."""
+        if self._library_dir is None:
+            return None
+        try:
+            abs_path = (self._library_dir / asset.path).resolve()
+            return compute_sprite_meta(abs_path)
+        except Exception as e:  # noqa: BLE001 — file I/O 오류 robust skip
+            log.warning(
+                "batch: sprite_meta 계산 실패 — asset_id=%d path=%s: %s",
+                asset.id, asset.path, e,
+            )
+            return None
 
-        TODO M12: SoundAnalyzer payload 파서 통합으로 실제 라벨 추출.
-        현재 v0.2.1: 완료 표시만 하고 라벨은 비워둔다.
+    def _try_enrich_with_sheet(self, asset, base_meta):
+        """detect_sheet 가 hit 하면 (enriched_meta, animation_labels) 튜플 반환.
+
+        시트가 아니거나 검출 실패 시 None — 일반 sprite 로 진행한다.
+        library_dir 가 없거나 검출에서 예외가 나면 silently skip.
         """
-        self._store.save_asset_labels(asset_id, [])
-        self._store.mark_asset_state(
-            asset_id, "ok", error=None, analyzed_at=int(time.time()),
+        if self._library_dir is None:
+            return None
+        try:
+            abs_path = (self._library_dir / asset.path).resolve()
+            detection = detect_sheet(abs_path)
+        except Exception as e:  # noqa: BLE001 — sheet 검출 자체가 실패해도 sprite 진행
+            log.warning(
+                "batch: spritesheet 검출 실패 — asset_id=%d path=%s: %s",
+                asset.id, asset.path, e,
+            )
+            return None
+        if detection is None:
+            return None
+        enriched = enrich_sprite_meta_with_sheet(base_meta, detection)
+        anim_labels = detection_to_animation_labels(detection)
+        return enriched, anim_labels
+
+    def _persist_audio_payload(self, asset, payload: dict) -> None:
+        """오디오 batch 결과를 실 labels + sound_meta + searchable text 로 persist.
+
+        sync SoundAnalyzer 와 동일한 ``validate_audio_payload`` →
+        ``audio_payload_to_labels`` 경로.  ``self._library_dir`` 가 있으면
+        ``compute_sound_meta`` 로 tech (duration/sr/channels/loudness/bpm)
+        + payload (category/loopable/tempo 등) 를 합쳐서 SoundMeta 채움.
+        ``audio_path_used`` 는 ``'batch'`` 로 표시.
+        """
+        analyzed_at = int(time.time())
+        if self._registry is None:
+            self._store.save_asset_labels(asset.id, [])
+            self._store.mark_asset_state(
+                asset.id, "ok", error=None, analyzed_at=analyzed_at,
+            )
+            return
+
+        ok, fixed, err = validate_audio_payload(payload, self._registry)
+        if not ok:
+            log.info(
+                "batch audio payload validation: asset_id=%d %s",
+                asset.id, err,
+            )
+        labels = audio_payload_to_labels(fixed)
+        descs = collect_label_descriptions(labels, self._registry)
+
+        sound_meta = self._try_compute_sound_meta(asset, fixed)
+        if sound_meta is not None:
+            self._store.save_sound_meta(asset.id, sound_meta)
+
+        searchable = build_searchable(
+            meta=sound_meta,
+            labels=labels,
+            label_descriptions=descs,
+            description=fixed.get("description") or "",
+            rel_path=asset.path,
         )
+        self._store.save_asset_labels(asset.id, labels)
+        self._store.update_fts(asset.id, searchable.for_fts)
+        self._store.mark_asset_state(
+            asset.id, "ok", error=None, analyzed_at=analyzed_at,
+        )
+
+    def _try_compute_sound_meta(self, asset, payload: dict):
+        """library_dir 가 있으면 파일에서 SoundMeta 계산, 실패 시 None."""
+        if self._library_dir is None:
+            return None
+        try:
+            abs_path = (self._library_dir / asset.path).resolve()
+            return compute_sound_meta(
+                abs_path, payload=payload, audio_path_used="batch",
+            )
+        except Exception as e:  # noqa: BLE001 — 파일 I/O 오류 robust skip
+            log.warning(
+                "batch: sound_meta 계산 실패 — asset_id=%d path=%s: %s",
+                asset.id, asset.path, e,
+            )
+            return None
 
     def _get_gemini_embed_model(self) -> str:
         """Phase 4.4 fix — cfg.backends.gemini.model_embed 의 안전한 access path.
