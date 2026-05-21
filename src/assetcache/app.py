@@ -165,11 +165,14 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     queue.set_batch_manager(_batch_manager)
 
     # M11.1 Task 4.4 — BatchPoller daemon thread (active batch job polling)
+    # Patch (post-v0.2.1): registry 주입으로 batch 결과 → 실 labels 변환 활성화
+    # (없으면 빈 라벨 stub 으로 fall back — 이전 v0.2.1 동작).
     _batch_poller = _BatchPoller(
         store=store,
         chain_registry=registry_llm,
         analysis_queue=queue,
         cfg=config,
+        registry=registry,
     )
     _batch_poller.start()
 
