@@ -195,6 +195,10 @@ class BatchPoller(threading.Thread):
                     payload = json.loads(resp.response.text)
                     self._persist_image_payload(asset, payload)
                     self._store.mark_asset_backends(asset.id, image="gemini")
+                elif job.modality == "chat_spritesheet":
+                    payload = json.loads(resp.response.text)
+                    self._persist_spritesheet_payload(asset, payload)
+                    self._store.mark_asset_backends(asset.id, image="gemini")
                 elif job.modality == "chat_audio":
                     payload = json.loads(resp.response.text)
                     self._persist_audio_payload(asset, payload)
@@ -275,6 +279,68 @@ class BatchPoller(threading.Thread):
             if sheet_result is not None:
                 sprite_meta, anim_labels = sheet_result
                 labels.extend(anim_labels)
+                self._store.update_asset_kind(asset.id, "spritesheet")
+            self._store.save_sprite_meta(asset.id, sprite_meta)
+
+        descs = collect_label_descriptions(labels, self._registry)
+        searchable = build_searchable(
+            meta=sprite_meta,
+            labels=labels,
+            label_descriptions=descs,
+            description=fixed.get("description") or "",
+            rel_path=asset.path,
+        )
+        self._store.save_asset_labels(asset.id, labels)
+        self._store.update_fts(asset.id, searchable.for_fts)
+        self._store.mark_asset_state(
+            asset.id, "ok", error=None, analyzed_at=analyzed_at,
+        )
+
+    def _persist_spritesheet_payload(self, asset, payload: dict) -> None:
+        """시트 batch 결과를 sync SpritesheetAnalyzer 와 동등하게 persist.
+
+        sync 와 차이:
+        * sync 는 ``_call_gemma`` 가 동기로 호출 — 여기는 batch 응답을 받았을 뿐
+          schema 동일.
+        * 동일 ``validate_image_payload`` + ``image_payload_to_labels`` 사용 →
+          animation_hint 가 enum 안에 있으면 그대로 라벨화.
+        * ``_try_enrich_with_sheet`` 로 frame 박스 + frameTags 추가 라벨 (중복
+          제거됨).  grid-only 시트도 Gemma animation_hint 가 살아남아 PR #18
+          한계 해소.
+
+        kind 는 이미 ``classify_image_assets`` 단계에서 ``spritesheet`` 로
+        promote 된 상태.  ``_try_enrich_with_sheet`` 가 다시 호출돼도 idempotent.
+        """
+        analyzed_at = int(time.time())
+        if self._registry is None:
+            self._store.save_asset_labels(asset.id, [])
+            self._store.mark_asset_state(
+                asset.id, "ok", error=None, analyzed_at=analyzed_at,
+            )
+            return
+
+        ok, err, fixed = validate_image_payload(payload, self._registry)
+        if not ok:
+            log.info(
+                "batch spritesheet payload validation: asset_id=%d %s",
+                asset.id, err,
+            )
+        labels = image_payload_to_labels(fixed)
+
+        sprite_meta = self._try_compute_sprite_meta(asset)
+        if sprite_meta is not None:
+            sheet_result = self._try_enrich_with_sheet(asset, sprite_meta)
+            if sheet_result is not None:
+                sprite_meta, anim_labels = sheet_result
+                # frameTags 추가 — 중복 (animation_hint 의 walk + frameTag 의 walk) 은
+                # label key 기반으로 dedupe
+                seen = {(l.axis, l.label) for l in labels}
+                for new in anim_labels:
+                    if (new.axis, new.label) not in seen:
+                        labels.append(new)
+                        seen.add((new.axis, new.label))
+                # kind promote — chat_spritesheet 경로에서는 이미 promoted 지만
+                # 누락된 케이스 (BatchManager 가 라이브러리 변경된 후 poll) 안전망
                 self._store.update_asset_kind(asset.id, "spritesheet")
             self._store.save_sprite_meta(asset.id, sprite_meta)
 
