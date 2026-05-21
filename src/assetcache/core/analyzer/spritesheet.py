@@ -41,15 +41,20 @@ class SpritesheetAnalyzer:
         registry: "LabelRegistry",
         embedder: "EmbeddingEncoder",
         clip=None,
+        alpha_color_weight: float = 0.5,
     ) -> None:
         self.sprite = sprite
         self.ollama = ollama
         self.registry = registry
         self.embedder = embedder
         self.clip = clip
+        # M11.4 cleanup #1 — Config.grid_detect_alpha_color_weight 전파.
+        self.alpha_color_weight = alpha_color_weight
 
     def analyze(self, inp: AnalyzerInput) -> AnalyzerResult:
-        detection = detect_sheet(inp.abs_path)
+        detection = detect_sheet(
+            inp.abs_path, alpha_color_weight=self.alpha_color_weight,
+        )
         if detection is None:
             # 폴백 — 일반 SpriteAnalyzer
             return self.sprite.analyze(inp)

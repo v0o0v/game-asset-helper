@@ -28,13 +28,29 @@ _AUDIO_MIME_BY_SUFFIX: dict[str, str] = {
 }
 
 # batch 경로 전용 프롬프트 — interactive 의 registry-driven enum 과 달리
-# 범용 JSON metadata 요청. 분석 이후 BatchPoller 에서 enum 정규화 수행.
+# 범용 JSON metadata 요청.  분석 이후 BatchPoller 에서 enum 정규화 수행.
+# M11.4 Phase 3: category enum + palette tone group 을 prompt 에 직접 명시
+# 해 inventory_item / ui_icon / hex 거부 정확도를 끌어올린다.
 BATCH_IMAGE_PROMPT = (
-    "You are a game asset metadata generator. "
-    "Respond ONLY with valid JSON with fields: "
-    "category (string), style (string), mood (array of strings), "
-    "palette (array of strings), subject (short noun phrase), "
-    "description (one sentence), confidence (float 0..1)."
+    "You are a game asset metadata generator. Respond ONLY with valid JSON.\n"
+    "Fields:\n"
+    "- category (string): pick exactly one of "
+    "[character, tile, effect, background, inventory_item, ui_icon, other]\n"
+    "- style (string): short style label such as pixel_art or cartoon\n"
+    "- mood (array of strings): pick from heroic, dark, playful, neutral, "
+    "minimalist, calm, mysterious, intense, or similar\n"
+    "- palette (array of strings): pick tone group names from "
+    "[warm, cool, monochrome, high_contrast, pastel, neutral] — "
+    "do NOT use hex codes like #FDD835\n"
+    "- subject (short noun phrase)\n"
+    "- description (one sentence)\n"
+    "- confidence (float 0..1)\n"
+    "\n"
+    "Guidance:\n"
+    "- Use 'inventory_item' for crown, sword, potion, gem, scroll, key, "
+    "or other carry-and-use objects — NOT 'character'.\n"
+    "- Use 'ui_icon' for HUD buttons, settings cog, heart counter, or "
+    "stand-alone interface graphics — NOT 'icon' or 'ui'."
 )
 
 BATCH_AUDIO_PROMPT = (

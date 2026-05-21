@@ -264,6 +264,12 @@ class Config:
     chains: dict[str, list[str]] = field(default_factory=_default_chains)
     # M11.1 — Gemini Batch API 정책
     batch: BatchConfig = field(default_factory=BatchConfig)
+    # M11.4 D-1 — grid_detect 의 color-edge fallback 가중치.  0 이면 M6 호환
+    # 모드 (alpha valley 만 사용).  > 0 이면 alpha 경로 실패 시 인접 column/
+    # row 의 RGB diff peak 로 color-cycling 시트 (예: elemental_cyan) 격자
+    # 검출.  값 자체는 현재 on/off 토글로만 쓰이며 (실제 가중 합산은 향후
+    # tuning), 0.5 가 안전 default.
+    grid_detect_alpha_color_weight: float = 0.5
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "Config":

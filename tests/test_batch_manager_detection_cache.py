@@ -81,7 +81,8 @@ def test_chat_image_passes_self_cache_to_classify(tmp_path, monkeypatch):
     """try_submit('chat_image') → classify_image_assets(cache=mgr._detection_cache)."""
     captured: dict = {}
 
-    def spy(rows, *, library_dir, store, cache=None, save_sprite_meta=True):
+    def spy(rows, *, library_dir, store, cache=None, save_sprite_meta=True,
+            alpha_color_weight=0.5):
         captured["cache"] = cache
         captured["save_sprite_meta"] = save_sprite_meta
         # all-sheets short-circuit → if not rows: return None
@@ -107,7 +108,8 @@ def test_chat_spritesheet_passes_self_cache_to_classify(tmp_path, monkeypatch):
     """try_submit('chat_spritesheet') → classify_image_assets(cache=mgr._detection_cache)."""
     captured: dict = {}
 
-    def spy(rows, *, library_dir, store, cache=None, save_sprite_meta=True):
+    def spy(rows, *, library_dir, store, cache=None, save_sprite_meta=True,
+            alpha_color_weight=0.5):
         captured["cache"] = cache
         return [], []  # no hits → "if not sheet_results: return None"
 
@@ -131,7 +133,8 @@ def test_consecutive_submissions_share_same_cache_instance(tmp_path, monkeypatch
     """두 modality 연속 호출 → 같은 _detection_cache 객체 재사용."""
     captured_caches: list = []
 
-    def spy(rows, *, library_dir, store, cache=None, save_sprite_meta=True):
+    def spy(rows, *, library_dir, store, cache=None, save_sprite_meta=True,
+            alpha_color_weight=0.5):
         captured_caches.append(cache)
         return [], []
 

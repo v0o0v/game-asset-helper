@@ -226,6 +226,112 @@ def test_validate_image_payload_non_dict_scalar_falls_back(image_registry):
         assert fixed["category"] == "other"
 
 
+# === M11.4 Phase 3 — palette tone group whitelist (hex 거부) ===========
+
+
+def test_validate_image_payload_palette_hex_rejected_with_named_violation(
+    image_registry,
+):
+    """hex 값 (#FDD835) 은 palette 에서 거부 + violation 메시지에 'palette_hex' 마커 명시."""
+    payload = {
+        "category": "character", "style": "pixel_art",
+        "palette": ["#FDD835", "#33B5E5"],
+    }
+    ok, err, fixed = validate_image_payload(payload, image_registry)
+    assert ok is False
+    assert fixed["palette"] == []
+    # M11.4: hex 는 일반 whitelist 위반과 별도 명시
+    assert "palette_hex" in err
+
+
+def test_validate_image_payload_palette_tone_groups_accepted():
+    """tone group set (warm / cool / monochrome / high_contrast / pastel / neutral) 통과."""
+    reg = _StubRegistry({
+        "category": ["character", "other"],
+        "style": ["pixel_art", "other"],
+        "mood": [],
+        "palette": ["warm", "cool", "monochrome", "high_contrast", "pastel", "neutral"],
+        "animation": [],
+    })
+    for tone in ("warm", "cool", "monochrome", "high_contrast", "pastel", "neutral"):
+        payload = {
+            "category": "character", "style": "pixel_art", "palette": [tone],
+        }
+        ok, err, fixed = validate_image_payload(payload, reg)
+        assert ok is True, f"{tone!r} should pass (err={err})"
+        assert fixed["palette"] == [tone]
+
+
+def test_validate_image_payload_palette_mixed_hex_and_tone_group_keeps_tone():
+    """hex + tone group 섞이면 hex 만 제거, tone group 은 유지."""
+    reg = _StubRegistry({
+        "category": ["character", "other"],
+        "style": ["pixel_art", "other"],
+        "mood": [],
+        "palette": ["warm", "cool", "neutral"],
+        "animation": [],
+    })
+    payload = {
+        "category": "character", "style": "pixel_art",
+        "palette": ["warm", "#FDD835", "cool"],
+    }
+    ok, err, fixed = validate_image_payload(payload, reg)
+    assert ok is False  # hex 가 있어서 violation 발생
+    assert fixed["palette"] == ["warm", "cool"]
+    assert "palette_hex" in err
+
+
+def test_validate_image_payload_palette_non_hex_invalid_dropped_generically(
+    image_registry,
+):
+    """hex 아닌 unknown 토큰 (super_warm) 은 기존 일반 violation 으로 drop."""
+    payload = {
+        "category": "character", "style": "pixel_art",
+        "palette": ["super_warm", "warm"],
+    }
+    ok, err, fixed = validate_image_payload(payload, image_registry)
+    assert ok is False
+    assert fixed["palette"] == ["warm"]
+    # hex 가 아닌 invalid 토큰은 'palette_hex' 가 아닌 일반 'palette=' 위반만 발생
+    assert "palette_hex" not in err
+
+
+def test_seed_palette_has_high_contrast():
+    """tone group whitelist 의 high_contrast 가 시드에 등록됐는지."""
+    from assetcache.core.labels import SEED_LABELS
+
+    tokens = {t for t, _ in SEED_LABELS["palette"]}
+    assert "high_contrast" in tokens
+
+
+def test_validate_image_payload_mood_hex_rejected_with_named_violation(
+    image_registry,
+):
+    """mood 에 hex 가 들어와도 palette 와 동일하게 명시 violation (M11.4 cleanup #8)."""
+    payload = {
+        "category": "character", "style": "pixel_art",
+        "mood": ["#FF0000", "heroic"],
+    }
+    ok, err, fixed = validate_image_payload(payload, image_registry)
+    assert ok is False
+    assert fixed["mood"] == ["heroic"]
+    assert "mood_hex" in err
+
+
+def test_validate_image_payload_animation_hex_rejected_with_named_violation(
+    image_registry,
+):
+    """animation_hint 에 hex 가 들어와도 명시 violation (M11.4 cleanup #8)."""
+    payload = {
+        "category": "character", "style": "pixel_art",
+        "animation_hint": ["#00FF00", "idle"],
+    }
+    ok, err, fixed = validate_image_payload(payload, image_registry)
+    assert ok is False
+    assert fixed["animation_hint"] == ["idle"]
+    assert "animation_hint_hex" in err
+
+
 def test_validate_audio_payload_list_with_dict_first_uses_it(audio_registry):
     """audio 도 list 첫 dict 사용."""
     payload = [

@@ -14,6 +14,7 @@ existing sync analyzer test suite green.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from ..store import LabelScore
@@ -27,6 +28,13 @@ if TYPE_CHECKING:
 IMAGE_CATEGORY_FALLBACK = "other"
 # 시드 'style' 에 'other' 가 없을 수 있어 안전망 — 추후 보정
 IMAGE_STYLE_FALLBACK = "other"
+
+# M11.4 Phase 3 — multi-value 축 (palette / mood / animation_hint) 에 들어온
+# hex (`#FDD835`) 토큰을 일반 whitelist 위반과 분리해 별도 violation 으로
+# 추적한다.  주로 palette tone-group enum 가이드 위반을 잡지만 mood/
+# animation 에도 일관성 위해 동일 적용 (M11.4 cleanup #8).  LLM (sync
+# Gemma / batch Gemini 양쪽) 이 hex 를 뱉을 때 monitoring 시그널.
+_PAYLOAD_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
 def _coerce_to_dict(payload: object) -> dict:
@@ -106,6 +114,13 @@ def validate_image_payload(
         if not isinstance(arr, list):
             violations.append(f"{payload_key}_not_list={arr!r}")
             arr = [arr] if isinstance(arr, str) else []
+        # M11.4 Phase 3 — multi-value 축의 hex 토큰은 일반 whitelist 위반과
+        # 별도로 '{axis}_hex={value}' 명시 (prompt 가이드 위반 monitoring).
+        # palette 가 주 타겟이지만 mood/animation 에도 일관성 위해 동일 적용
+        # (M11.4 cleanup #8).
+        for t in arr:
+            if isinstance(t, str) and _PAYLOAD_HEX_RE.fullmatch(t):
+                violations.append(f"{payload_key}_hex={t}")
         cleaned = [t for t in arr if isinstance(t, str) and t in allowed]
         if len(cleaned) != len(arr):
             violations.append(f"{payload_key}={arr!r}")
