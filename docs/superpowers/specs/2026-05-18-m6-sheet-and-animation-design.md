@@ -112,10 +112,10 @@ ALTER TABLE sprite_meta ADD COLUMN animations_json TEXT;
 
 기존 `animation_tags TEXT` 컬럼은 **v1 backward compat 로 유지** — analyzer 가 함께 채움 (라벨 이름 배열만, 예: `["walk", "idle"]`). v2 에서 deprecation 평가.
 
-별 테이블 (`sheet_frames`, `sheet_animations`) 대신 단일 컬럼 채택 이유:
+별도 테이블 (`sheet_frames`, `sheet_animations`) 대신 단일 컬럼 채택 이유:
 - M6 1주 일정에 마이그레이션 + JOIN 부담 낭비.
 - v1 시나리오 (균일 격자 + Aseprite 정형 시트) 에 단일 컬럼 충분.
-- 비정형 atlas 풍부 표현은 M7+ 에서 v2 로 별 마일스톤 또는 패치 (M8 사이 끼울 수 있음).
+- 비정형 atlas 풍부 표현은 M7+ 에서 v2 로 별도 마일스톤 또는 패치 (M8 사이 끼울 수 있음).
 
 ### 4.4 8칸 그리드 미리보기 Gemma 호출 (D4)
 
@@ -313,7 +313,7 @@ baseline 796 + ~67 = **~863 active 목표**.
 ## 8. v1 의도적 미룬 항목 (v2 또는 M7+ 흡수)
 
 - **사용자 frame size 입력 GUI** — 격자 자동 분할 실패 시 사용자가 수동 입력 (DESIGN §4.2.2 마지막 줄). M7+ 또는 별도 작은 패치.
-- **비정형 atlas 풍부 표현** — TexturePacker hash atlas, Aseprite slice 영역, sprite atlas 의 패딩/회전. M7+ 별 마일스톤 또는 v2 (sheet_frames 테이블 추가).
+- **비정형 atlas 풍부 표현** — TexturePacker hash atlas, Aseprite slice 영역, sprite atlas 의 패딩/회전. M7+ 별도 마일스톤 또는 v2 (sheet_frames 테이블 추가).
 - **per-frame duration 풍부 노출** — `suggest_animation_frames` 가 frame 별 duration_ms 도 노출. v1 은 `fps_hint` 평균만.
 - **animation 일괄 재라벨링 GUI** — 사용자가 시트 카드에서 frame range 를 마우스로 조정. M7+.
 - **시트 통계 (도미넌트 색 / pixel art 판정) 의 시트별 미세 조정** — 현재 SpriteAnalyzer 의 시트 전체 평균 그대로. v2 에서 frame 단위 통계 검토.

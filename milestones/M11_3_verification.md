@@ -126,7 +126,7 @@ Expected: 17 case 그대로 (M11.3 은 외부 API 호출 변경 0).
 | 2 | chat_image | succeeded | 1 | 1 | 0 |
 | 3 | chat_spritesheet | succeeded | 12 | 10 | 2 |
 
-* 실패 2건 (id 7, 9): Gemini 응답 schema list 형식 → `payload_parser.validate_image_payload` 의 `dict(payload)` ValueError — **M11.3 와 무관 pre-existing bug** (별 patch 후보).
+* 실패 2건 (id 7, 9): Gemini 응답 schema list 형식 → `payload_parser.validate_image_payload` 의 `dict(payload)` ValueError — **M11.3 와 무관 pre-existing bug** (별도 patch 후보).
 
 ### 4.4 시나리오 매핑
 
@@ -135,7 +135,7 @@ Expected: 17 case 그대로 (M11.3 은 외부 API 호출 변경 0).
 | 2.1 grid-only | ✅ kind=spritesheet, frame info enrich, animation 라벨 0 (Gemma 한계 그대로) |
 | 2.2 Aseprite | ✅ animations_json + animation 라벨 frameTags 보존 |
 | 2.3 sprite-only | ✅ kind=sprite, sprite_meta=None, state=ok |
-| 2.4 chains 누락 호환성 | ✅ `chainsInit` JSON 에 `chat_spritesheet: ["gemini"]` 자동 채움 — 단 `modalityOrder` 의 UI 위젯 표시는 M11.2 의 별 gap |
+| 2.4 chains 누락 호환성 | ✅ `chainsInit` JSON 에 `chat_spritesheet: ["gemini"]` 자동 채움 — 단 `modalityOrder` 의 UI 위젯 표시는 M11.2 의 별도 gap |
 | 2.5 /analyzing 4행 modality | ✅ `Batch image / 배치 시트 / Batch audio / Batch embed` 4행 + 부분 ko 번역 |
 | 2.6 detection cache | ✅ 24회 → 14회 detect_sheet (63% 감소) — 위 §4.1 |
 
@@ -171,7 +171,7 @@ Expected: 17 case 그대로 (M11.3 은 외부 API 호출 변경 0).
   - mage_purple frameTags 3 (cast/idle/walk)
   - **Gemma 추측 2 (idle/walk on grid-only)** ✓ ← M11.2 chat_spritesheet modality 의 핵심 가치 LIVE 확인
 
-### 4b.4 별 발견 (M11.3 + 부수 patch 와 무관)
+### 4b.4 별도 발견 (M11.3 + 부수 patch 와 무관)
 
 | 항목 | 한계 |
 |---|---|
@@ -188,7 +188,7 @@ Expected: 17 case 그대로 (M11.3 은 외부 API 호출 변경 0).
 2. Trusted Publishing OIDC workflow 자동 트리거 — 5회째 자동 publish (평균 30초 예상).
 3. [PyPI v0.2.2 publish 확인](https://pypi.org/project/assetcache-mcp/0.2.2/) + GitHub release 자동 생성 확인.
 
-## 6. 별 patch 후보 (M11.3 PR 미포함)
+## 6. 별도 patch 후보 (M11.3 PR 미포함)
 
 | 항목 | 우선순위 | 발견 |
 |---|---|---|

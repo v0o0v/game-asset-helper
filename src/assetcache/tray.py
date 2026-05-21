@@ -220,7 +220,7 @@ def make_tray_icon(
         return _tr("Batch: {state}").format(state=toggle)
 
     # cfg / cfg_path 가 caller 에서 명시 전달되면 그것을 사용 (run_tray 가 share).
-    # 명시 안 되면 fallback: disk 에서 load (단 별 instance 라 web 과 sync X — 테스트/CLI 용).
+    # 명시 안 되면 fallback: disk 에서 load (단 별도 instance 라 web 과 sync X — 테스트/CLI 용).
     if cfg is not None and cfg_path is not None:
         _cfg = cfg
         _cfg_path = cfg_path

@@ -1,4 +1,4 @@
-﻿"""M5 — WebServer (uvicorn 별 스레드) 검증."""
+﻿"""M5 — WebServer (uvicorn 별도 스레드) 검증."""
 from __future__ import annotations
 import socket
 import time

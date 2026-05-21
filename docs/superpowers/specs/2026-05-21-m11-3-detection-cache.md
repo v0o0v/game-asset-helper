@@ -31,7 +31,7 @@ M11.2 가 도입한 `detect_sheet` 의 같은 자산 **3중 호출** (chat_image
 
 | 옵션 | 작업량 | 효과 범위 | 마이그 | 채택 |
 |---|---:|---|---|---|
-| A. `batch_request_detections` 별 테이블 (per-asset detection JSON) | ~1일 | submit ↔ persist 24h 시간차까지 유효. 균일/비균일 모두 | 1 | ❌ |
+| A. `batch_request_detections` 별도 테이블 (per-asset detection JSON) | ~1일 | submit ↔ persist 24h 시간차까지 유효. 균일/비균일 모두 | 1 | ❌ |
 | **B. `sprite_meta.animations_json` 활용 (DB cross-sweep)** | ~0.5일 | 균일 격자 + JSON 사이드카 모두. frames 재구성 가능 | 0 | ✅ |
 | **C. BatchManager instance dict (메모리 sweep cache)** | ~2시간 | 같은 sweep 의 chat_image classify ↔ chat_spritesheet classify 만 | 0 | ✅ |
 
@@ -170,9 +170,9 @@ def _try_enrich_with_sheet(self, asset, base_meta):
 
 | 항목 | 우선순위 | 후속 |
 |---|---|---|
-| 시트 파일이 24h 사이에 바뀌면 sprite_meta cache stale | 낮 | 파일 hash 비교 후 invalidate — 별 patch (옵션 D) |
+| 시트 파일이 24h 사이에 바뀌면 sprite_meta cache stale | 낮 | 파일 hash 비교 후 invalidate — 별도 patch (옵션 D) |
 | BatchManager instance memory cache 가 multi-process 환경에서 공유 X | 낮 | tray app 은 single-process 라 영향 없음. M14 (원격 통신) 진입 시 검토 |
-| Aseprite 비균일 hash-mode 시트의 frames 재구성 — sprite_meta 만으론 좌표 정확히 복원 불가 | 낮 (parse_json 자체가 가벼움) | 옵션 A 별 테이블 추가 (~1일) 시 해소 |
+| Aseprite 비균일 hash-mode 시트의 frames 재구성 — sprite_meta 만으론 좌표 정확히 복원 불가 | 낮 (parse_json 자체가 가벼움) | 옵션 A 별도 테이블 추가 (~1일) 시 해소 |
 | sprite_meta cache hit 시 frame 좌표 (각 frame 의 x,y,w,h) 가 필요한 코드 path 가 있다면 사용 못 함 — BatchPoller persist 는 라벨 합산만 필요해서 영향 X | 낮 | composite builder (BatchManager classify) 는 이미 detect 결과의 detection 객체 직접 사용 — cache hit 가능 |
 
 ## 10. 다음 단계

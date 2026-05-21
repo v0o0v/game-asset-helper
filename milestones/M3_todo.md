@@ -299,7 +299,7 @@
   - `searcher = HybridSearcher(store, embedder, consistency=ConsistencyScorer(store, config), registry, config)`
   - `usage = UsageTracker(store, config)`
   - `main_window.library_view.set_searcher(searcher)` (또는 동등 주입 경로)
-  - (MCP stdio 프로세스와는 무관 — 별 프로세스가 자체적으로 위 인스턴스를 만든다)
+  - (MCP stdio 프로세스와는 무관 — 별도 프로세스가 자체적으로 위 인스턴스를 만든다)
 - [ ] 테스트 — `pytest tests/test_library_search_ui.py -v`
 
 ### C.8 `docs/MCP_USAGE_GUIDE.md` 본격화
@@ -324,7 +324,7 @@
 수동 (메모리 `feedback_run_commands_directly.md` — 자동화 가능한 것은 Claude 가 PowerShell 로 직접 측정, GUI 시각 확인만 사용자):
 
 - [ ] `python -m gah --mcp` 가 stdio 부팅 → JSON-RPC `initialize` 응답 1 라인 — *Claude 가 직접*
-- [ ] `python -m gah --tray` + 별 PowerShell 의 `python -m gah --mcp` 동시 기동 → `gah.log` 의 `database is locked` 0 건 — *Claude 가 직접*
+- [ ] `python -m gah --tray` + 별도 PowerShell 의 `python -m gah --mcp` 동시 기동 → `gah.log` 의 `database is locked` 0 건 — *Claude 가 직접*
 - [ ] `record_asset_use` → 다음 `find_asset` 의 `score_breakdown.consistency` 가 0 → 양수 — *Claude 가 직접*
 - [ ] `list_labels` 1회 → 라벨 1개 추가 → `list_labels` 재호출 → `signature` 달라짐 — *Claude 가 직접*
 - [ ] `sqlite3 ...\metadata.db ".tables"` 가 `projects`/`asset_usage`/`search_queries` 포함 — *Claude 가 직접*

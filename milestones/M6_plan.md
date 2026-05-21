@@ -1347,7 +1347,7 @@ class SpriteMeta:
     animations_json: dict | None = None  # M6 — {name: {start_frame, end_frame, fps_hint, source}}
 ```
 
-(2) `Store.initialize()` 의 적절한 위치 (CREATE TABLE 직후, 또는 별 메서드) 에 idempotent ALTER 호출 추가. 기존 `initialize` 메서드 끝에:
+(2) `Store.initialize()` 의 적절한 위치 (CREATE TABLE 직후, 또는 별도 메서드) 에 idempotent ALTER 호출 추가. 기존 `initialize` 메서드 끝에:
 
 ```python
 def initialize(self) -> None:

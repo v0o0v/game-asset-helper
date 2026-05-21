@@ -4,7 +4,7 @@
 
 **목표** — Qt 데스크톱 UI 를 폐기하고 FastAPI + HTMX + Alpine.js 로컬 웹 GUI 로 전환. 라이브러리 페이지를 옵션 C 레이아웃 (상단 자연어 검색 + ⚙ 고급 토글 + 우측 슬라이드 B/C/D) 으로 리디자인. 신규 MCP `request_user_pick` 으로 Claude 가 후보 자산 중 사용자가 직접 고르도록 요청하고 동기 long-poll (5분) 로 응답을 받음.
 
-**아키텍처** — 트레이 Qt 프로세스가 부팅 시 `uvicorn.Server` 를 별 스레드(또는 `asyncio` 이벤트루프)에서 시작 → 트레이 메뉴 "메인 창 열기" → `webbrowser.open("http://127.0.0.1:9874")` → 시스템 브라우저로 사용자 진입. MCP server 는 그대로 별 프로세스로 두고, `request_user_pick` 만 HTTP loopback (`POST http://127.0.0.1:9874/internal/user-pick`) 으로 트레이 측 FastAPI 의 in-process pending-pick 큐에 등록 + long-poll 응답 대기. M4 백엔드 (Store / HybridSearcher / ConsistencyScorer / UsageTracker / LabelRegistry / label_query / thumbnails / suggest_packs / mcp 16 도구) 100% 보존.
+**아키텍처** — 트레이 Qt 프로세스가 부팅 시 `uvicorn.Server` 를 별도 스레드(또는 `asyncio` 이벤트루프)에서 시작 → 트레이 메뉴 "메인 창 열기" → `webbrowser.open("http://127.0.0.1:9874")` → 시스템 브라우저로 사용자 진입. MCP server 는 그대로 별도 프로세스로 두고, `request_user_pick` 만 HTTP loopback (`POST http://127.0.0.1:9874/internal/user-pick`) 으로 트레이 측 FastAPI 의 in-process pending-pick 큐에 등록 + long-poll 응답 대기. M4 백엔드 (Store / HybridSearcher / ConsistencyScorer / UsageTracker / LabelRegistry / label_query / thumbnails / suggest_packs / mcp 16 도구) 100% 보존.
 
 **기술 스택** — Python 측 `fastapi>=0.110` / `uvicorn[standard]>=0.27` / `jinja2>=3.1` / `python-multipart>=0.0.9` / `sse-starlette>=2` (FastAPI SSE). 프런트엔드는 HTMX 1.9 + Alpine.js 3 (vendoring, ~30KB). Qt PySide6 는 트레이 백그라운드 + 분석 큐만 유지. 빌드 도구 없음 (TypeScript / webpack / vite 도입 안 함).
 
@@ -35,7 +35,7 @@ Claude Code 가 MCP 도구 `request_user_pick` 호출:
 }
 ```
 
-→ MCP server (별 프로세스) 가 `POST http://127.0.0.1:9874/internal/user-pick` 으로 트레이 측 FastAPI 의 pending-pick 큐에 등록 + `asyncio.Future` 대기. FastAPI 가 SSE 로 활성 브라우저 탭에 `user_pick_request` 이벤트 push → 라이브러리 페이지 상단에 "🤖 Claude 요청" 카드 배지 + 결과 영역에 5 후보 카드 (보라색 좌측 띠). 사용자가 158 카드 클릭 + [채택] 버튼 → `POST /api/user-pick/{rid}` → Future.set_result → MCP server 가 long-poll 응답 받음 → 자동 `record_asset_use(project_id, 158, source='claude_pick', context=reason)` → Claude 에 응답:
+→ MCP server (별도 프로세스) 가 `POST http://127.0.0.1:9874/internal/user-pick` 으로 트레이 측 FastAPI 의 pending-pick 큐에 등록 + `asyncio.Future` 대기. FastAPI 가 SSE 로 활성 브라우저 탭에 `user_pick_request` 이벤트 push → 라이브러리 페이지 상단에 "🤖 Claude 요청" 카드 배지 + 결과 영역에 5 후보 카드 (보라색 좌측 띠). 사용자가 158 카드 클릭 + [채택] 버튼 → `POST /api/user-pick/{rid}` → Future.set_result → MCP server 가 long-poll 응답 받음 → 자동 `record_asset_use(project_id, 158, source='claude_pick', context=reason)` → Claude 에 응답:
 
 ```jsonc
 {
@@ -53,8 +53,8 @@ M4 의 Qt 위젯 4개 + main_window.py + pack_view.py + labels_admin.py + 테스
 
 세부:
 
-- **FastAPI 부팅** — 트레이 Qt main thread 의 옆에서 `uvicorn.Server.serve()` 가 별 스레드 + 별 asyncio 이벤트루프로 실행. graceful shutdown 은 트레이 종료 시 `server.should_exit=True` 후 `thread.join(timeout=5)`.
-- **포트 폴백** — `Config.web_port` (기본 9874) 가 점유 중이면 9875..9884 순차 시도. MCP server (별 프로세스) 는 같은 `Config.web_port` 를 읽어 loopback 대상 URL 을 결정 (포트 충돌 시 양쪽이 같은 폴백 결과를 봐야 하므로 실 사용 포트를 `paths.data_dir / "web.port"` 파일에 atomic write + MCP server 가 그 파일 읽음).
+- **FastAPI 부팅** — 트레이 Qt main thread 의 옆에서 `uvicorn.Server.serve()` 가 별도 스레드 + 별도 asyncio 이벤트루프로 실행. graceful shutdown 은 트레이 종료 시 `server.should_exit=True` 후 `thread.join(timeout=5)`.
+- **포트 폴백** — `Config.web_port` (기본 9874) 가 점유 중이면 9875..9884 순차 시도. MCP server (별도 프로세스) 는 같은 `Config.web_port` 를 읽어 loopback 대상 URL 을 결정 (포트 충돌 시 양쪽이 같은 폴백 결과를 봐야 하므로 실 사용 포트를 `paths.data_dir / "web.port"` 파일에 atomic write + MCP server 가 그 파일 읽음).
 - **SSE 채널** — `/sse/notifications` 1 엔드포인트 통합. 이벤트 타입 = `user_pick_request` / `user_pick_resolved` (다른 탭 자동 갱신용) / `analysis_progress` (M2/M2.1 의 `queue.progressChanged` 가 발화) / `pack_changed` (워처 이벤트).
 - **자동 `record_asset_use`** — Claude pick 응답 후 GAH 가 자동 호출 (source 신규 enum `'claude_pick'`). Claude 가 따로 호출 안 해도 통일성 학습이 진행.
 - **i18n 준비** — M5 의 모든 사용자 노출 문자열은 `_t("한국어 텍스트")` placeholder 함수로 감싸 둠 (반환값 = 인자 그대로). M8 에서 본격 i18n 백엔드 도입 시 일괄 치환.
@@ -69,7 +69,7 @@ M4 의 Qt 위젯 4개 + main_window.py + pack_view.py + labels_admin.py + 테스
 | `src/gah/config.py` (수정) | M5 신규 필드 — `web_host: str = "127.0.0.1"`, `web_port: int = 9874`, `web_port_max_attempts: int = 10`, `claude_pick_timeout_seconds: int = 300`, `claude_pick_max_pending: int = 20`, `web_open_browser_on_start: bool = True`, `web_log_requests: bool = False`. 신규 enum `UsageSource` (`'manual'`/`'mcp'`/`'claude_pick'`) — M3 의 `record_asset_use` 의 자동 추적 source 필드를 enum 으로 격상. | 수정 |
 | `src/gah/core/store.py` (수정) | `record_asset_use` 의 source 인자가 enum (또는 str validator) 로 격상 — `'claude_pick'` 신규 허용. `asset_uses` 테이블에 `source` 컬럼이 이미 있으므로 스키마 변경 없음. `usage_summary_for_project(project_id) -> dict` 신규 — 통일성/페널티 요약 모달용 (채택 팩 top-3 + 거부 자산 수 + 윈도우 내). | 수정 |
 | `src/gah/web/__init__.py` | 빈 패키지 마커. | 신규 |
-| `src/gah/web/server.py` | `WebServer` 클래스 — `start()` / `stop()`. 내부에서 `uvicorn.Config` + `uvicorn.Server` 를 자기 asyncio 이벤트루프로 별 스레드 실행. 포트 폴백 로직 (`_find_available_port`). 실 사용 포트를 `paths.data_dir / "web.port"` 파일에 atomic write. 종료 시 `server.should_exit=True` + `thread.join(timeout=5)`. | 신규 |
+| `src/gah/web/server.py` | `WebServer` 클래스 — `start()` / `stop()`. 내부에서 `uvicorn.Config` + `uvicorn.Server` 를 자기 asyncio 이벤트루프로 별도 스레드 실행. 포트 폴백 로직 (`_find_available_port`). 실 사용 포트를 `paths.data_dir / "web.port"` 파일에 atomic write. 종료 시 `server.should_exit=True` + `thread.join(timeout=5)`. | 신규 |
 | `src/gah/web/app.py` | FastAPI app factory — `build_app(deps: WebDeps) -> FastAPI`. lifespan = pending-pick 큐 cleanup 잡 시작/정지. 라우터 등록 (api/ui/sse/internal/static). 글로벌 dependency = `WebDeps` (store/searcher/usage/registry/queue/config/paths). | 신규 |
 | `src/gah/web/deps.py` | `WebDeps` 데이터클래스 (frozen) — store/searcher/usage/registry/queue/config/paths + `pending_picks: PendingPickQueue`. FastAPI `Depends` 로 라우터에 주입. | 신규 |
 | `src/gah/web/pending.py` | `PendingPickQueue` — `dict[str, PendingPick]` + lock. `PendingPick(request_id, candidates, reason, project_id, created_at, future: asyncio.Future, status)`. 메서드 `register(req) -> PendingPick`, `resolve(rid, picked_asset_id, user_note) -> bool`, `cancel(rid, reason) -> bool`, `expire(rid) -> bool`, `snapshot() -> list[dict]`, `cleanup_expired(now, ttl) -> int`. | 신규 |
@@ -104,7 +104,7 @@ M4 의 Qt 위젯 4개 + main_window.py + pack_view.py + labels_admin.py + 테스
 | `src/gah/web/i18n.py` | `_t(text: str) -> str` placeholder (M8 까지 그대로 반환). Jinja2 환경에 `_` 글로벌로 등록. | 신규 |
 | `src/gah/mcp/models.py` (수정) | 신규 모델 — `RequestUserPickRequest(candidates: list[int] min=1 max=10, reason: str|None, project_id: str|None, timeout_seconds: int default 300 ge=10 le=1800)` + `RequestUserPickResult(picked_asset_id: int, picked_at: int, user_note: str|None)`. 에러 코드 enum 확장 (`'408_timeout'`, `'499_user_cancelled'`, `'503_no_ui_available'`). | 수정 |
 | `src/gah/mcp/tools.py` (수정) | 신규 함수 `tool_request_user_pick(deps, req) -> RequestUserPickResult` — `httpx.Client.post(f"{web_url}/internal/user-pick", json=...)` + 5분 timeout. 503 (서버 다운) 시 `503_no_ui_available` 응답. 408 (FastAPI 측 timeout) / 499 (사용자 거부) 패스스루. 응답 200 시 자동으로 `tool_record_asset_use` 도 호출 (source='claude_pick'). | 수정 |
-| `src/gah/mcp/server.py` (수정) | `register_all_tools` 에 `request_user_pick` 추가 (16 → **17** 도구). `INSTRUCTIONS` 갱신 — 흐름 §13.1 에 7번째 단계 "Claude pick: when uncertain among ~5 candidates, call request_user_pick instead of picking automatically; GAH will show the user a wide-card chooser and return the picked id within 5 minutes". `run_stdio()` 가 `paths.data_dir / "web.port"` 를 읽어 `web_url` 결정. 파일이 없거나 stale 시 `request_user_pick` 호출만 503 + 다른 도구는 정상 (별 프로세스라 가능). | 수정 |
+| `src/gah/mcp/server.py` (수정) | `register_all_tools` 에 `request_user_pick` 추가 (16 → **17** 도구). `INSTRUCTIONS` 갱신 — 흐름 §13.1 에 7번째 단계 "Claude pick: when uncertain among ~5 candidates, call request_user_pick instead of picking automatically; GAH will show the user a wide-card chooser and return the picked id within 5 minutes". `run_stdio()` 가 `paths.data_dir / "web.port"` 를 읽어 `web_url` 결정. 파일이 없거나 stale 시 `request_user_pick` 호출만 503 + 다른 도구는 정상 (별도 프로세스라 가능). | 수정 |
 | `src/gah/web/url.py` | `read_web_port(paths) -> int | None` + `write_web_port(paths, port)`. atomic write (`port.tmp` → rename). MCP server 와 트레이 양쪽이 사용. | 신규 |
 | `src/gah/tray.py` (수정) | `on_open_main` 콜백을 `lambda: webbrowser.open(web_url)` 로 변경 (run_tray 가 web_url 주입). `on_open_labels` 메뉴 항목 폐기 (라벨 관리는 웹 페이지 `/labels/admin`). `notify_user_pick_request(count)` 새 함수 — Qt thread-safe signal 로 트레이 아이콘 깜빡임. | 수정 |
 | `src/gah/app.py` (수정) | `run_tray` — main_window 의존성 제거. WebServer 시작 + URL 결정 + 트레이 wiring. `queue.progressChanged` 가 `WebServer` 의 broadcast 큐로도 push (SSE 갱신). `queue.analysisFinished` 도. 종료 시 WebServer.stop() + queue.stop() + watcher.stop(). | 대대적 수정 |
@@ -137,7 +137,7 @@ M4 의 Qt 위젯 4개 + main_window.py + pack_view.py + labels_admin.py + 테스
 |---|---:|---|
 | `tests/test_config_m5.py` | ~7 | `web_host="127.0.0.1"` 기본 / `web_port=9874` / `web_port_max_attempts=10` / `claude_pick_timeout_seconds=300` / `web_open_browser_on_start=True` / TOML 왕복 / `UsageSource` enum (`manual`/`mcp`/`claude_pick`) 만 허용 |
 | `tests/test_web_url.py` | ~5 | `write_web_port(paths, 9874)` → 파일 존재 + 내용 `"9874\n"` / `read_web_port` 정상 / 파일 부재 시 None / atomic (tmp 파일 잔존 X) / 잘못된 내용 시 None + 로그 |
-| `tests/test_web_server.py` | ~6 | `WebServer.start()` 가 별 스레드에서 uvicorn 시작 / `/api/health` 200 응답 / 포트 점유 시 다음 포트 폴백 / `web.port` 파일에 실 포트 write / `stop()` 후 thread.is_alive() False / max_attempts 초과 시 RuntimeError |
+| `tests/test_web_server.py` | ~6 | `WebServer.start()` 가 별도 스레드에서 uvicorn 시작 / `/api/health` 200 응답 / 포트 점유 시 다음 포트 폴백 / `web.port` 파일에 실 포트 write / `stop()` 후 thread.is_alive() False / max_attempts 초과 시 RuntimeError |
 | `tests/test_web_app.py` | ~8 | `build_app(deps)` 가 FastAPI 인스턴스 반환 / lifespan 시작/정지 / 라우터 12 등록 / `/api/health` (mcp_tools_count=17) / 정적 자원 `/static/vendor/htmx.min.js` 200 / `/static/css/main.css` 200 / 디폴트 캐시 헤더 / 404 핸들러 |
 | `tests/test_web_pending.py` | ~10 | `PendingPickQueue.register(req)` → request_id (uuid4) + 신규 PendingPick / `resolve(rid, picked)` → future.set_result + status='resolved' / 미존재 rid → False / `cancel(rid)` → future.set_exception(`UserCancelledError`) / 이미 resolved 후 resolve → False / TTL 초과 후 `cleanup_expired` → status='expired' + future.cancel / 동시 register 20 까지 OK / 21번째 → `MaxPendingExceeded` / `snapshot()` 정렬 (LIFO 최신순) / lock 동시성 |
 | `tests/test_web_routers_library.py` | ~14 | `/api/search` POST query='blue hero' → HybridSearcher 결과 JSON / `/ui/search-results` POST → HTML fragment with 카드들 / `/api/library?limit=50` → 추가일↓ 50개 / `/api/thumbnail/{id}` sprite → 200 PNG + ETag / sound → 404 / `/api/audio/{id}` Range 헤더 지원 / 디폴트 (query 비어 + 필터 0) → 추가일↓ / `label_query` 통합 (검색 바 텍스트 → label_query) / 정렬 추가일↑/이름↑/크기↓ / `/ui/asset-detail/{id}` HTML 모달 / 페이지네이션 (offset/limit) / 잘못된 id → 404 / pack_id 필터 / kind 필터 |
@@ -162,10 +162,10 @@ M4 의 Qt 위젯 4개 + main_window.py + pack_view.py + labels_admin.py + 테스
 
 ### 3.1 FastAPI vs subprocess (spec Q1)
 
-**결정** — **같은 프로세스 + 별 스레드** (`threading.Thread`).
+**결정** — **같은 프로세스 + 별도 스레드** (`threading.Thread`).
 
-- `WebServer.start()` 가 별 스레드에서 새 asyncio 이벤트루프 생성 → `uvicorn.Config(app, host, port, loop="asyncio")` + `uvicorn.Server` 의 `serve()` 코루틴 실행. Qt main thread 의 이벤트루프와 충돌 X (각자 다른 thread/loop).
-- 같은 프로세스라 in-process pending-pick 큐 공유 자연스러움. PySide6 import 가 글로벌이라 별 스레드에서 Qt 시그널 발화 시 `QMetaObject.invokeMethod(... Qt.QueuedConnection)` 로 main thread 마샬링.
+- `WebServer.start()` 가 별도 스레드에서 새 asyncio 이벤트루프 생성 → `uvicorn.Config(app, host, port, loop="asyncio")` + `uvicorn.Server` 의 `serve()` 코루틴 실행. Qt main thread 의 이벤트루프와 충돌 X (각자 다른 thread/loop).
+- 같은 프로세스라 in-process pending-pick 큐 공유 자연스러움. PySide6 import 가 글로벌이라 별도 스레드에서 Qt 시그널 발화 시 `QMetaObject.invokeMethod(... Qt.QueuedConnection)` 로 main thread 마샬링.
 - 종료 = `server.should_exit=True` 후 `thread.join(timeout=5)`. graceful shutdown.
 - 단점 — 임포트 시간 + 메모리. 트레이 부팅이 ~0.5 초 늘어남. PyInstaller 패키징은 단일 exe 라 단순 (M8).
 - subprocess 대안은 stdin/stdout/HTTP 로 분리 — 격리는 좋지만 양 프로세스 관리 + 통신 복잡도 ↑. v1 은 같은 프로세스.
@@ -209,11 +209,11 @@ M4 의 Qt 위젯 4개 + main_window.py + pack_view.py + labels_admin.py + 테스
 
 ### 3.6 MCP server ↔ FastAPI 통신 (신규 결정)
 
-**결정** — **HTTP loopback POST** (`http://127.0.0.1:9874/internal/user-pick`). MCP server (별 프로세스) 가 long-poll 응답 대기.
+**결정** — **HTTP loopback POST** (`http://127.0.0.1:9874/internal/user-pick`). MCP server (별도 프로세스) 가 long-poll 응답 대기.
 
 - MCP server 는 stdio 라 포트 없음. 트레이 측 FastAPI 의 실 사용 포트를 `paths.data_dir / "web.port"` 파일로 공유. MCP server 가 `run_stdio()` 시작 시 한 번 읽음.
 - `tool_request_user_pick` 가 `httpx.Client.post(url, timeout=timeout_seconds + 10)` 호출. FastAPI 측에서 future 가 resolve 될 때까지 응답 안 보냄 (long-poll). 응답 = picked_asset_id JSON 또는 408/499 에러.
-- 트레이가 안 떠 있으면 (web.port 파일 없거나 stale, 또는 httpx ConnectError) → `503_no_ui_available` 응답. Claude 가 fallback 으로 자동 pick 또는 사용자에게 별 채널 (텍스트) 로 물어봄.
+- 트레이가 안 떠 있으면 (web.port 파일 없거나 stale, 또는 httpx ConnectError) → `503_no_ui_available` 응답. Claude 가 fallback 으로 자동 pick 또는 사용자에게 별도 채널 (텍스트) 로 물어봄.
 
 ### 3.7 포트 폴백 정책 (신규)
 
@@ -498,7 +498,7 @@ class WebServer:
 
 - [ ] **Step 5: 회귀** — `pytest -q` → ~484 passed.
 
-- [ ] **Step 6: 커밋** — `feat(m5): WebServer (uvicorn 별 스레드 + 포트 폴백 + web.port 공유)`.
+- [ ] **Step 6: 커밋** — `feat(m5): WebServer (uvicorn 별도 스레드 + 포트 폴백 + web.port 공유)`.
 
 #### Task 1.6 — 트레이 wiring 변경 (`tray.py`)
 
@@ -748,7 +748,7 @@ def page_root(request: Request):
     return RedirectResponse("/library")
 ```
 
-prefix 가 `/api` 라 별도 router (또는 별 router 추가). `routers/pages.py` 신규 — `/` `/library` `/packs` `/labels/admin` HTML 페이지만.
+prefix 가 `/api` 라 별도 router (또는 별도 router 추가). `routers/pages.py` 신규 — `/` `/library` `/packs` `/labels/admin` HTML 페이지만.
 
 - [ ] **Step 6: 수동 시각 검증** — `python -m gah --tray` 후 브라우저에서 `/library` 접근 → 빈 페이지 + 헤더 + 검색 바 보임.
 
@@ -1282,7 +1282,7 @@ CSS — `.chip-flow { display: flex; flex-wrap: wrap; gap: 4px; }`. **좌우 스
 
 ### 4.4 Phase 4 — Claude `request_user_pick` + SSE push (~1주)
 
-이 phase 가 M5 의 핵심 신규 기능. MCP server (별 프로세스) → 트레이 측 FastAPI 의 HTTP loopback long-poll → SSE 브라우저 push → 사용자 클릭 → MCP 응답.
+이 phase 가 M5 의 핵심 신규 기능. MCP server (별도 프로세스) → 트레이 측 FastAPI 의 HTTP loopback long-poll → SSE 브라우저 push → 사용자 클릭 → MCP 응답.
 
 #### Task 4.1 — `/internal/user-pick` POST (MCP loopback long-poll)
 
@@ -1293,7 +1293,7 @@ CSS — `.chip-flow { display: flex; flex-wrap: wrap; gap: 4px; }`. **좌우 스
 ```python
 @pytest.mark.asyncio
 async def test_internal_user_pick_resolved(deps_fixture, async_client):
-    # 별 task 에서 0.2s 후 resolve
+    # 별도 task 에서 0.2s 후 resolve
     async def _resolver():
         await asyncio.sleep(0.2)
         snapshot = deps_fixture.pending_picks.snapshot()
@@ -2013,8 +2013,8 @@ Phase 5 Task 5.5 에서 Qt 위젯 파일 7 + 테스트 4 삭제 후 `pytest -q` 
 | 결과 카드 hover 미리보기 / 키보드 단축키 / 비교 보기 | M7 | M5 의 마감 0.5주 안에 추가는 무리 |
 | `cleanup_feedback_records` 잡 (윈도우 만료 행 정리) | M6+ | 검색 시 윈도우 필터만 v1 |
 | `implicit_top1` 추정 (Config 기본 OFF) | M6+ | M3 부터 미룸. M5 도 그대로 OFF |
-| Unity Asset Store 임포트 | M7 | 별 마일스톤 |
-| 시트 분석 + `suggest_animation_frames` | M6 | 별 마일스톤 |
+| Unity Asset Store 임포트 | M7 | 별도 마일스톤 |
+| 시트 분석 + `suggest_animation_frames` | M6 | 별도 마일스톤 |
 
 ## 9. 자기 검토 메모
 
@@ -2080,7 +2080,7 @@ Phase 5 Task 5.5 에서 Qt 위젯 파일 7 + 테스트 4 삭제 후 `pytest -q` 
 
 ### 9.8 잠재 리스크 (구현 시 주의)
 
-1. **uvicorn 별 스레드 + PySide6 메인 스레드 충돌** — Phase 1 Task 1.5 / 1.7 에서 Qt 시그널을 `QMetaObject.invokeMethod(Qt.QueuedConnection)` 로 마샬링. PySide6 의 QApplication 이 GUI thread 만 점유, uvicorn 이 다른 thread 의 별 loop 이라 격리 가능. 단, `webbrowser.open` 은 어디서 호출하든 OK.
+1. **uvicorn 별도 스레드 + PySide6 메인 스레드 충돌** — Phase 1 Task 1.5 / 1.7 에서 Qt 시그널을 `QMetaObject.invokeMethod(Qt.QueuedConnection)` 로 마샬링. PySide6 의 QApplication 이 GUI thread 만 점유, uvicorn 이 다른 thread 의 별도 loop 이라 격리 가능. 단, `webbrowser.open` 은 어디서 호출하든 OK.
 2. **MCP server 의 `paths.data_dir/web.port` 읽기 타이밍** — MCP server 가 `--mcp` 단독 실행 시 트레이가 안 떠 있을 수 있음. Task 4.8 의 `tool_request_user_pick` 만 503 으로 응답, 다른 도구는 정상 동작.
 3. **PendingPickQueue 의 `asyncio.get_event_loop()`** — Python 3.10+ 에서 deprecated. Task 1.2 구현 시 `asyncio.get_running_loop()` 또는 `asyncio.get_event_loop_policy()` 사용. Pre-asyncio 코드 path 주의.
 4. **HTMX hx-trigger `keyup changed delay:300ms`** — 한글 IME composing 중에 delay 가 reset 안 됨. 일부 환경에서 두 번 발화 가능. 수동 검증 단계에서 확인 + 필요 시 Alpine 디바운스 추가.

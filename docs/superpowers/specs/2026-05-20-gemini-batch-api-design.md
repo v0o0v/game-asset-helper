@@ -18,7 +18,7 @@ Gemini Batch API (50% 비용 절감, 24h target / 48h hard expire, multimodal + 
 
 `src/assetcache/core/analysis_queue.py`:
 - `class AnalysisQueue(QObject)` — `ThreadPoolExecutor` 단일 워커 (`concurrency=1` default), `enqueue_asset / enqueue_pack / drain_pending`.
-- `_handle_one(asset_id)` → `analyzer.analyze(inp)` 동기 호출 → `store.save_*` + `mark_asset_state`. **단일 워커가 24h batch job 에 blocking 되면 interactive 가 멈춤** → 본 spec 은 batch 를 별 thread 로 분리해야 함의 근거.
+- `_handle_one(asset_id)` → `analyzer.analyze(inp)` 동기 호출 → `store.save_*` + `mark_asset_state`. **단일 워커가 24h batch job 에 blocking 되면 interactive 가 멈춤** → 본 spec 은 batch 를 별도 thread 로 분리해야 함의 근거.
 - Qt Signal `progressChanged(AnalysisProgress)` — UI 가 polling 없이 수신.
 
 `src/assetcache/core/llm/backends/gemini.py`:

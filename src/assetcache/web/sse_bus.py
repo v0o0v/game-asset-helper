@@ -2,7 +2,7 @@
 
 발화자 (analysis_progress, pack_changed 시그널 등) 는 Qt main thread.
 수신자 (SSE GET /sse/notifications 의 EventSourceResponse) 는 uvicorn
-별 스레드 + 별 asyncio 루프. 둘 사이를 thread-safe 하게 잇기 위해
+별도 스레드 + 별도 asyncio 루프. 둘 사이를 thread-safe 하게 잇기 위해
 각 subscriber 가 자기 loop 와 asyncio.Queue 를 보관하고, broadcast 가
 ``call_soon_threadsafe`` 로 이벤트를 push 한다.
 """

@@ -1,12 +1,12 @@
 """M5 — Claude `request_user_pick` 의 in-process 큐.
 
-MCP server (별 프로세스) 가 `/internal/user-pick` POST 로 등록하면
+MCP server (별도 프로세스) 가 `/internal/user-pick` POST 로 등록하면
 FastAPI 측의 본 큐에 PendingPick 가 박히고, asyncio.Future 가 사용자
 응답을 기다린다. 사용자가 브라우저에서 채택/거부하면 `/api/user-pick/{rid}`
 POST 가 `resolve`/`cancel` 을 호출 → Future 가 결과를 set → MCP server
 의 long-poll 이 깨어남.
 
-Thread safety: FastAPI 가 uvicorn[standard] 의 별 스레드에서 ASGI worker
+Thread safety: FastAPI 가 uvicorn[standard] 의 별도 스레드에서 ASGI worker
 를 돌리고, Qt 시그널이 main thread 에서 발화하므로 lock 필수.
 `asyncio.Future.set_result` 는 future 의 own loop 에서만 호출해야 하므로
 `call_soon_threadsafe` 로 마샬링.

@@ -1,6 +1,6 @@
 """M5 — 트레이 측 FastAPI 의 실 사용 포트를 디스크 파일로 공유.
 
-MCP server (별 프로세스) 가 `paths.data_dir / "web.port"` 를 읽어
+MCP server (별도 프로세스) 가 `paths.data_dir / "web.port"` 를 읽어
 loopback URL (`http://127.0.0.1:<port>/internal/user-pick`) 을 알아낸다.
 Atomic write 는 `os.replace` 가 Windows + POSIX 모두 보장.
 """

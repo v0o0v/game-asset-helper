@@ -47,7 +47,7 @@ M4 신규 100 케이스 분해:
 
 ### 1.1 mcp_integration 의 의의
 
-`test_stdio_subprocess_tools_list_returns_16` 가 진짜 `python -m gah --mcp` 를 별 프로세스로 띄워 JSON-RPC `initialize` + `tools/list` 핸드셰이크 수행. 응답에 M3 12 + M4 신규 4 (`save_search`/`list_saved_searches`/`delete_saved_search`/`run_saved_search`) 포함 + 총 16 도구 확인:
+`test_stdio_subprocess_tools_list_returns_16` 가 진짜 `python -m gah --mcp` 를 별도 프로세스로 띄워 JSON-RPC `initialize` + `tools/list` 핸드셰이크 수행. 응답에 M3 12 + M4 신규 4 (`save_search`/`list_saved_searches`/`delete_saved_search`/`run_saved_search`) 포함 + 총 16 도구 확인:
 
 ```
 expected = {
@@ -241,7 +241,7 @@ python -m gah --tray
 
 ### 4.3 트레이 + MCP stdio 동시 기동 (선택)
 
-M3 와 동일 — `python -m gah --tray` 와 별 PowerShell 의 `python -m gah --mcp` 동시 기동 후 `gah.log` 에 `database is locked` 0 건 확인. M4 가 같은 write_lock + busy_timeout 패턴 그대로 사용하므로 회귀 없음 예상.
+M3 와 동일 — `python -m gah --tray` 와 별도 PowerShell 의 `python -m gah --mcp` 동시 기동 후 `gah.log` 에 `database is locked` 0 건 확인. M4 가 같은 write_lock + busy_timeout 패턴 그대로 사용하므로 회귀 없음 예상.
 
 ### 4.4 실 Claude Code 클라이언트 연결 (선택)
 

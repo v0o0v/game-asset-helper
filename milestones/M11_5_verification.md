@@ -105,13 +105,13 @@ batch_jobs:
 | 6 | monster_red | kind=spritesheet, 4 frame | **kind=spritesheet, 48×48×4 + animation=idle (Gemma 추측)** ✅ | M11.2 chat_spritesheet modality 의 가치 LIVE 확인 |
 | 7 | palette 응답 분포 | hex 0건 + tone group 안 | **crown_icon palette=warm, high_contrast — hex 0건** ✅ | tone group enum 내 응답 |
 
-### 3.1 별 발견 (M11.5 범위 밖)
+### 3.1 별도 발견 (M11.5 범위 밖)
 
 | 항목 | 상태 | 후속 |
 |---|---|---|
 | elemental_cyan category=character | LLM 분류 한계 — 합성 색 cycle orb 자산 시각이 character 와 구분 안 됨.  실 게임 자산은 색만 cycle 하는 시트가 드물어 영향 낮음 | M11.5 범위 밖 |
-| 시트 자산 (hero/mage/knight/monster) palette 라벨 부재 | BATCH_SPRITESHEET_PROMPT 가 palette 를 명시 안 함 — chat_image 만 palette 응답 | 별 patch 후보 (BATCH_SPRITESHEET_PROMPT 강화) |
-| animation='other' 가 여러 자산에 등록 | prompt 가 'other' fallback 을 받는 영향 — 의미 X 라벨이 합산 | LabelRegistry filter 또는 prompt 'other' 금지 (별 patch) |
+| 시트 자산 (hero/mage/knight/monster) palette 라벨 부재 | BATCH_SPRITESHEET_PROMPT 가 palette 를 명시 안 함 — chat_image 만 palette 응답 | 별도 patch 후보 (BATCH_SPRITESHEET_PROMPT 강화) |
+| animation='other' 가 여러 자산에 등록 | prompt 가 'other' fallback 을 받는 영향 — 의미 X 라벨이 합산 | LabelRegistry filter 또는 prompt 'other' 금지 (별도 patch) |
 
 ## 4. Phase 2 / 4 분기 결정 매트릭스 — ✅ 2026-05-22
 
@@ -165,8 +165,8 @@ LIVE 응답 분포 본 후 결정:
 
 | 항목 | 상태 | 후속 |
 |---|---|---|
-| Gemini 모델 업그레이드 (3.1-flash-lite → 3.1-flash) | M12 별 spec | LIVE 결과 #2 = character 일 때 trigger |
-| BATCH_SPRITESHEET_PROMPT category 강제 완화 (multi-frame inventory) | M12+ 별 마일스톤 | 회전 coin 등 요구 시점 |
+| Gemini 모델 업그레이드 (3.1-flash-lite → 3.1-flash) | M12 별도 spec | LIVE 결과 #2 = character 일 때 trigger |
+| BATCH_SPRITESHEET_PROMPT category 강제 완화 (multi-frame inventory) | M12+ 별도 마일스톤 | 회전 coin 등 요구 시점 |
 | `make_complex_sheets.py` 자산이 합성 픽셀 아트 → 실 게임 자산 분포와 차이 가능 | M11.5 범위 밖 | 사용자 라이브러리로 별도 검증 권장 |
 
 ## 9. Phase 7 — 회귀 + verification + PR (검증 완료 후)

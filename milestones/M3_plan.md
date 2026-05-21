@@ -64,7 +64,7 @@ M3 가 끝나면 Claude Code 사용자는 GAH MCP 서버에 붙어 "스테이지
 | `src/gah/mcp/tools.py` | 12 개 도구 함수 — 입력 검증 → store/search/usage/registry 호출 → 출력 직렬화. 모든 write 도구는 `store.write_lock` 내부에서 동작(단일 프로세스 자체 보호 + SQLite WAL 가 inter-process 보호). | 신규 |
 | `src/gah/mcp/server.py` | `build_server(store, search, usage, registry, config) -> FastMCP` — `instructions` 필드에 표준 워크플로 한 문단(DESIGN §13.1 의 5단계 권장 흐름을 영어 한 문단으로 압축). `register_all_tools(server, deps)`. `run_stdio()` 엔트리. | 신규 |
 | `src/gah/__main__.py` (수정) | `--mcp` 플래그가 `gah.mcp.server.run_stdio()` 호출. 현재 "not implemented" 라인 제거. 로깅은 stderr 만(stdio 가 stdout 점유). | 수정 |
-| `src/gah/app.py` (수정) | GUI 부트 경로에 `HybridSearcher`/`ConsistencyScorer`/`UsageTracker` 인스턴스 생성 후 `MainWindow` 에 주입. MCP stdio 프로세스와는 무관(별 프로세스). | 수정 |
+| `src/gah/app.py` (수정) | GUI 부트 경로에 `HybridSearcher`/`ConsistencyScorer`/`UsageTracker` 인스턴스 생성 후 `MainWindow` 에 주입. MCP stdio 프로세스와는 무관(별도 프로세스). | 수정 |
 | `src/gah/ui/library_view.py` (수정) | 상단 `QLineEdit` 검색 박스 + 250ms 디바운스(M2.1 `_flush_progress` 패턴 답습). 입력이 비면 기본 목록 복귀, 입력이 있으면 `HybridSearcher.hybrid()` 호출 후 결과로 모델 교체. 결과 행 우클릭 메뉴 `"원본 파일 위치 열기"` 1 항목만(나머지는 M4). | 수정 |
 | `docs/MCP_USAGE_GUIDE.md` (수정) | stub → 본격 가이드. 12 개 도구 실 응답 JSON, `signature` 캐시 무효화 시나리오, 통일성 가중치 튜닝 노트, 에러 코드(`503_busy`, `404_not_found`, `400_invalid_input`, `403_remote_disabled`), Claude Code 권장 워크플로(§13). | 수정 |
 | `milestones/M3_todo.md` | TDD 체크리스트(이 plan 의 §3 작업 단위를 1:1 매핑) | 신규 |
@@ -549,7 +549,7 @@ torch / open_clip / Pillow / librosa 는 M3 가 직접 호출하지 않지만 `g
 - `populated_store` (`tests/conftest.py`) — 2 팩(`pack_a`, `pack_b`) × 3 자산 × 분석 완료 상태로 seed. 각 자산은 라벨 5개(2축) + 임베딩 + sprite_meta 또는 sound_meta. 통일성 검증을 위해 `pack_a` 의 `aggregate_meta` 에 `main_style=pixel_art` + `palette=["#aabbcc",...]` 미리 박음.
 - `fake_embedder` — sha256 기반 결정적 fake 인코더(384d 또는 768d 모두 OK; 테스트 일관성만 확보). M2 의 `EmbeddingEncoder` 인터페이스 만족.
 - `consistency_summary_factory` — `ProjectUsageSummary` 즉석 빌더.
-- `inline_mcp_server` (`tests/test_mcp_server_stdio.py`) — `build_server(deps)` 결과의 `tools` 디스크립터를 직접 검사. subprocess spawn 안 함 (그건 `mcp_integration` 마크 별 도구).
+- `inline_mcp_server` (`tests/test_mcp_server_stdio.py`) — `build_server(deps)` 결과의 `tools` 디스크립터를 직접 검사. subprocess spawn 안 함 (그건 `mcp_integration` 마크 별도 도구).
 
 기존 fixture(`fixture_dir`, `mock_ollama`, `fake_clip_backend`) 는 M3 단위 테스트에서 거의 사용 안 함.
 
@@ -580,7 +580,7 @@ torch / open_clip / Pillow / librosa 는 M3 가 직접 호출하지 않지만 `g
 
 1. **자동 — `pytest -q` 약 315 통과**.
 2. **MCP stdio 부팅** — `python -m gah --mcp` 후 `initialize`/`tools/list` JSON-RPC 핸드셰이크. (verification 단계에서 Claude 가 직접 PowerShell 로 측정)
-3. **트레이 + MCP 동시 기동** — `python -m gah --tray` 와 별 PowerShell 의 `python -m gah --mcp` 동시 띄움 → `gah.log` 에 `database is locked` 0 건.
+3. **트레이 + MCP 동시 기동** — `python -m gah --tray` 와 별도 PowerShell 의 `python -m gah --mcp` 동시 띄움 → `gah.log` 에 `database is locked` 0 건.
 4. **검색 박스 e2e** — 트레이의 메인 윈도우 라이브러리 탭에서 `"dark cave loop bgm"` 입력 → 250ms 후 결과 1개 이상.
 5. **통일성 가중치 누적** — 임의 프로젝트 ID 로 `find_asset` 2회 호출 사이 `record_asset_use` 1회 → 두 응답의 `score_breakdown.consistency` 비교(첫 0 → 두 번째 양수).
 6. **`signature` 무효화** — `list_labels` 1회 호출 → GUI 라벨 다이얼로그에서 라벨 1개 추가 → `list_labels` 재호출 → `signature` 달라짐.

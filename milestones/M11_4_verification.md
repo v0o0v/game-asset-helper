@@ -187,10 +187,10 @@ palette 결과는 Gemini 가 prompt 의 tone group 가이드를 얼마나 따르
 4. Trusted Publishing OIDC workflow 자동 트리거 — 6회째 자동 publish (평균 30초 예상).
 5. [PyPI v0.2.3 publish 확인](https://pypi.org/project/assetcache-mcp/0.2.3/) + GitHub release 자동 생성 확인.
 
-## 6. PR 머지 후 별 patch 후보
+## 6. PR 머지 후 별도 patch 후보
 
 | 항목 | 우선순위 | 발견 |
 |---|---|---|
 | AXIS_SPAN_RATIO 휴리스틱 튜닝 (실 자산에서 false-positive/negative 발견 시) | 낮 | LIVE 검증에서 발견 |
 | palette tone-group 으로 좁히기 (vibrant/saturated/muted 등 시드에서 제외) | 낮 | Gemini 응답 분포 본 후 결정 |
-| BATCH_SPRITESHEET_PROMPT 의 category='character' 강제 완화 (multi-frame inventory 시트 지원) | 낮 | spec 범위 밖, 별 마일스톤 |
+| BATCH_SPRITESHEET_PROMPT 의 category='character' 강제 완화 (multi-frame inventory 시트 지원) | 낮 | spec 범위 밖, 별도 마일스톤 |

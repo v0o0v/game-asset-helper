@@ -81,7 +81,7 @@ git checkout feat/m11-3-detection-cache
 
 ## 6. 핵심 설계 결정 (spec §3, §4)
 
-- 채택: **옵션 B + C 결합** (~0.7일) — 옵션 A 별 테이블 (~1일) 대신 sprite_meta + sweep memory 활용
+- 채택: **옵션 B + C 결합** (~0.7일) — 옵션 A 별도 테이블 (~1일) 대신 sprite_meta + sweep memory 활용
 - BatchManager `_detection_cache` 는 process lifetime 메모리 LRU (max 1024)
 - sprite_meta cache 의 stale 검출 미적용 — 시트 파일 변경 시 사용자 직접 재분석 트리거 (향후 patch 후보)
 - `classify_image_assets` 가 시트 hit 시 즉시 `compute_sprite_meta + enrich + save` 까지 수행 — sprite_meta 저장이 새로운 책임으로 들어옴

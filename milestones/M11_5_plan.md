@@ -17,9 +17,9 @@
 | 3 | palette tone-group narrow | LIVE 응답에 `vibrant`/`saturated`/`muted` 등 prompt enum 밖 라벨이 자주 나올 때 |
 | 4 | llm_integration acceptable set strict | LIVE 통과 후 1회 strict 화 (`'other'` 제거) |
 | 5 (M12) | Gemini 모델 업그레이드 (3.1-flash-lite → 3.1-flash) | crown_icon 이 여전히 character 일 때 |
-| 6 (M12) | BATCH_SPRITESHEET_PROMPT category 강제 완화 | 별 마일스톤 — multi-frame inventory 요구 시점 |
+| 6 (M12) | BATCH_SPRITESHEET_PROMPT category 강제 완화 | 별도 마일스톤 — multi-frame inventory 요구 시점 |
 
-#5, #6 은 M12 별 spec 으로 분리 — M11.5 범위 밖.
+#5, #6 은 M12 별도 spec 으로 분리 — M11.5 범위 밖.
 
 ## 2. 산출물
 
@@ -55,7 +55,7 @@
 ### Phase 4 — LLM #3 결과 분기
 
 * crown_icon category != character ✓ → Phase 5 strict 화 진입
-* character 유지 → M12 spec trigger (별 마일스톤)
+* character 유지 → M12 spec trigger (별도 마일스톤)
 
 ### Phase 5 — llm_integration strict (조건부)
 

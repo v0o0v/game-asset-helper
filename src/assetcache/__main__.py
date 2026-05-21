@@ -84,7 +84,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.mcp:
         # MCP stdio 진입 — 단독 프로세스. GUI 인스턴스가 떠 있어도 OK
         # (SQLite WAL + busy_timeout=5000 + write_lock 이 동시 write 흡수).
-        # single_instance 락은 안 잡음 — stdio 서버는 GUI 와 무관한 별 프로세스.
+        # single_instance 락은 안 잡음 — stdio 서버는 GUI 와 무관한 별도 프로세스.
         from assetcache.mcp.server import run_stdio
 
         run_stdio()

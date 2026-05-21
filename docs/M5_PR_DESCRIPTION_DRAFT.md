@@ -29,7 +29,7 @@ M5: 웹 GUI 전환 + 라이브러리 리디자인 + Claude pick (17 MCP 도구) 
 | Phase | 핵심 산출물 |
 |---|---|
 | Phase 0 — 의존성 + Config | FastAPI 5 의존성 + Config 7 신규 필드 + `UsageSource` enum + HTMX/Alpine vendoring |
-| Phase 1 — 인프라 | `WebServer` (uvicorn 별 스레드), `PendingPickQueue` (asyncio.Future + TTL), `web.port` 파일 R/W, SSE bus, 트레이 → 브라우저 |
+| Phase 1 — 인프라 | `WebServer` (uvicorn 별도 스레드), `PendingPickQueue` (asyncio.Future + TTL), `web.port` 파일 R/W, SSE bus, 트레이 → 브라우저 |
 | Phase 2 — 검색 + 결과 + 카드 | `/api/search`, `/ui/search-results`, 와이드/리스트 카드 partial, 모달, `/api/audio` Range, Jinja2 base 레이아웃, CSS 변수 light/dark |
 | Phase 3 — 사이드 패널 B/C/D | ⚙ 슬라이드 + 리사이즈 핸들 (240~640) + B 탭 (match_mode·axis 칩·다축 필터) + C 탭 (표시 옵션·카드 메타) + D 탭 (프리셋·슬라이더·저장된 검색·통일성 모달) + ≤768px 반응형 |
 | Phase 4 — Claude pick | `/internal/user-pick` long-poll + SSE `user_pick_request` + `_pick_card.html` + MCP `request_user_pick` + `TrayBridge(QObject)` |

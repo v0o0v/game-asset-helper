@@ -55,7 +55,7 @@ M5 신규 케이스 분해 (Phase 별 누적):
 
 ### 1.1 mcp_integration 의 의의
 
-`test_stdio_subprocess_tools_list_returns_17` 가 진짜 `python -m gah --mcp` 를 별 프로세스로 띄워 JSON-RPC `initialize` + `tools/list` 핸드셰이크 수행. 응답에 M4 16 도구 + M5 신규 1 (`request_user_pick`) 포함 + 총 17 도구 확인:
+`test_stdio_subprocess_tools_list_returns_17` 가 진짜 `python -m gah --mcp` 를 별도 프로세스로 띄워 JSON-RPC `initialize` + `tools/list` 핸드셰이크 수행. 응답에 M4 16 도구 + M5 신규 1 (`request_user_pick`) 포함 + 총 17 도구 확인:
 
 ```python
 expected = {
@@ -245,7 +245,7 @@ ollama serve
 
 ### 선택 — 트레이 + MCP stdio 동시 기동
 
-`python -m gah --tray` + 별 PowerShell 의 `python -m gah --mcp` 동시 기동 후 `gah.log` 에 `database is locked` 0 건 확인. M4 write_lock + busy_timeout 패턴 그대로 유지.
+`python -m gah --tray` + 별도 PowerShell 의 `python -m gah --mcp` 동시 기동 후 `gah.log` 에 `database is locked` 0 건 확인. M4 write_lock + busy_timeout 패턴 그대로 유지.
 
 ## 5. M6 으로 인계되는 변경
 

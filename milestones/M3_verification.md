@@ -46,7 +46,7 @@ M3 신규 110 케이스 분해:
 
 ### 1.1 mcp_integration 의 의의
 
-`test_stdio_subprocess_*` 가 진짜 `python -m gah --mcp` 를 별 프로세스로 띄워 JSON-RPC `initialize` + `tools/list` 핸드셰이크 수행. 응답에 12 도구 모두 포함 확인:
+`test_stdio_subprocess_*` 가 진짜 `python -m gah --mcp` 를 별도 프로세스로 띄워 JSON-RPC `initialize` + `tools/list` 핸드셰이크 수행. 응답에 12 도구 모두 포함 확인:
 
 ```
 expected = {
@@ -212,7 +212,7 @@ python -m gah --tray
 
 ### 4.3 트레이 + MCP stdio 동시 기동 (선택)
 
-별 PowerShell 두 개를 띄워:
+별도 PowerShell 두 개를 띄워:
 
 PowerShell #1:
 

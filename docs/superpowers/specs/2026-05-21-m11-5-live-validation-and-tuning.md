@@ -19,7 +19,7 @@ M11.4 ([PR #21](https://github.com/v0o0v/assetcache-mcp/pull/21)) 의 `milestone
 | 2 | **AXIS_SPAN_RATIO 휴리스틱 튜닝** (현재 0.8) — false-positive/negative 발견 시 ratio 조정 또는 std-기반 강도 검증 | ~0.5일 | grid_detect color-edge 정확도 | 0 | △ #1 결과 후 |
 | 3 | **palette tone-group narrow** — 시드에서 `vibrant`/`saturated`/`muted`/`desaturated`/`dark`/`light`/`earthy` 제외 | ~0.5일 | LLM 응답 분포 정리 | 기존 데이터 보호 필요 | △ #1 결과 후 (Gemini 응답 분포 봐서 결정) |
 | 4 | **llm_integration acceptable set strict 화** — `inventory_item` 위주, `'other'` 제거 | ~0.2일 | prompt 효과 측정 정확도 | 0 | △ #1 결과 후 |
-| 5 | **`BATCH_SPRITESHEET_PROMPT` `category='character'` 강제 완화** — multi-frame inventory (회전 coin 등) 지원 | ~1일 | spritesheet 분류 표현력 | 별 마일스톤 | ❌ M12 또는 별 spec |
+| 5 | **`BATCH_SPRITESHEET_PROMPT` `category='character'` 강제 완화** — multi-frame inventory (회전 coin 등) 지원 | ~1일 | spritesheet 분류 표현력 | 별도 마일스톤 | ❌ M12 또는 별도 spec |
 | 6 | **Gemini 모델 업그레이드** (3.1-flash-lite → 3.1-flash 또는 3.5-flash) — `crown_icon` 류 정확도 | ~0.5일 | LLM 분류 정확도 (비용 ↑) | config 변경 | ❌ M12 (`2026-05-21-m12-...` spec) |
 
 **채택**: M11.5 = #1 + (#2 ∪ #3 ∪ #4) (LIVE 결과 기반 가지치기).  M12 후보로 #5, #6 분리.
@@ -137,7 +137,7 @@ LIVE 1회 통과 후 strict 화.
 
 | 항목 | 우선순위 | 후속 |
 |---|---|---|
-| Gemini 모델 업그레이드 (3.1-flash → 3.5-flash) | 중 | M12 (별 spec) — 비용 ↑ + 정확도 ↑ trade-off |
+| Gemini 모델 업그레이드 (3.1-flash → 3.5-flash) | 중 | M12 (별도 spec) — 비용 ↑ + 정확도 ↑ trade-off |
 | BATCH_SPRITESHEET_PROMPT category 강제 완화 | 낮 | M12+ (multi-frame inventory 지원) |
 | AsepriteAtlas hash-mode 비균일 시트 prompt | 낮 | M16 (유사 검색) 와 함께 |
 

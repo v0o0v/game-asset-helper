@@ -61,11 +61,11 @@ M4 까지 — 라이브러리 탭이 PySide6 Qt QSplitter 3 분할 (좌 LabelChi
 │ 기존 Python 백엔드 (M3/M4 그대로)                              │
 │  - Store / HybridSearcher / ConsistencyScorer / UsageTracker  │
 │  - LabelRegistry / AnalysisQueue / Embedding / CLIP / Ollama  │
-│  - MCP server (별 프로세스 그대로) — 새 도구 추가              │
+│  - MCP server (별도 프로세스 그대로) — 새 도구 추가              │
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
-│ Claude Code (별 프로세스)                                      │
+│ Claude Code (별도 프로세스)                                      │
 │  - stdio JSON-RPC 로 gah --mcp 와 통신                         │
 │  - request_user_pick(candidates, reason, timeout=300)         │
 │    → GAH 가 WebSocket 으로 웹 UI 에 push                       │
@@ -413,7 +413,7 @@ class RequestUserPickResult(_BaseModel):
 - **MCP `request_user_pick`** — asyncio mock 큐 + future. timeout 케이스 + 사용자 거부 케이스 + 정상 응답 케이스.
 - **기존 백엔드 테스트** — `test_store_m4` / `test_search_m4` / `test_label_query` 등 모두 그대로 통과해야 (M4 백엔드 보존 확인).
 
-### 8.2 프런트엔드 테스트 (별 전략)
+### 8.2 프런트엔드 테스트 (별도 전략)
 
 - **단위 (Alpine 컴포넌트)** — Vitest 없이도 가능. Jest/Playwright 등은 도입 안 함 (빌드 도구 없이 가는 방침).
 - **e2e (옵션 — `playwright_integration` 마크로 deselect)** — Playwright 로 실 브라우저 시나리오. 클릭/타이핑/렌더 검증. v1 은 1~2 핵심 시나리오만 (검색 → 결과 갱신, Claude pick 흐름).

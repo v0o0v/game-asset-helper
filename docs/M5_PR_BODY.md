@@ -10,7 +10,7 @@
 | Phase | 핵심 산출물 |
 |---|---|
 | Phase 0 | FastAPI 5 의존성 + Config 7 신규 필드 + `UsageSource` enum + HTMX/Alpine vendoring |
-| Phase 1 | `WebServer` (uvicorn 별 스레드), `PendingPickQueue`, `web.port` R/W, SSE bus, 트레이 → 브라우저 |
+| Phase 1 | `WebServer` (uvicorn 별도 스레드), `PendingPickQueue`, `web.port` R/W, SSE bus, 트레이 → 브라우저 |
 | Phase 2 | `/api/search`, `/ui/search-results`, 카드 partial, 모달, `/api/audio` Range, CSS 변수 light/dark |
 | Phase 3 | ⚙ 슬라이드 + 리사이즈 + B/C/D 탭 (axis 칩·다축·표시 옵션·프리셋·저장된 검색·통일성 모달) + ≤768px 반응형 |
 | Phase 4 | `/internal/user-pick` long-poll + SSE + `_pick_card.html` + MCP `request_user_pick` + `TrayBridge(QObject)` |

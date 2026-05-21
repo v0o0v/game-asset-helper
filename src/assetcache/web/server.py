@@ -1,11 +1,11 @@
-"""M5 — uvicorn 을 별 스레드 + 별 asyncio 루프에서 실행하는 WebServer.
+"""M5 — uvicorn 을 별도 스레드 + 별도 asyncio 루프에서 실행하는 WebServer.
 
 트레이 Qt main thread 가 본 클래스를 부팅 (`start`) → 새 스레드에서
 `uvicorn.Server.serve()` async 진입. 종료 시 `should_exit=True + join`.
 
 포트 폴백: `Config.web_port` 부터 `web_port_max_attempts` 번 시도.
 성공 시 실 사용 포트를 `paths.data_dir/web.port` 에 atomic write
-(MCP server 가 별 프로세스라 같은 파일로 URL 공유).
+(MCP server 가 별도 프로세스라 같은 파일로 URL 공유).
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 
 class WebServer:
-    """uvicorn 을 별 스레드 + 별 asyncio 루프에서 실행하는 WebServer."""
+    """uvicorn 을 별도 스레드 + 별도 asyncio 루프에서 실행하는 WebServer."""
 
     def __init__(self, deps: WebDeps) -> None:
         self.deps = deps

@@ -1,6 +1,6 @@
 """MCP stdio 서버 빌더 + 진입점.
 
-``--mcp`` 플래그가 ``run_stdio()`` 를 호출. 별 프로세스로 동작하며 GUI
+``--mcp`` 플래그가 ``run_stdio()`` 를 호출. 별도 프로세스로 동작하며 GUI
 인스턴스와 같은 SQLite DB 를 공유한다. inter-process write 충돌은
 WAL + ``busy_timeout=5000`` (M2.1) 이 흡수.
 """
@@ -192,7 +192,7 @@ def register_all_tools(server: FastMCP, deps: t.ToolDeps) -> None:
 def run_stdio() -> None:
     """``python -m assetcache --mcp`` 진입점.
 
-    GUI 인스턴스와는 별 프로세스. 워처는 안 띄움. KeyboardInterrupt 는
+    GUI 인스턴스와는 별도 프로세스. 워처는 안 띄움. KeyboardInterrupt 는
     graceful 종료 (예외 다시 던지지 않음).
     """
     paths = default_app_paths()
@@ -208,7 +208,7 @@ def run_stdio() -> None:
     registry.bootstrap()
 
     # MCP stdio 진입점은 검색 쿼리 임베딩만 필요 — 분석(이미지/오디오) 은
-    # GUI 인스턴스가 별 프로세스로 담당한다. OllamaClient 는 임베딩 모델로 초기화.
+    # GUI 인스턴스가 별도 프로세스로 담당한다. OllamaClient 는 임베딩 모델로 초기화.
     ollama = OllamaClient(
         base_url=cfg.ollama_url, model=cfg.model_embed,
         timeout_seconds=cfg.analysis_timeout_seconds,
