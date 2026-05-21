@@ -13,6 +13,7 @@
     <p>
       {{ _("Interactive queue") }}: <strong>{{ summary.interactive_count }}</strong>
       · {{ _("Batch image") }}: <strong>{{ summary.batch_image }}</strong>
+      · {{ _("Batch spritesheet") }}: <strong>{{ summary.batch_spritesheet }}</strong>
       · {{ _("Batch audio") }}: <strong>{{ summary.batch_audio }}</strong>
       · {{ _("Batch embed") }}: <strong>{{ summary.batch_embed }}</strong>
       {% if summary.eta_seconds is not none and summary.eta_seconds > 0 %}

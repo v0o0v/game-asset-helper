@@ -995,3 +995,10 @@ msgstr "최근 실패"
 msgid "Worker #%d (%.1fs elapsed)"
 msgstr "워커 #%d (%.1f초 경과)"
 
+# M11.2 — 신규 chat_spritesheet modality (Batch Spritesheet 4번째 행)
+msgid "Batch spritesheet"
+msgstr "배치 시트"
+
+msgid "spritesheet"
+msgstr "스프라이트시트"
+

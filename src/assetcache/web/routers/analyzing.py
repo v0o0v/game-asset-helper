@@ -29,6 +29,7 @@ def _build_view_model(deps) -> dict:
         summary = {
             "interactive_count": 0,
             "batch_image": 0,
+            "batch_spritesheet": 0,
             "batch_audio": 0,
             "batch_embed": 0,
             "eta_seconds": None,
@@ -41,6 +42,7 @@ def _build_view_model(deps) -> dict:
         progress = aq.progress()
         # pending_by_modality 는 DB + queue size 합산
         batch_image = aq.pending_by_modality("chat_image")
+        batch_spritesheet = aq.pending_by_modality("chat_spritesheet")
         batch_audio = aq.pending_by_modality("chat_audio")
         batch_embed = aq.pending_by_modality("text_embed")
         interactive_assets = aq.snapshot_queue(limit=50)
@@ -48,6 +50,7 @@ def _build_view_model(deps) -> dict:
         summary = {
             "interactive_count": progress.pending,
             "batch_image": batch_image,
+            "batch_spritesheet": batch_spritesheet,
             "batch_audio": batch_audio,
             "batch_embed": batch_embed,
             "eta_seconds": progress.eta_seconds,

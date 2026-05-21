@@ -30,7 +30,7 @@ router = APIRouter(tags=["settings"])
 _VALID_BACKEND_KEYS = frozenset(
     {"enabled", "api_key", "model_image", "model_audio", "model_embed"}
 )
-_VALID_MODALITIES = ("chat_image", "chat_audio", "text_embed")
+_VALID_MODALITIES = ("chat_image", "chat_spritesheet", "chat_audio", "text_embed")
 
 
 def _build_registry_for_test(cfg: Config) -> Any:

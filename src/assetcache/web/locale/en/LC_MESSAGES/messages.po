@@ -1005,3 +1005,10 @@ msgstr "Recent failures"
 msgid "Worker #%d (%.1fs elapsed)"
 msgstr "Worker #%d (%.1fs elapsed)"
 
+# M11.2 — new chat_spritesheet modality (4th Batch row)
+msgid "Batch spritesheet"
+msgstr "Batch spritesheet"
+
+msgid "spritesheet"
+msgstr "spritesheet"
+
