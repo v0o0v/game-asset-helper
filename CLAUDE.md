@@ -19,9 +19,9 @@
 
 | 구간 | 상태 | 위치 |
 |---|---|---|
-| M0 ~ M11.4 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
-| **현재 main** | M11.4 (PR #21 `7794d48` squash, v0.2.3 publish 보류) | grid_detect color-edge + LabelRegistry seed + BATCH_IMAGE_PROMPT enum + sync/batch parity + Config 전파. 회귀 **1592 passed + 1 skipped + 59 deselected**. MCP 20 도구 |
-| **다음 후보** | M11.5 (📋 spec/plan 작성됨) | LIVE validation + tuning patches (v0.2.4 candidate). LIVE 결과 기반 분기 (AXIS_SPAN_RATIO / palette narrow / acceptable set strict). spec: [m11-5](./docs/superpowers/specs/2026-05-21-m11-5-live-validation-and-tuning.md), plan: [M11_5_plan.md](./milestones/M11_5_plan.md) |
+| M0 ~ M11.5 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
+| **현재 main** | M11.5 (PR #23 `ed47403` squash + PR #24 `1be53ae` docs cleanup, v0.2.3/v0.2.4 publish 보류) | LIVE Gemini batch 통과 (D-1 elemental_cyan→spritesheet ✓ + LLM #3 crown_icon→inventory_item ✓) + Phase 5 acceptable set strict (`{inventory_item,item}` / `{ui_icon,ui}`) + LIVE 헬퍼 `scripts/drive_live_batch.py`. 별→별도 정리 30 파일. 회귀 **1592 passed + 1 skipped + 59 deselected**. MCP 20 도구 |
+| **다음 후보** | M11.6 (📋 spec/plan 작성됨) | BATCH_SPRITESHEET_PROMPT palette + 'other' fallback 정리 (v0.2.5 candidate). M11.5 의 별도 발견 2건 해소. spec: [m11-6](./docs/superpowers/specs/2026-05-22-m11-6-spritesheet-palette-and-other-cleanup.md), plan: [M11_6_plan.md](./milestones/M11_6_plan.md) |
 
 전체 마일스톤 정렬 + future 후보 (M12~M18) 는 [`milestones/ROADMAP.md`](./milestones/ROADMAP.md).  
 한 줄 인계 스냅샷은 [`HANDOFF.md`](./HANDOFF.md).
@@ -107,16 +107,13 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
 
 ## 7. 다음 작업
 
-**M11.5 LIVE validation + tuning** (v0.2.4 candidate).  M11.4 는 main `7794d48` squash 머지 완료 ([PR #21](https://github.com/v0o0v/assetcache-mcp/pull/21), 회귀 1559 → 1592 +33).  v0.2.3 PyPI publish 는 선택 (LIVE 검증 후로 미뤄도 됨).
+**M11.6 BATCH_SPRITESHEET_PROMPT palette + 'other' fallback 정리** (v0.2.5 candidate).  M11.5 는 main `ed47403` squash 머지 완료 ([PR #23](https://github.com/v0o0v/assetcache-mcp/pull/23), 회귀 1592 그대로 + 옵트인 strict 2 PASSED) + PR #24 `1be53ae` 별→별도 docs cleanup.  v0.2.3/v0.2.4 PyPI publish 모두 보류 (M11.6 머지 후 0.2.2 → 0.2.5 직접 bump 권장).
 
-1. 환경 복원:
+1. 환경 복원 + 회귀 baseline:
 
    ```powershell
    & "$env:USERPROFILE\.venvs\gah\Scripts\Activate.ps1"
    ```
-
-2. main 동기화 + 회귀 baseline 확인:
-
    ```powershell
    git checkout main
    ```
@@ -128,13 +125,23 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
    ```
    → `1592 passed, 1 skipped, 59 deselected` 확인.
 
-3. (선택) v0.2.3 publish — `pyproject.toml` + `src/assetcache/__init__.py` 0.2.2 → 0.2.3 bump + commit + tag:
+2. **M11.6 implement** — 새 브랜치 + prompt TDD red→green 부터:
 
    ```powershell
-   git tag v0.2.3
+   git checkout -b feat/m11-6-prompt-cleanup
+   ```
+
+   spec/plan:
+   - [`docs/superpowers/specs/2026-05-22-m11-6-spritesheet-palette-and-other-cleanup.md`](./docs/superpowers/specs/2026-05-22-m11-6-spritesheet-palette-and-other-cleanup.md)
+   - [`milestones/M11_6_plan.md`](./milestones/M11_6_plan.md) — Phase 1 prompt fix → Phase 2 LIVE 검증 → Phase 3 A2-filter 분기 → Phase 4 PR
+
+3. (선택, M11.6 머지 후) v0.2.5 publish — `pyproject.toml` + `src/assetcache/__init__.py` 0.2.2 → 0.2.5 bump + tag:
+
+   ```powershell
+   git tag v0.2.5
    ```
    ```powershell
-   git push origin main v0.2.3
+   git push origin main v0.2.5
    ```
    → Trusted Publishing OIDC 6회째 자동.
 
