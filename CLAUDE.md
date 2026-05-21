@@ -17,36 +17,19 @@
 
 ## 2. 진행 현황 (요약)
 
-| 마일스톤 | 상태 | 산출물 |
+| 구간 | 상태 | 위치 |
 |---|---|---|
-| M0 — 뼈대 | ✅ 완료 | 패키지 스캐폴딩, config/logging/single-instance, 트레이 셸, CLI |
-| M1 — 워처 + Pack Manager + DB | ✅ 완료 | watchdog 래퍼+디바운서, 매니페스트/벤더 휴리스틱, SQLite 4테이블, 부팅 풀스캔, GUI 팩/라이브러리 탭 |
-| M2 — 분석 파이프라인 + CLIP | ✅ 완료 | Pillow·numpy 기술 특성·librosa+soundfile·Ollama 클라이언트·`nomic-embed-text`·CLIP zero-shot·24축 ≈ 316 라벨 시드+`LabelRegistry`+라벨 관리 다이얼로그·분석 큐+ETA 상태바 |
-| M2.1 — 분석 큐 병렬화 패치 | ✅ 완료 | 동시성 1→3, Ollama semaphore(parallel=2), CLIP threading.Lock, SQLite write_lock+busy_timeout, GUI 250ms 디바운스 |
-| M3 — 검색 백엔드 + 통일성 + MCP | ✅ 완료 | HybridSearcher 가중합 0.40/0.15/0.20/0.20/0.05, ConsistencyScorer §4.6 표, UsageTracker, MCP stdio 12 도구 (mcp 1.27), GUI 검색 박스, `docs/MCP_USAGE_GUIDE.md` 본격화 |
-| M4 — 검색 UX 풍부화 | ✅ 완료 (main 머지됨, [PR #5](https://github.com/v0o0v/game-asset-helper/pull/5)) | label_query 파서 AND/OR/NOT + axis:label + bare 자동매칭, HybridSearcher 6채널 0.35/0.10/0.20/0.20/0.05/0.10 feedback, diversity none/mmr/round_robin, saved_searches 4 신규 MCP 도구 (12→16), feedback_records signed weight 페널티 학습, suggest_packs samples 풍부화. Qt UI 위젯 4개는 M5 가 폐기 예정 |
-| **M5 — 웹 GUI 전환 + 라이브러리 리디자인 + Claude pick 인터랙션** (~5.5주) | **✅ 완료** (`feat/m5-web-gui` 브랜치, main 머지 대기) | 웹 GUI 전환 완료 + 라이브러리/팩/라벨 리디자인 + Claude pick + 17 MCP 도구 + Qt UI 폐기. Phase 0~6 완료 — **796 passed + 1 skipped**. spec: [`docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md`](./docs/superpowers/specs/2026-05-17-m5-web-gui-and-library-redesign.md), plan: [`milestones/M5_plan.md`](./milestones/M5_plan.md) |
-| M6 — 시트 분석 + 애니메이션 | ✅ 완료 ([PR #7](https://github.com/v0o0v/game-asset-helper/pull/7) main 머지) + 후속 patch 8건 | sheet 4 모듈 + SpritesheetAnalyzer + `suggest_animation_frames` MCP 18번째 + 와이드/리스트 카드 🎞 배지 + Ollama cold-start retry. 신규 의존성 0. **91 신규 테스트** (M6 spec +84, 후속 patch +7, 총 887). spec: [`docs/superpowers/specs/2026-05-18-m6-sheet-and-animation-design.md`](./docs/superpowers/specs/2026-05-18-m6-sheet-and-animation-design.md) |
-| **M7 — Unity Asset Store 임포트 (1주)** | **✅ 완료** ([PR #8](https://github.com/v0o0v/game-asset-helper/pull/8) main 머지) + 후속 patch 19건 | `.unitypackage` 파서·캐시 스캐너·임포터 + 활성 프로젝트 + 프로젝트 페이지 + 자산별 선호도 + 20 MCP 도구. 신규 의존성 0. **+124 신규 테스트** (총 1002). spec: [`docs/superpowers/specs/2026-05-18-m7-unity-asset-store-import.md`](./docs/superpowers/specs/2026-05-18-m7-unity-asset-store-import.md), plan: [`milestones/M7_plan.md`](./milestones/M7_plan.md) |
-| **M8 — 패키징 + i18n (1주)** | **✅ 완료** ([PR #9](https://github.com/v0o0v/game-asset-helper/pull/9) + [PR #10](https://github.com/v0o0v/game-asset-helper/pull/10) main 머지 + 후속 fix 2건 main 직접 누적, 수동 검증 통과) | PyInstaller `--onefile` + Babel gettext (ko/en) + 다크모드 토글 + Windows autostart. 신규 의존성 2 (Babel>=2.14, pyinstaller>=6 dev). **+44 신규 테스트** (총 1046). `dist/GameAssetHelper.exe` 308MB 부팅 검증 통과. spec: [`docs/superpowers/specs/2026-05-19-m8-packaging-and-i18n-design.md`](./docs/superpowers/specs/2026-05-19-m8-packaging-and-i18n-design.md), plan: [`milestones/M8_plan.md`](./milestones/M8_plan.md) |
-| M10 — PyPI 배포 + AssetCacheMCP rename | ✅ 완료 ([PR #11](https://github.com/v0o0v/assetcache-mcp/pull/11) main 머지 + [PR #12](https://github.com/v0o0v/assetcache-mcp/pull/12) Node.js 24 workflow fix) | rename (`gah` → `assetcache`) + M9 cherry-pick (PyPI 알림 배너 + tray Signal) → **PyPI 1차 배포** + Trusted Publishing (OIDC). **+57 신규 테스트** (총 1103). [PyPI v0.1.0 Latest](https://pypi.org/project/assetcache-mcp/0.1.0/) + [GitHub release v0.1.0](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.0). spec: [`docs/superpowers/specs/2026-05-19-m10-pypi-and-rename.md`](./docs/superpowers/specs/2026-05-19-m10-pypi-and-rename.md), plan: [`milestones/M10_plan.md`](./milestones/M10_plan.md) |
-| v0.1.1 yagni-clean (chore patch) + PyPI publish | ✅ 완료 ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14) main 머지 + [PyPI v0.1.1 publish](https://pypi.org/project/assetcache-mcp/0.1.1/) + [GitHub release v0.1.1](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.1)) | v0.0.1 마이그레이션 helper (Phase 1) 코드 + 테스트 + i18n 일괄 제거 → version 0.1.0 → 0.1.1 bump. 신규 의존성 0. **회귀 -24** (1103 → **1079**). MCP 20 도구 변동 없음. **Trusted Publishing (OIDC) 첫 자동 publish 검증 ✅ 32초 성공** ([run 26139260454](https://github.com/v0o0v/assetcache-mcp/actions/runs/26139260454)). spec: [`docs/superpowers/specs/2026-05-20-v011-yagni-clean-v001-compat-design.md`](./docs/superpowers/specs/2026-05-20-v011-yagni-clean-v001-compat-design.md) |
-| v0.1.2 PyPI 페이지 정직성 patch + PyPI publish | ✅ 완료 ([PR #15](https://github.com/v0o0v/assetcache-mcp/pull/15) main 머지 + [PyPI v0.1.2 publish](https://pypi.org/project/assetcache-mcp/0.1.2/) + [GitHub release v0.1.2](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.1.2)) | README PyInstaller exe 섹션 제거 (release artifact 0건 거짓 안내), DESIGN/docs stale 명령어 `python -m gah`/`game-asset-helper` → `assetcache` 갱신, pyproject classifiers 보강 (Games/Entertainment + Sound/Audio), CLAUDE.md M10 worktree 안내 제거. 코드 변경 0, 신규 의존성 0, 회귀 1079 그대로. **Trusted Publishing 2회째 자동 publish 29초 성공** ([run 26141958223](https://github.com/v0o0v/assetcache-mcp/actions/runs/26141958223)) — 패턴 안정성 확인 |
-| **M11 — Multi-backend LLM Architecture + v0.2.0 publish** | ✅ 완료 ([PR #16](https://github.com/v0o0v/assetcache-mcp/pull/16) main 머지 + [PyPI v0.2.0](https://pypi.org/project/assetcache-mcp/0.2.0/) + [GitHub release v0.2.0](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.2.0)) | 6 backend (Ollama + Gemini + Claude + OpenAI + OpenRouter + HuggingFace) + modality 별 chain + 자동 fallback + `/settings` 페이지 backend 카드 (가격·셋업 안내 partial 12, ko/en) + chain ▲/▼ 우선순위 + i18n 27 msgid + DB `backend_image/audio/embed` 컬럼 + MCP `find_asset` 응답 `backend_used` + 검색 카드 🤖 배지. Gemini default = `gemini-3.1-flash-lite` (output -40% 비용 vs 2.5-flash). 신규 의존성 4 (`google-genai`/`anthropic`/`openai`/`huggingface_hub`). **+173 신규 테스트 + 13 옵트인 `llm_integration` 마커** (총 **1252**). 수동 검증 중 5 fix 누적. spec: [`docs/superpowers/specs/2026-05-20-m11-multi-backend-llm-design.md`](./docs/superpowers/specs/2026-05-20-m11-multi-backend-llm-design.md), plan: [`milestones/M11_plan.md`](./milestones/M11_plan.md), verification: [`milestones/M11_verification.md`](./milestones/M11_verification.md). MCP 20 도구 그대로 (응답 schema 만 확장). 알려진 한계: AnalysisQueue → mark_asset_backends write hook + Gemini Batch API 미적용 — v0.2.x candidate |
-| **M11.1 — Gemini Batch API + /analyzing dashboard + v0.2.1 publish** | ✅ 완료 ([PR #17](https://github.com/v0o0v/assetcache-mcp/pull/17) main `782a047` + [PyPI v0.2.1](https://pypi.org/project/assetcache-mcp/0.2.1/) + [GitHub release v0.2.1](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.2.1)) + Manual verification 시나리오 1~4 통과 | Gemini Batch API 50% 비용 + 24h SLO, image/audio/embed 모든 modality + hybrid 정책 (임계값 30, auto/forced_on/forced_off toggle) + `/analyzing` dashboard (5초 자동 새로고침) + Qt tray toggle + i18n 18 msgid + M11 한계(`mark_asset_backends`) 동시 해결. 신규 의존성 0. **+174 신규 테스트 + 3 옵트인 추가** (총 **1426** + 옵트인 16). spec/plan/verification: [spec](./docs/superpowers/specs/2026-05-20-gemini-batch-api-design.md) / [plan](./docs/superpowers/plans/2026-05-20-gemini-batch-api.md) / [verification](./milestones/M11_1_verification.md). **Trusted Publishing 4회째 자동 publish 31초 성공** ([run 26206683356](https://github.com/v0o0v/assetcache-mcp/actions/runs/26206683356)). 수동 검증 중 4 patch squash 포함. 알려진 한계 3건 (batch stub persist) → **PR #18 v0.2.x patches 에서 모두 해소** |
-| **v0.2.x patches — batch persist 보강 (PR #18)** | ✅ 완료 ([PR #18](https://github.com/v0o0v/assetcache-mcp/pull/18) main 머지 `12ebc42`, v0.2.2 publish 미정) | M11.1 의 batch stub persist 한계를 3 단계로 해결: patch A (`68a3257`) `core/analyzer/payload_parser.py` 신설 + BatchPoller `registry` 주입으로 batch payload → validated labels / patch B (`bdde0e0`) `core/analyzer/tech_meta.py` 신설 + BatchPoller `library_dir` 주입으로 sprite_meta/sound_meta 충전 / patch C (`65fb4aa`) `core/analyzer/spritesheet_meta.py` 신설 + BatchPoller 가 `detect_sheet` 호출로 Aseprite/TexturePacker frameTags hit 시 frame_w/h/count + animations_json + frameTags 라벨 + `kind='spritesheet'` promote. **+66 신규 테스트** (회귀 1424 → **1490 passed + 3 skipped + 56 deselected**, 회귀 0). 신규 의존성 0. MCP 20 도구 그대로. 알려진 한계: grid-only 시트 (frameTags 없음) 의 animation 라벨 비어 있음 → **M11.2 candidate** |
-| **M11.2 — Batch Spritesheet Modality** | ✅ 완료 ([PR #19](https://github.com/v0o0v/assetcache-mcp/pull/19) main `d34f1dd` squash 머지, v0.2.2 publish 미정 — M11.3 와 묶어 진행) | `chat_spritesheet` modality 신설로 PR #18 한계 (grid-only 시트 animation 라벨 부재) 해소. 신규 모듈 2 (`core/batch/sheet_classifier.py` + `BATCH_SPRITESHEET_PROMPT` + `build_spritesheet_chat_messages` in `core/analyzer/messages.py`). BatchManager `_do_submit("chat_image")` 가 fetch 후 `detect_sheet` 로 시트 식별 → kind promote (다음 sweep 의 chat_spritesheet 가 픽업). BatchPoller `_persist_spritesheet_payload` 가 sync `_call_gemma` 와 동등한 결과 (animation_hint + frameTags + sprite_meta enrich). UI 4행 modality + ko/en `Batch spritesheet` msgid. 신규 의존성 0. **+38 신규 테스트** (1490 → **1528 passed + 3 skipped + 56 deselected**, 회귀 0). spec: [`docs/superpowers/specs/2026-05-21-m11-2-batch-spritesheet-modality.md`](./docs/superpowers/specs/2026-05-21-m11-2-batch-spritesheet-modality.md), plan: [`docs/superpowers/plans/2026-05-21-m11-2-batch-spritesheet-modality.md`](./docs/superpowers/plans/2026-05-21-m11-2-batch-spritesheet-modality.md), verification: [`milestones/M11_2_verification.md`](./milestones/M11_2_verification.md). 알려진 한계: `detect_sheet` 시트당 3중 호출 → **M11.3 detection cache 가 해소** |
-| **M11.3 — Detection Cache + 부수 patch 4건** | ✅ 완료 ([PR #20](https://github.com/v0o0v/assetcache-mcp/pull/20) main `7ad0f3d` squash 머지, v0.2.2 publish 대기) | M11.2 의 `detect_sheet` 시트당 3중 호출을 2-층 캐시 (옵션 B `sprite_meta.animations_json` DB cross-sweep cache + 옵션 C `BatchManager._detection_cache` LRU 메모리 sweep cache) 로 압축.  LIVE 검증 v1 24회→14회 (37% 감소), v2 16회→8회 (50% 감소). 부수 patch 4건 동시 fix — **B** `payload_parser` list/None 안전 (`_coerce_to_dict` + list-with-dict-first silent unwrap), **A** `/settings` UI `chat_spritesheet` modalityOrder + chainAdd + i18n "Spritesheet chain"/"스프라이트시트 체인", **C** Gemini `batch_embed` SDK schema 형식 (list-of-dict → `{"contents":[...]}` 단일 dict, 실 API 200 OK 검증), **D-2** `detect_sheet` FrameSpec.w/h 가 `stride_x/y` (slot 크기) 사용. **+30 신규 테스트** (1528 → **1559 passed + 1 skipped + 57 deselected**, 0 회귀). 신규 의존성 0, 마이그 0, MCP 20 도구 그대로. spec: [`docs/superpowers/specs/2026-05-21-m11-3-detection-cache.md`](./docs/superpowers/specs/2026-05-21-m11-3-detection-cache.md), plan: [`milestones/M11_3_plan.md`](./milestones/M11_3_plan.md), verification: [`milestones/M11_3_verification.md`](./milestones/M11_3_verification.md). 알려진 한계 2건 (M11.4 candidate): grid_detect alpha-only edge 검출 (color-cycling effect 시트 누락) + Gemma 분류 정확도 (inventory item) |
-| **M11.4 — grid_detect 강화 + LLM 분류 정확도 (다음 세션 implement 대상)** | 📋 spec/plan 작성됨, implement 대기 (M11.3 LIVE 검증 v2 한계 해소) | (D-1) grid_detect 에 color-edge 시그널 합성 → color-cycling 시트 검출 + (LLM #3) LabelRegistry seed 확장 (`inventory_item`/`ui_icon`) + BATCH 프롬프트 enum 명시 + palette tone group (hex 거부). 작업 시간 ~2.5일, ~+20 신규 테스트, 신규 의존성 0. spec: [`docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md`](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md), plan starter: [`milestones/M11_4_plan.md`](./milestones/M11_4_plan.md) |
+| M0 ~ M11.3 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
+| **현재 main** | M11.3 (PR #20 `7ad0f3d` squash, v0.2.2 publish 대기) | Detection Cache + 부수 patch 4건. 회귀 **1559 passed + 1 skipped + 57 deselected**. MCP 20 도구 |
+| **다음 후보** | M11.4 (📋 spec/plan 작성됨) | grid_detect color-edge + LLM 분류 정확도 (v0.2.3 candidate). spec: [m11-4](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md), plan: [M11_4_plan.md](./milestones/M11_4_plan.md) |
 
-각 마일스톤의 상세 계획·체크리스트·검증 결과는 `milestones/M{N}_plan.md`, `M{N}_todo.md`, `M{N}_verification.md`.
-
-현재까지의 한 줄 인계 상태는 [`HANDOFF.md`](./HANDOFF.md).
+전체 마일스톤 정렬 + future 후보 (M12~M18) 는 [`milestones/ROADMAP.md`](./milestones/ROADMAP.md).  
+한 줄 인계 스냅샷은 [`HANDOFF.md`](./HANDOFF.md).
 
 ## 3. 사용자 환경
 
 - **OS**: Windows 10
-- **Python**: python.org 정식 Python 3.12 (`C:\Users\v0o0v\AppData\Local\Programs\Python\Python312\`). **Microsoft Store Python 금지** — `%APPDATA%` 가상화로 경로가 불일치한다(M0 검증 중 확인).
+- **Python**: python.org 정식 Python 3.12 (`C:\Users\v0o0v\AppData\Local\Programs\Python\Python312\`). **Microsoft Store Python 금지** — `%APPDATA%` 가상화로 경로가 불일치한다.
 - **venv 위치**: `%USERPROFILE%\.venvs\gah\`. Cowork 작업 폴더(`D:\ClaudeCowork\...`) 내부에 venv를 만들면 권한 충돌이 난다.
 - **PowerShell**: 기본 5.1 가정. PowerShell 7+은 사용자가 별도 설치한 경우만.
 
@@ -59,7 +42,7 @@
 ### 4.2 마일스톤 사이클 (TDD)
 각 마일스톤은 다음 5단계를 반드시 순서대로 거친다.
 
-1. `milestones/M{N}_plan.md` — 목표·산출물·작업 단위·테스트 전략·검증 기준. M0 문서를 표준 템플릿으로 참고.
+1. `milestones/M{N}_plan.md` — 목표·산출물·작업 단위·테스트 전략·검증 기준.
 2. `milestones/M{N}_todo.md` — TDD 순서 체크리스트.
 3. **테스트 먼저 작성** (red phase). `tests/` 아래에 실패하는 테스트들을 작성하고, 한 번 돌려서 모두 실패하는지 확인.
 4. 구현 (green phase). 테스트가 통과하도록 모듈 작성.
@@ -91,216 +74,87 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
 ├── README.md                 # 일반 사용자용 안내
 ├── pyproject.toml
 ├── milestones/
+│   ├── HISTORY.md            # M0~M11.3 완료분 아카이브
+│   ├── ROADMAP.md            # 전체 마일스톤 정렬 + future
 │   ├── README.md             # 마일스톤 디렉터리 안내
-│   ├── M0_plan.md / M0_todo.md / M0_verification.md
-│   ├── M1_plan.md / M1_todo.md / M1_verification.md
-│   └── M{N}_*.md             # 각 마일스톤별 3종 세트
+│   └── M{N}_*.md             # 각 마일스톤별 plan/todo/verification 3종 세트
+├── docs/
+│   ├── SETUP.md              # 개발 환경 셋업 + 자주 쓰는 명령
+│   ├── MCP_USAGE_GUIDE.md    # MCP 20 도구 사용 가이드
+│   ├── WEB_UI_GUIDE.md       # 웹 GUI 가이드
+│   └── superpowers/          # spec/plan 아카이브
 ├── src/
 │   └── assetcache/           # M10 에서 src/gah/ → src/assetcache/ rename
-│       ├── __init__.py
 │       ├── __main__.py       # CLI 엔트리(--tray / --mcp / --version / --data-dir)
-│       ├── config.py         # AppPaths / Config / load_config / save_config
-│       ├── logging_setup.py  # 회전 파일 + stderr 핸들러
-│       ├── platform/
-│       │   └── single_instance.py
-│       ├── app.py            # QApplication 부트 (지연 import) + 워처/스토어 연결
-│       ├── tray.py           # 트레이 아이콘 + "메인 창 열기" 액션 + PyPI 업데이트 메뉴
-│       ├── updater/          # M10 Phase 2 — PyPI 알림
-│       │   ├── version.py        # 현재 설치 버전 조회
-│       │   ├── checker.py        # PyPI JSON API + 캐시
-│       │   └── pip_command.py    # 환경 (pipx/uv/pip) 분기 → upgrade 명령 문자열
-│       ├── core/             # M1 도메인 로직
-│       │   ├── asset_kind.py     # 확장자→sprite/sound
-│       │   ├── manifest.py       # pack.json/pack.toml + 벤더 휴리스틱
-│       │   ├── store.py          # SQLite + packs/assets/tags/asset_tags
-│       │   ├── pack_manager.py   # 팩 디렉터리 인테이크
-│       │   ├── scanner.py        # 부팅 풀스캔 화해
-│       │   └── watcher.py        # watchdog 어댑터 + PackDebouncer
-│       ├── web/              # M5 FastAPI 웹 서버 (app/server/routers/templates/static)
-│       └── ui/               # M5 Phase 5C 에서 완전 삭제됨 (src/assetcache/ui/ 디렉터리 없음)
-└── tests/
-    ├── conftest.py
-    ├── test_config.py / test_logging.py / test_single_instance.py / test_entrypoint.py / test_imports.py  # M0
-    ├── test_asset_kind.py / test_manifest.py / test_store.py                                              # M1
-    ├── test_pack_manager.py / test_scanner.py / test_watcher.py / test_ui_smoke.py                        # M1
+│       ├── config.py / logging_setup.py / app.py / tray.py
+│       ├── platform/         # single_instance
+│       ├── updater/          # PyPI 알림 (M10 Phase 2)
+│       ├── core/             # 도메인 로직 (M1~M11.3)
+│       │   ├── store.py / pack_manager.py / scanner.py / watcher.py
+│       │   ├── analyzer/     # payload_parser / tech_meta / spritesheet_meta / messages
+│       │   ├── batch/        # manager / poller / sheet_classifier
+│       │   ├── llm/backends/ # ollama / gemini / claude / openai / openrouter / huggingface
+│       │   └── sheet/        # detect / grid_detect
+│       └── web/              # FastAPI 웹 서버
+└── tests/                    # pytest 1559 passed (M11.3 baseline)
 ```
 
 후속 마일스톤에서 추가될 모듈은 `DESIGN.md §7` 참고.
 
-## 6. 개발 환경 셋업 (새 PC에서)
+## 6. 개발 환경 셋업 + 자주 쓰는 명령
 
-```powershell
-git clone https://github.com/v0o0v/assetcache-mcp.git
-```
+[`docs/SETUP.md`](./docs/SETUP.md) — 새 PC 셋업 절차, `pytest -q` baseline, 자주 쓰는 명령 (tray/mcp/version), 옵트인 마커 (`mcp_integration` / `llm_integration`).
 
-```powershell
-cd assetcache-mcp
-```
+## 7. 다음 작업
 
-```powershell
-python -m venv $env:USERPROFILE\.venvs\gah
-```
-
-```powershell
-& "$env:USERPROFILE\.venvs\gah\Scripts\Activate.ps1"
-```
-
-```powershell
-pip install -e .[dev]
-```
-
-```powershell
-pytest -q
-```
-
-`pytest -q`가 main 기준 **1252 passed + 1 skipped + 53 deselected** 로 떨어지면 준비 완료 (M11 v0.2.0 publish 후 main baseline). M11.1 feat 브랜치 머지 후에는 **1426 passed + 1 skipped + 56 deselected** 로 갱신됨. `pytest -m mcp_integration` 으로 옵트인 2 케이스 (실 `python -m assetcache --mcp` subprocess + JSON-RPC, **20 도구** 응답) 추가 검증 가능. `pytest -m llm_integration` 으로 16 케이스 (Gemini 6 = 기존 3 + batch 3, Claude 3, OpenAI 3, OpenRouter 2, HuggingFace 2 — 각 backend 별 환경변수 셋업 필요). 마일스톤별 최종 검증 결과는 `milestones/M{N}_verification.md`. **M4~M11 + v0.1.1 + v0.1.2 + v0.2.0 모두 main 머지 + PyPI publish 완료** ([PR #5](https://github.com/v0o0v/assetcache-mcp/pull/5)~[PR #16](https://github.com/v0o0v/assetcache-mcp/pull/16)). M11.1 은 v0.2.1 후보 (feat 브랜치 PR 대기). **v0.1.0 ~ v0.2.0 PyPI publish 완료** — [PyPI Latest v0.2.0](https://pypi.org/project/assetcache-mcp/0.2.0/) + Trusted Publishing OIDC 3회째 자동 (~30초).
-
-## 7. 자주 쓰는 명령
-
-테스트 전체:
-
-```powershell
-pytest -q
-```
-
-테스트 한 파일만:
-
-```powershell
-pytest tests/test_config.py -v
-```
-
-트레이 모드 실행:
-
-```powershell
-python -m assetcache --tray
-```
-
-버전 확인:
-
-```powershell
-python -m assetcache --version
-```
-
-MCP stdio 서버 모드:
-
-```powershell
-python -m assetcache --mcp
-```
-
-## 8. 다음 작업 (M11.3 PR #20 머지 완료 — 다음 세션 v0.2.2 publish 또는 M11.4 implement)
-
-v1 (M0~M8) + M10~M11.3 + v0.1.1~v0.2.1 PyPI publish 완료. **PR #20 M11.3 main 머지 완료** ([commit `7ad0f3d`](https://github.com/v0o0v/assetcache-mcp/commit/7ad0f3d)) — Detection Cache (옵션 B+C) + 부수 patch 4건 (B/A/C/D-2). LIVE 검증 v1+v2 모두 통과. **v0.2.2 publish 대기**. **M11.4 spec 작성됨** ([grid-detect-strengthen](docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md)) — grid_detect color-edge + LLM 분류 정확도. 다음 세션 implement.
-
-### 8.1 현재 상태
-
-- **현재 브랜치 = `main`** (M11.3 PR #20 머지 완료)
-- 마지막 main commit: `7ad0f3d` (PR #20 M11.3 squash merge)
-- 회귀 baseline **1559 passed + 1 skipped + 57 deselected**
-- PyPI Latest: [v0.2.1](https://pypi.org/project/assetcache-mcp/0.2.1/) (v0.2.2 publish 대기 — tag 만 push 하면 Trusted Publishing 자동)
-- GitHub Latest release: [v0.2.1](https://github.com/v0o0v/assetcache-mcp/releases/tag/v0.2.1)
-- **Trusted Publishing (OIDC)** 안정 — `git tag vX.Y.Z; git push origin vX.Y.Z` 한 줄로 자동 (패턴 4회 검증, 평균 30초)
-- GitHub Actions workflow: `actions/checkout@v6` + `actions/setup-python@v6` (Node.js 24 호환)
-- MCP **20 도구** (M11.3 신규 0)
-- 사용자 데이터: `%APPDATA%\AssetCacheMCP\`
-
-### 8.2 다음 세션 작업 — 두 가지 옵션
-
-#### 8.2.A — v0.2.2 publish (먼저 권장)
-
-PR #20 의 검증이 LIVE v1+v2 모두 통과했으므로 v0.2.2 publish 진행:
+**옵션 A — v0.2.2 publish** (Trusted Publishing OIDC 5회째, ~30초):
 
 ```powershell
 git tag v0.2.2
 ```
+
 ```powershell
 git push origin v0.2.2
 ```
 
-→ Trusted Publishing OIDC workflow 자동 (5회째, 평균 30초). [PyPI v0.2.2](https://pypi.org/project/assetcache-mcp/0.2.2/) + GitHub release 자동 생성.
-
-#### 8.2.B — M11.4 implement (grid_detect 강화 + LLM 분류 정확도)
-
-**목표**: M11.3 LIVE 검증 v2 에서 발견된 두 한계 해소.
-
-* (D-1) `grid_detect.py` alpha + color-edge 합성 → color-cycling 시트 검출
-* (LLM #3) LabelRegistry seed 확장 (`inventory_item`/`ui_icon`) + BATCH 프롬프트 enum 명시 + palette tone group
-
-**산출물 (예상)**:
-- `core/sheet/grid_detect.py` — color-edge 시그널 합성
-- `core/config.py` — `grid_detect_alpha_color_weight: float = 0.5` 신설
-- LabelRegistry seed 확장
-- `core/analyzer/messages.py` — BATCH prompt 강화 (enum 명시 + tone group)
-- `core/analyzer/payload_parser.py` — palette tone group whitelist
-- ~20 신규 테스트, 신규 의존성 0, 마이그 0, 작업 시간 ~2.5일
-
-**진입 절차**:
+**옵션 B — M11.4 implement** (grid_detect color-edge + LLM 분류 정확도, v0.2.3 candidate):
 
 1. 환경 복원:
+
    ```powershell
    & "$env:USERPROFILE\.venvs\gah\Scripts\Activate.ps1"
    ```
-   ```powershell
-   cd D:\ClaudeCowork\game-asset-helper\game-asset-helper
-   ```
 
-2. main 동기화:
+2. main 동기화 + 회귀 baseline 확인:
+
    ```powershell
    git checkout main
    ```
    ```powershell
    git pull
    ```
-
-3. 회귀 baseline:
    ```powershell
    pytest -q
    ```
    → `1559 passed, 1 skipped, 57 deselected` 확인.
 
-4. 새 브랜치:
+3. 새 브랜치:
+
    ```powershell
    git checkout -b feat/m11-4-grid-detect-strengthen
    ```
 
-5. spec/plan 읽기:
+4. spec/plan 읽기 → Phase 1 (D-1 grid_detect color-edge) TDD red→green 부터:
    - [`docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md`](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md)
    - [`milestones/M11_4_plan.md`](./milestones/M11_4_plan.md)
 
-6. **다음 단계** — Phase 1 (D-1 grid_detect color-edge) TDD red→green 부터.
-
-### 8.3 마일스톤 정렬 (전체)
-
-| # | 이름 | 상태 |
-|---:|---|---|
-| M0~M8 | v1 (뼈대 ~ 패키징 + i18n) | ✅ 완료 (main 머지) |
-| M9 | 코드 서명 + 자동 업데이트 | ⚠️ path pivot (feat/m9 deleted, spec/plan 만 보존) |
-| M10 | PyPI 배포 + AssetCacheMCP rename | ✅ (PR #11 + #12 머지) |
-| v0.1.1 | yagni-clean + 첫 Trusted Publishing OIDC | ✅ ([PR #14](https://github.com/v0o0v/assetcache-mcp/pull/14)) |
-| v0.1.2 | PyPI 페이지 정직성 patch | ✅ ([PR #15](https://github.com/v0o0v/assetcache-mcp/pull/15)) |
-| 로드맵 brainstorm | M11~M18 design ([roadmap-design.md](docs/superpowers/specs/2026-05-20-roadmap-design.md)) | ✅ (main `b3f8fe8`) |
-| **M11** | Multi-backend LLM Architecture | ✅ v0.2.0 ([PR #16](https://github.com/v0o0v/assetcache-mcp/pull/16) `f68ef88`) |
-| **M11.1** | Gemini Batch API + /analyzing dashboard | ✅ v0.2.1 ([PR #17](https://github.com/v0o0v/assetcache-mcp/pull/17) `782a047`) |
-| **v0.2.x patches** | batch persist 보강 (label/meta/spritesheet) | ✅ ([PR #18](https://github.com/v0o0v/assetcache-mcp/pull/18) `12ebc42`, 회귀 1490) |
-| **M11.2** | **Batch Spritesheet Modality** (`chat_spritesheet` 신설) | ✅ ([PR #19](https://github.com/v0o0v/assetcache-mcp/pull/19) main `d34f1dd`, +38 신규, 회귀 1528) |
-| **M11.3** | **Detection Cache + 부수 patch 4건** | ✅ ([PR #20](https://github.com/v0o0v/assetcache-mcp/pull/20) main `7ad0f3d`, +30 신규, 회귀 1559) — **v0.2.2 publish 대기** |
-| **M11.4** | **grid_detect 강화 + LLM 분류 정확도** (v0.2.3 candidate) | 📋 spec/plan 작성됨, **다음 세션 implement** |
-| M12 | C4 측정/학습/벤치마크 (6 backend 정확도) | 📋 미정 (M11 의존) |
-| M13 | Mac/Linux 검증 | 📋 미정 (M11 의존) |
-| M14 | MCP 원격 통신 (HTTP/SSE + 인증) | 📋 미정 |
-| M15 | Unity Editor 통합 | 📋 미정 |
-| M16 | C2 이미지/사운드 유사 검색 | 📋 미정 (M11 embedding) |
-| M17 | 성능 (대량 라이브러리) | 📋 미정 |
-| M18 | 분산 분석 | 📋 미정 (M14 필수) |
-
-참고 DESIGN: §3 (아키텍처), §4.9 (Unity Asset Store Importer — M7), §4.10 (활성 프로젝트/프로젝트 페이지 — M7), §4.5 (MCP — 20 도구), §4.8 (트레이 + 웹 UI), §11 (로드맵).
-
-## 9. 알려진 이슈·주의사항
+## 8. 알려진 이슈·주의사항
 
 - **Cowork 작업 폴더에 venv 만들기 금지** — Cowork이 파일을 감시 중이라 `.exe` 생성이 차단됨. venv는 `%USERPROFILE%\.venvs\gah`.
 - **Microsoft Store Python 금지** — `%APPDATA%` 가상화로 호출별 경로가 달라진다.
 - **Cowork의 `mcp__workspace__bash`가 가끔 부팅 실패** — 호스트(사용자 PC) 측 컨테이너 이슈. Claude Desktop 재시작이 1차 해결.
 
-## 10. 참고: 핵심 외부 문서
+## 9. 참고: 핵심 외부 문서
 
 - [Gemma 4 model overview](https://ai.google.dev/gemma/docs/core)
 - [Audio understanding | Gemma](https://ai.google.dev/gemma/docs/capabilities/audio)
