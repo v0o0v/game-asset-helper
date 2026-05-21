@@ -30,7 +30,7 @@ Expected: 2 case 모두 통과.
 * `test_crown_classified_as_inventory_item_not_character` — 합성 crown PNG → category != 'character'.
 * `test_ui_button_classified_as_ui_icon_not_character` — 합성 settings cog PNG → category != 'character'.
 
-acceptable set (`inventory_item`/`item`/`icon`/`ui_icon`/`other`) 안에 들어오면 통과.  Gemma 가 여전히 character 로 응답하면 prompt 가이드 강화가 부족하다는 시그널 — M12 (모델 업그레이드 또는 prompt 추가 튜닝) 후보.
+acceptable set (`inventory_item`/`item`/`icon`/`ui_icon`/`other`) 안에 들어오면 통과.  Gemini 가 여전히 character 로 응답하면 prompt 가이드 강화가 부족하다는 시그널 — M12 (모델 업그레이드 또는 prompt 추가 튜닝) 후보.
 
 ## 2. 수동 검증 시나리오 (synthetic — 라이브러리 사전 셋업 0)
 
@@ -162,14 +162,14 @@ sqlite3 "$verifyData\metadata.db" "SELECT a.name, l.axis, l.label FROM asset_lab
 | 5 | knight_gold (grid 1×8) | 변경 없음 (frame_w=17 D-2 그대로) | ✓ |
 | 6 | monster_red (grid 2×2) | 변경 없음 | ✓ |
 
-palette 결과는 Gemma 가 prompt 의 tone group 가이드를 얼마나 따르는지에 따라 다름 — 최소한 `#XXXXXX` hex 가 라벨로 들어오는 일이 없어야 한다 (validate_image_payload 가 거부).
+palette 결과는 Gemini 가 prompt 의 tone group 가이드를 얼마나 따르는지에 따라 다름 — 최소한 `#XXXXXX` hex 가 라벨로 들어오는 일이 없어야 한다 (validate_image_payload 가 거부).
 
 ## 4. 알려진 한계
 
 | 항목 | 한계 | 후속 |
 |---|---|---|
 | `Config.grid_detect_alpha_color_weight` toggle 이 detect_sheet → analyzers 까지 전파 안 됨 | 현재 grid_detect 의 파라미터 default 0.5 가 직접 동작 — user 가 config.toml 에서 weight=0 해도 적용 안 됨 | Phase 5 후속 patch 또는 M12 (cfg 전파 wiring) |
-| Gemma 자체 분류 정확도 (특히 crown 같은 단순 아이콘 → character 오분류) | prompt 가이드는 강화됐지만 모델이 따르지 않을 가능성 — LIVE Gemini 호출로만 최종 확인 | M12 (모델 업그레이드 또는 추가 prompt 튜닝) |
+| Gemini 자체 분류 정확도 (특히 crown 같은 단순 아이콘 → character 오분류) | prompt 가이드는 강화됐지만 모델이 따르지 않을 가능성 — LIVE Gemini 호출로만 최종 확인 | M12 (모델 업그레이드 또는 추가 prompt 튜닝) |
 | `_AXIS_SPAN_RATIO=0.8` 휴리스틱 | frame 내부 노이즈가 axis 의 80% 이상을 덮으면 spurious 경계로 오인 가능 | 실 자산에서 발견 시 ratio 조정 또는 std-기반 검증 추가 |
 
 ## 5. 검증 완료 후

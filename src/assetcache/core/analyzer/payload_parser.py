@@ -30,9 +30,10 @@ IMAGE_CATEGORY_FALLBACK = "other"
 IMAGE_STYLE_FALLBACK = "other"
 
 # M11.4 Phase 3 — palette 에 들어온 hex (`#FDD835`) 토큰을 일반 whitelist
-# 위반과 분리해 별도 violation 으로 추적한다.  Gemma 가 prompt 의
-# tone-group enum 가이드 (`warm`/`cool`/`monochrome`/`high_contrast`/
-# `pastel`/`neutral`) 를 무시하고 hex 를 뱉을 때 monitoring 용 시그널.
+# 위반과 분리해 별도 violation 으로 추적한다.  LLM (sync Gemma / batch
+# Gemini 양쪽) 이 prompt 의 tone-group enum 가이드 (`warm`/`cool`/
+# `monochrome`/`high_contrast`/`pastel`/`neutral`) 를 무시하고 hex 를 뱉을
+# 때 monitoring 용 시그널.
 _PALETTE_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 

@@ -2,8 +2,8 @@
 
 M11.3 LIVE 검증 v2 에서 `crown_icon` 류 inventory item 이 character 로
 잘못 분류되고, palette 가 `#FDD835` 같은 hex 로 응답돼 whitelist 위반
-'other' 강등되는 한계를 해소한다.  prompt 자체가 enum 을 명시해 Gemma
-응답의 정확도를 끌어올린다.
+'other' 강등되는 한계를 해소한다.  prompt 자체가 enum 을 명시해 Gemini
+batch 응답의 정확도를 끌어올린다.
 """
 from __future__ import annotations
 
