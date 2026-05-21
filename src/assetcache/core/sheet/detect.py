@@ -24,7 +24,15 @@ class SheetDetection:
     source: str  # 'json' | 'grid'
 
 
-def detect_sheet(image_path: Path) -> "SheetDetection | None":
+def detect_sheet(
+    image_path: Path, *, alpha_color_weight: float = 0.5,
+) -> "SheetDetection | None":
+    """M6 + M11.4 — JSON 사이드카 우선, 없으면 grid_detect.
+
+    ``alpha_color_weight`` 는 grid_detect 에 그대로 전달 — Config 의 동명
+    필드 값이 BatchManager / BatchPoller / SpritesheetAnalyzer 를 통해
+    전파된다 (M11.4 cleanup #1).  0 이면 alpha valley 만 사용 (M6 호환).
+    """
     image_path = Path(image_path)
     json_path = image_path.with_suffix(".json")
 
@@ -37,12 +45,12 @@ def detect_sheet(image_path: Path) -> "SheetDetection | None":
                                   tags=list(tags),
                                   source="json")
 
-    # 2) Pillow alpha 격자 추정
+    # 2) Pillow alpha 격자 추정 + M11.4 color-edge 폴백
     try:
         from PIL import Image as _PILImage
         with _PILImage.open(image_path) as img:
             img.load()
-            layout = grid_detect(img)
+            layout = grid_detect(img, alpha_color_weight=alpha_color_weight)
     except (OSError, ValueError) as e:
         log.warning("sheet open failed: %s — %s", image_path, e)
         return None

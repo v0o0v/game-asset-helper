@@ -21,7 +21,7 @@
 |---|---|---|
 | M0 ~ M11.3 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
 | **현재 main** | M11.3 (PR #20 `7ad0f3d` squash, [v0.2.2 PyPI](https://pypi.org/project/assetcache-mcp/0.2.2/) 완료) | Detection Cache + 부수 patch 4건. 회귀 **1559 passed + 1 skipped + 57 deselected**. MCP 20 도구 |
-| **작업 브랜치** | M11.4 (`feat/m11-4-grid-detect-strengthen` 5 commit, PR 대기) | grid_detect color-edge + LabelRegistry seed + BATCH_IMAGE_PROMPT enum + sync/batch parity. 회귀 **1583 passed + 1 skipped + 59 deselected** (+24). v0.2.3 candidate. spec: [m11-4](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md), plan: [M11_4_plan.md](./milestones/M11_4_plan.md), verification: [M11_4_verification.md](./milestones/M11_4_verification.md) |
+| **작업 브랜치** | M11.4 (`feat/m11-4-grid-detect-strengthen` 5 commit, PR 대기) | grid_detect color-edge + LabelRegistry seed + BATCH_IMAGE_PROMPT enum + sync/batch parity. 회귀 **1592 passed + 1 skipped + 59 deselected** (+24). v0.2.3 candidate. spec: [m11-4](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md), plan: [M11_4_plan.md](./milestones/M11_4_plan.md), verification: [M11_4_verification.md](./milestones/M11_4_verification.md) |
 
 전체 마일스톤 정렬 + future 후보 (M12~M18) 는 [`milestones/ROADMAP.md`](./milestones/ROADMAP.md).  
 한 줄 인계 스냅샷은 [`HANDOFF.md`](./HANDOFF.md).

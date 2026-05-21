@@ -168,9 +168,10 @@ palette 결과는 Gemini 가 prompt 의 tone group 가이드를 얼마나 따르
 
 | 항목 | 한계 | 후속 |
 |---|---|---|
-| `Config.grid_detect_alpha_color_weight` toggle 이 detect_sheet → analyzers 까지 전파 안 됨 | 현재 grid_detect 의 파라미터 default 0.5 가 직접 동작 — user 가 config.toml 에서 weight=0 해도 적용 안 됨 | Phase 5 후속 patch 또는 M12 (cfg 전파 wiring) |
 | Gemini 자체 분류 정확도 (특히 crown 같은 단순 아이콘 → character 오분류) | prompt 가이드는 강화됐지만 모델이 따르지 않을 가능성 — LIVE Gemini 호출로만 최종 확인 | M12 (모델 업그레이드 또는 추가 prompt 튜닝) |
 | `_AXIS_SPAN_RATIO=0.8` 휴리스틱 | frame 내부 노이즈가 axis 의 80% 이상을 덮으면 spurious 경계로 오인 가능 | 실 자산에서 발견 시 ratio 조정 또는 std-기반 검증 추가 |
+| color-edge fallback 이 사이드카 있는 시트와 어떻게 상호작용하는지 LIVE 미검증 | alpha 경로 성공 시 fallback 안 타니까 안전할 거지만 | M11_4_verification §3 LIVE 단계 |
+| llm_integration acceptable set 에 'other' 포함 | prompt 효과 측정 정확도 약함 | LIVE 결과 본 후 좁히기 (M12 후보) |
 
 ## 5. 검증 완료 후
 
@@ -190,6 +191,6 @@ palette 결과는 Gemini 가 prompt 의 tone group 가이드를 얼마나 따르
 
 | 항목 | 우선순위 | 발견 |
 |---|---|---|
-| Config.grid_detect_alpha_color_weight 전파 wiring (detect_sheet → 3 callers) | 중 | Phase 5 한계 표시 |
 | AXIS_SPAN_RATIO 휴리스틱 튜닝 (실 자산에서 false-positive/negative 발견 시) | 낮 | LIVE 검증에서 발견 |
 | palette tone-group 으로 좁히기 (vibrant/saturated/muted 등 시드에서 제외) | 낮 | Gemini 응답 분포 본 후 결정 |
+| BATCH_SPRITESHEET_PROMPT 의 category='character' 강제 완화 (multi-frame inventory 시트 지원) | 낮 | spec 범위 밖, 별 마일스톤 |

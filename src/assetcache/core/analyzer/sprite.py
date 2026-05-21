@@ -194,14 +194,33 @@ class SpriteAnalyzer:
 
     def _build_system_prompt(self, *, language: str) -> str:
         # 라벨 enum 동적 주입
+        category_labels = self.registry.list_labels("category")
         slots = {
-            "category_enum": ", ".join(self.registry.list_labels("category")),
+            "category_enum": ", ".join(category_labels),
             "style_enum": ", ".join(self.registry.list_labels("style")),
             "mood_enum": ", ".join(self.registry.list_labels("mood")),
             "palette_enum": ", ".join(self.registry.list_labels("palette")),
             "animation_enum": ", ".join(self.registry.list_labels("animation")),
             "language": language,
         }
+        # M11.4 cleanup #9 — guidance 텍스트는 해당 라벨이 enabled 일 때만
+        # 포함.  사용자가 inventory_item / ui_icon 라벨을 disable 했는데
+        # prompt 가 그걸 쓰라고 안내하면 enum 과 모순.
+        guidance_lines: list[str] = []
+        if "inventory_item" in category_labels:
+            guidance_lines.append(
+                "- Use 'inventory_item' for crown, sword, potion, gem, scroll,"
+                " key, or other carry-and-use objects — NOT 'character'."
+            )
+        if "ui_icon" in category_labels:
+            guidance_lines.append(
+                "- Use 'ui_icon' for HUD buttons, settings cog, heart counter,"
+                " or stand-alone interface graphics."
+            )
+        slots["guidance"] = (
+            "Guidance:\n" + "\n".join(guidance_lines) + "\n\n"
+            if guidance_lines else ""
+        )
         return (
             "You are a game asset metadata generator. Respond ONLY with valid"
             " JSON, no prose.\n\n"
@@ -215,11 +234,7 @@ class SpriteAnalyzer:
             "- subject: short noun phrase in {language}\n"
             "- description: one sentence (<= 30 words) in {language}\n"
             "- confidence: float 0..1\n\n"
-            "Guidance:\n"
-            "- Use 'inventory_item' for crown, sword, potion, gem, scroll, "
-            "key, or other carry-and-use objects — NOT 'character'.\n"
-            "- Use 'ui_icon' for HUD buttons, settings cog, heart counter, "
-            "or stand-alone interface graphics.\n"
+            "{guidance}"
             "If unsure of an enum, pick \"other\"."
         ).format(**slots)
 

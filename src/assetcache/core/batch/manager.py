@@ -129,6 +129,7 @@ class BatchManager:
             _sheets, rows = classify_image_assets(
                 rows, library_dir=self._library_dir, store=self._store,
                 cache=self._detection_cache,
+                alpha_color_weight=self._cfg.grid_detect_alpha_color_weight,
             )
             if not rows:
                 # 전부 시트 — promote 만 수행, batch submit 0.
@@ -141,6 +142,7 @@ class BatchManager:
             sheet_results, _ = classify_image_assets(
                 rows, library_dir=self._library_dir, store=self._store,
                 cache=self._detection_cache,
+                alpha_color_weight=self._cfg.grid_detect_alpha_color_weight,
             )
             if not sheet_results:
                 log.warning(

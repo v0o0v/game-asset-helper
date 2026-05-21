@@ -304,6 +304,34 @@ def test_seed_palette_has_high_contrast():
     assert "high_contrast" in tokens
 
 
+def test_validate_image_payload_mood_hex_rejected_with_named_violation(
+    image_registry,
+):
+    """mood 에 hex 가 들어와도 palette 와 동일하게 명시 violation (M11.4 cleanup #8)."""
+    payload = {
+        "category": "character", "style": "pixel_art",
+        "mood": ["#FF0000", "heroic"],
+    }
+    ok, err, fixed = validate_image_payload(payload, image_registry)
+    assert ok is False
+    assert fixed["mood"] == ["heroic"]
+    assert "mood_hex" in err
+
+
+def test_validate_image_payload_animation_hex_rejected_with_named_violation(
+    image_registry,
+):
+    """animation_hint 에 hex 가 들어와도 명시 violation (M11.4 cleanup #8)."""
+    payload = {
+        "category": "character", "style": "pixel_art",
+        "animation_hint": ["#00FF00", "idle"],
+    }
+    ok, err, fixed = validate_image_payload(payload, image_registry)
+    assert ok is False
+    assert fixed["animation_hint"] == ["idle"]
+    assert "animation_hint_hex" in err
+
+
 def test_validate_audio_payload_list_with_dict_first_uses_it(audio_registry):
     """audio 도 list 첫 dict 사용."""
     payload = [

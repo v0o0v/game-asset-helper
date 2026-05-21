@@ -1,7 +1,7 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
 **마지막 인계 시각**: 2026-05-21 (M11.4 implement 완료, PR 대기)
-**마지막 완료 작업**: **M11.4 implement 5 phase 완료** — Phase 1 grid_detect color-edge fallback (D-1) + Phase 2 LabelRegistry seed 확장 (inventory_item / ui_icon / minimalist / neutral / high_contrast) + Phase 3 BATCH_IMAGE_PROMPT enum + palette hex 거부 + Phase 4 sync SpriteAnalyzer 의 sync/batch parity + Phase 5 verification doc. 회귀 1559 → **1583 passed + 1 skipped + 59 deselected** (+24 신규, 회귀 0). 신규 의존성 0. `feat/m11-4-grid-detect-strengthen` 브랜치 4 commit (`7114030` Phase 1, `a6e2664` Phase 2, `e205b53` Phase 3, `39543b6` Phase 4) + verification doc commit.
+**마지막 완료 작업**: **M11.4 implement 5 phase 완료** — Phase 1 grid_detect color-edge fallback (D-1) + Phase 2 LabelRegistry seed 확장 (inventory_item / ui_icon / minimalist / neutral / high_contrast) + Phase 3 BATCH_IMAGE_PROMPT enum + palette hex 거부 + Phase 4 sync SpriteAnalyzer 의 sync/batch parity + Phase 5 verification doc. 회귀 1559 → **1592 passed + 1 skipped + 59 deselected** (+24 신규, 회귀 0). 신규 의존성 0. `feat/m11-4-grid-detect-strengthen` 브랜치 4 commit (`7114030` Phase 1, `a6e2664` Phase 2, `e205b53` Phase 3, `39543b6` Phase 4) + verification doc commit.
 
 **M11.3 PR #20 산출물** (squash 후 `7ad0f3d`):
 - `core/batch/sheet_classifier.py` — `classify_image_assets` 에 `cache` + `save_sprite_meta` 인자 추가 (시트 hit 시 자동 sprite_meta enrich+save)

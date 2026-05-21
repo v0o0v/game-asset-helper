@@ -396,7 +396,10 @@ class BatchPoller(threading.Thread):
             return existing, detection_to_animation_labels(cached_detection)
         try:
             abs_path = (self._library_dir / asset.path).resolve()
-            detection = detect_sheet(abs_path)
+            detection = detect_sheet(
+                abs_path,
+                alpha_color_weight=self._cfg.grid_detect_alpha_color_weight,
+            )
         except Exception as e:  # noqa: BLE001 — sheet 검출 자체가 실패해도 sprite 진행
             log.warning(
                 "batch: spritesheet 검출 실패 — asset_id=%d path=%s: %s",

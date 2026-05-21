@@ -137,6 +137,8 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
     spritesheet = SpritesheetAnalyzer(  # M6
         sprite=sprite, ollama=chain_image,
         registry=registry, embedder=embedder, clip=clip,
+        # M11.4 cleanup #1 — Config 의 color-edge weight 전파.
+        alpha_color_weight=config.grid_detect_alpha_color_weight,
     )
     sound = SoundAnalyzer(
         ollama=chain_audio, embedder=embedder, registry=registry,

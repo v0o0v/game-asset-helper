@@ -65,3 +65,57 @@ def test_sync_prompt_has_inventory_item_guidance_with_examples(
     examples = ("crown", "sword", "potion", "gem", "scroll", "key")
     assert any(e in lower for e in examples), \
         "sync prompt should mention at least one inventory item example"
+
+
+def test_sync_prompt_drops_inventory_item_guidance_when_label_disabled(
+    store,
+) -> None:
+    """M11.4 cleanup #9 — inventory_item 라벨 disable 시 guidance 텍스트도 사라짐."""
+    registry = LabelRegistry(store)
+    registry.bootstrap()
+    registry.set_enabled("category", "inventory_item", False)
+
+    client = OllamaClient(
+        base_url="http://127.0.0.1:11434", model="gemma4:e4b",
+        timeout_seconds=5, max_retries=1,
+    )
+    embedder = EmbeddingEncoder(_FakeEmbedOllama())  # type: ignore[arg-type]
+    clip = ClipLabeler(
+        backend=FakeBackend(dim=64), store=store,
+        registry=registry, enabled=False,
+    )
+    analyzer = SpriteAnalyzer(
+        ollama=client, clip=clip, embedder=embedder, registry=registry,
+    )
+    prompt = analyzer._build_system_prompt(language="en")
+    # registry enum 자동 + guidance 둘 다 inventory_item 사라짐
+    assert "inventory_item" not in prompt
+    # ui_icon 은 여전히 enabled 라 guidance 유지
+    assert "ui_icon" in prompt
+
+
+def test_sync_prompt_drops_all_guidance_when_no_relevant_labels_enabled(
+    store,
+) -> None:
+    """inventory_item + ui_icon 모두 disable → Guidance 섹션 자체 없음."""
+    registry = LabelRegistry(store)
+    registry.bootstrap()
+    registry.set_enabled("category", "inventory_item", False)
+    registry.set_enabled("category", "ui_icon", False)
+
+    client = OllamaClient(
+        base_url="http://127.0.0.1:11434", model="gemma4:e4b",
+        timeout_seconds=5, max_retries=1,
+    )
+    embedder = EmbeddingEncoder(_FakeEmbedOllama())  # type: ignore[arg-type]
+    clip = ClipLabeler(
+        backend=FakeBackend(dim=64), store=store,
+        registry=registry, enabled=False,
+    )
+    analyzer = SpriteAnalyzer(
+        ollama=client, clip=clip, embedder=embedder, registry=registry,
+    )
+    prompt = analyzer._build_system_prompt(language="en")
+    assert "inventory_item" not in prompt
+    assert "ui_icon" not in prompt
+    assert "Guidance:" not in prompt

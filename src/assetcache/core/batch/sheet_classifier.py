@@ -45,6 +45,7 @@ def classify_image_assets(
     store: "Store",
     cache: "dict[int, SheetDetection | None] | None" = None,
     save_sprite_meta: bool = True,
+    alpha_color_weight: float = 0.5,
 ) -> "tuple[list[tuple[AssetRow, SheetDetection]], list[AssetRow]]":
     """detect_sheet 결과로 (sheet_results, sprite_rows) 로 분리 + kind promote.
 
@@ -68,7 +69,9 @@ def classify_image_assets(
         else:
             try:
                 abs_path = (library_dir / row.path).resolve()
-                detection = detect_sheet(abs_path)
+                detection = detect_sheet(
+                    abs_path, alpha_color_weight=alpha_color_weight,
+                )
             except Exception as e:  # noqa: BLE001 — file I/O 또는 detect 오류 graceful skip
                 log.warning(
                     "classify_image_assets: detect_sheet failed asset_id=%d path=%s: %s",

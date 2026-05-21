@@ -108,7 +108,7 @@ def test_cache_miss_when_sprite_meta_lacks_sheet_fields(tmp_path, monkeypatch):
     called = {"count": 0}
     import assetcache.core.batch.poller as poller_mod
 
-    def fake_detect(_):
+    def fake_detect(_, *, alpha_color_weight=0.5):
         called["count"] += 1
         return None
 
@@ -131,7 +131,7 @@ def test_cache_miss_when_get_sprite_meta_returns_none(tmp_path, monkeypatch):
     called = {"count": 0}
     import assetcache.core.batch.poller as poller_mod
 
-    def fake_detect(_):
+    def fake_detect(_, *, alpha_color_weight=0.5):
         called["count"] += 1
         return None
 
