@@ -1,6 +1,6 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-21 (M11.3 [PR #20](https://github.com/v0o0v/assetcache-mcp/pull/20) main 머지 + M11.4 spec 작성)
+**마지막 인계 시각**: 2026-05-21 (M11.3 [PR #20](https://github.com/v0o0v/assetcache-mcp/pull/20) main 머지 + [v0.2.2 PyPI publish 완료](https://pypi.org/project/assetcache-mcp/0.2.2/) + M11.4 spec 작성)
 **마지막 완료 작업**: **M11.3 PR #20 main squash 머지** (`7ad0f3d`) — Detection Cache (옵션 B+C 결합) + 부수 patch 4건 (A `/settings` UI, B `payload_parser` list/None 안전, C Gemini batch_embed schema fix, D-2 `detect_sheet` slot stride). LIVE 검증 v1 (m113_verify 13자산) + v2 (m113_complex 6자산) 모두 통과. 회귀 1528 → **1559 passed + 1 skipped + 57 deselected** (+30 신규, 회귀 0). 신규 의존성 0. **M11.4 spec 작성됨** ([`docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md`](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md)) + `milestones/M11_4_plan.md` starter — grid_detect color-edge (D-1) + LLM 분류 정확도 (inventory_item seed + prompt enum + palette tone group).
 
 **M11.3 PR #20 산출물** (squash 후 `7ad0f3d`):
@@ -21,7 +21,7 @@
 
 **현재 브랜치**: `main` (PR #20 squash merge 완료, feat 브랜치 자동 삭제됨)
 
-**다음 세션 작업**: (A) v0.2.2 publish — `git tag v0.2.2 && git push origin v0.2.2` → Trusted Publishing 자동 (5회째) 또는 (B) M11.4 implement → PR → v0.2.3. 자세한 시작 절차는 CLAUDE.md §8.2 참조.
+**다음 세션 작업**: M11.4 implement → PR → v0.2.3. v0.2.2 PyPI publish 는 완료 (main `10c3add` bump + tag, Trusted Publishing 5회째 실 publish, [PyPI v0.2.2](https://pypi.org/project/assetcache-mcp/0.2.2/)).
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가"를 한 번에 파악하도록 작성된 스냅샷이다.
 
@@ -91,20 +91,13 @@ pytest -q
 
 **현재 브랜치 = `main`** (PR #20 squash merge tag `7ad0f3d`, feat/m11-3-detection-cache 자동 삭제). 다음 작업은 (A) v0.2.2 publish (tag push 한 줄) 또는 (B) 새 feature 브랜치 `feat/m11-4-grid-detect-strengthen`.
 
-## 5. 다음 세션 진입 절차 (PR #20 머지 완료 — v0.2.2 publish 또는 M11.4)
+## 5. 다음 세션 진입 절차 (PR #20 머지 + v0.2.2 publish 완료 — M11.4)
 
-### 5.0 옵션 A — v0.2.2 publish (먼저 권장)
+### 5.0 v0.2.2 publish — ✅ 완료
 
-```powershell
-git tag v0.2.2
-```
-```powershell
-git push origin v0.2.2
-```
+main `10c3add` (`pyproject.toml` + `src/assetcache/__init__.py` 0.2.0 → 0.2.2 bump) + `git tag v0.2.2` + push → Trusted Publishing OIDC 5회째 실 publish. [PyPI v0.2.2](https://pypi.org/project/assetcache-mcp/0.2.2/) 도착 (`pip install -U assetcache-mcp` 가능). **v0.2.1 은 PyPI 영구 결번** — pyproject 미bump 상태로 tag push → `skip-existing: true` silent skip ([HISTORY "Trusted Publishing 패턴"](./milestones/HISTORY.md) 참조). GitHub release v0.2.2 는 수동 생성 단계 진행.
 
-→ Trusted Publishing OIDC workflow 자동 (5회째, 평균 30초). [PyPI v0.2.2](https://pypi.org/project/assetcache-mcp/0.2.2/) + GitHub release 자동 생성.
-
-### 5.1 옵션 B — M11.4 implement (grid_detect 강화 + LLM 분류 정확도)
+### 5.1 M11.4 implement (grid_detect 강화 + LLM 분류 정확도)
 
 **spec 읽기**:
 
@@ -191,7 +184,7 @@ M11.2 implement 후 사용자 결정 — backlog B/C/D/E 중 우선순위 또는
 | M11.1 | Gemini Batch API + /analyzing dashboard | ✅ v0.2.1 ([PR #17](https://github.com/v0o0v/assetcache-mcp/pull/17) `782a047`, [PyPI](https://pypi.org/project/assetcache-mcp/0.2.1/)) |
 | **v0.2.x patches** | batch persist 보강 (label/meta/spritesheet) | ✅ ([PR #18](https://github.com/v0o0v/assetcache-mcp/pull/18) main 머지 `12ebc42`, 회귀 1424 → 1490) |
 | **M11.2** | Batch Spritesheet Modality (`chat_spritesheet` 신설) | ✅ ([PR #19](https://github.com/v0o0v/assetcache-mcp/pull/19) main 머지 `d34f1dd`, +38 신규, 회귀 1528) |
-| **M11.3** | **Detection Cache + 부수 patch 4건** (옵션 B+C, A/B/C/D-2) | ✅ ([PR #20](https://github.com/v0o0v/assetcache-mcp/pull/20) main 머지 `7ad0f3d`, +30 신규, 회귀 1559). **v0.2.2 publish 대기** |
+| **M11.3** | **Detection Cache + 부수 patch 4건** (옵션 B+C, A/B/C/D-2) | ✅ ([PR #20](https://github.com/v0o0v/assetcache-mcp/pull/20) main 머지 `7ad0f3d`, +30 신규, 회귀 1559). **[v0.2.2 PyPI publish 완료](https://pypi.org/project/assetcache-mcp/0.2.2/)** (main `10c3add` bump + tag) |
 | **M11.4** | **grid_detect 강화 + LLM 분류 정확도** (v0.2.3 candidate) | 📋 spec/plan 작성됨, **다음 세션 implement 대상**. [spec](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md) / [plan starter](./milestones/M11_4_plan.md) |
 | M12~M18 | 측정/Mac-Linux/원격 통신/Unity Editor/유사 검색/성능/분산 | 📋 미정 |
 

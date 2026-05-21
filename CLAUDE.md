@@ -20,7 +20,7 @@
 | 구간 | 상태 | 위치 |
 |---|---|---|
 | M0 ~ M11.3 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
-| **현재 main** | M11.3 (PR #20 `7ad0f3d` squash, v0.2.2 publish 대기) | Detection Cache + 부수 patch 4건. 회귀 **1559 passed + 1 skipped + 57 deselected**. MCP 20 도구 |
+| **현재 main** | M11.3 (PR #20 `7ad0f3d` squash, [v0.2.2 PyPI](https://pypi.org/project/assetcache-mcp/0.2.2/) 완료) | Detection Cache + 부수 patch 4건. 회귀 **1559 passed + 1 skipped + 57 deselected**. MCP 20 도구 |
 | **다음 후보** | M11.4 (📋 spec/plan 작성됨) | grid_detect color-edge + LLM 분류 정확도 (v0.2.3 candidate). spec: [m11-4](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md), plan: [M11_4_plan.md](./milestones/M11_4_plan.md) |
 
 전체 마일스톤 정렬 + future 후보 (M12~M18) 는 [`milestones/ROADMAP.md`](./milestones/ROADMAP.md).  
@@ -107,17 +107,7 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
 
 ## 7. 다음 작업
 
-**옵션 A — v0.2.2 publish** (Trusted Publishing OIDC 5회째, ~30초):
-
-```powershell
-git tag v0.2.2
-```
-
-```powershell
-git push origin v0.2.2
-```
-
-**옵션 B — M11.4 implement** (grid_detect color-edge + LLM 분류 정확도, v0.2.3 candidate):
+**M11.4 implement** (grid_detect color-edge + LLM 분류 정확도, v0.2.3 candidate). v0.2.2 publish 는 [완료](https://pypi.org/project/assetcache-mcp/0.2.2/) — main `10c3add` bump + tag → Trusted Publishing OIDC 5회째 실 publish (v0.2.1 은 silent-skip 결번, [`milestones/HISTORY.md`](./milestones/HISTORY.md) "Trusted Publishing 패턴" 참조).
 
 1. 환경 복원:
 
