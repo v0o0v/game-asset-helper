@@ -1,7 +1,7 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-21 (M11.4 implement 완료, PR 대기)
-**마지막 완료 작업**: **M11.4 implement 5 phase 완료** — Phase 1 grid_detect color-edge fallback (D-1) + Phase 2 LabelRegistry seed 확장 (inventory_item / ui_icon / minimalist / neutral / high_contrast) + Phase 3 BATCH_IMAGE_PROMPT enum + palette hex 거부 + Phase 4 sync SpriteAnalyzer 의 sync/batch parity + Phase 5 verification doc. 회귀 1559 → **1592 passed + 1 skipped + 59 deselected** (+24 신규, 회귀 0). 신규 의존성 0. `feat/m11-4-grid-detect-strengthen` 브랜치 4 commit (`7114030` Phase 1, `a6e2664` Phase 2, `e205b53` Phase 3, `39543b6` Phase 4) + verification doc commit.
+**마지막 인계 시각**: 2026-05-21 (M11.4 [PR #21](https://github.com/v0o0v/assetcache-mcp/pull/21) main 머지 (`7794d48`) + M11.5 starter 작성)
+**마지막 완료 작업**: **M11.4 main 머지 완료** — grid_detect color-edge fallback (D-1) + LabelRegistry seed 확장 (inventory_item / ui_icon / minimalist / neutral / high_contrast) + BATCH_IMAGE_PROMPT enum + palette hex 거부 + sync/batch parity + Config 전파 wiring. 회귀 1559 → **1592 passed + 1 skipped + 59 deselected** (+33 신규, 회귀 0). 신규 의존성 0. **M11.5 spec/plan starter 작성됨** ([spec](./docs/superpowers/specs/2026-05-21-m11-5-live-validation-and-tuning.md) / [plan](./milestones/M11_5_plan.md)) — LIVE 검증 + 조건부 tuning patches (AXIS_SPAN_RATIO / palette narrow / acceptable set strict). M12 후보로 Gemini 모델 업그레이드 + BATCH_SPRITESHEET_PROMPT 완화 분리.
 
 **M11.3 PR #20 산출물** (squash 후 `7ad0f3d`):
 - `core/batch/sheet_classifier.py` — `classify_image_assets` 에 `cache` + `save_sprite_meta` 인자 추가 (시트 hit 시 자동 sprite_meta enrich+save)
@@ -14,16 +14,20 @@
 - `web/templates/settings.html` + ko/en `.po/.mo` — A: modalityOrder + chainAdd + i18n "Spritesheet chain"
 - LIVE 검증 결과 `milestones/M11_3_verification.md`
 
-**M11.4 산출물** (이번 세션):
-- Phase 1 (`7114030`) — `core/sheet/grid_detect.py` 2-path (alpha valley + color-edge fallback) + `Config.grid_detect_alpha_color_weight=0.5` + 9 신규 test (elemental_cyan / 2×3 / orb / weight=0 / solid / noise / alpha-path / config) — D-1 한계 해소
-- Phase 2 (`a6e2664`) — `core/labels.py` seed 확장: category 에 `inventory_item` / `ui_icon`, mood 에 `minimalist` / `neutral`, palette 에 `high_contrast` (Phase 3 사용) + 3 신규 test
-- Phase 3 (`e205b53`) — `core/analyzer/messages.py` BATCH_IMAGE_PROMPT 재작성 (category enum + palette tone group + hex 금지 + inventory_item 가이드) + `core/analyzer/payload_parser.py` `_PALETTE_HEX_RE` 신설 + `palette_hex={value}` 명시 violation + 5 payload + 4 prompt test
-- Phase 4 (`39543b6`) — `core/analyzer/sprite.py` `_build_system_prompt` 에 sync/batch parity (hex 거부 + inventory_item 가이드) + 3 sync test + 2 llm_integration (crown_icon / ui_button gemini chat)
-- Phase 5 — `milestones/M11_4_verification.md` (auto 1583 + 옵트인 Gemini + 수동 synthetic + LIVE)
+**M11.4 산출물** (이번 세션, PR #21 squash 머지 `7794d48`):
+- `core/sheet/grid_detect.py` — 2-path (alpha valley + color-edge fallback) + `Config.grid_detect_alpha_color_weight=0.5` 전파 wiring (detect_sheet → BatchManager / BatchPoller / SpritesheetAnalyzer)
+- `core/labels.py` seed 확장 — category `inventory_item`/`ui_icon`, mood `minimalist`/`neutral`, palette `high_contrast`
+- `core/analyzer/messages.py` — BATCH_IMAGE_PROMPT 재작성 (category enum + palette tone group + hex 금지 + inventory_item 가이드)
+- `core/analyzer/payload_parser.py` — `_PAYLOAD_HEX_RE` 신설 + multi axis (palette/mood/animation) 모두 `{axis}_hex={value}` 명시 violation
+- `core/analyzer/sprite.py` — sync `_build_system_prompt` parity + guidance 가 registry 라벨 enabled 일 때만 포함 (동적)
+- `milestones/M11_4_verification.md` — auto 1592 + 옵트인 Gemini + 수동 synthetic + LIVE 시나리오 + 한계
+- 신규 test: 9 grid_detect color-edge + 3 seed + 9 payload/prompt + 5 sync (3 + 2 옵트인 llm_integration) + 5 wiring + 2 hex 일관성 + 2 guidance 동적화 = **+33**
 
-**현재 브랜치**: `feat/m11-4-grid-detect-strengthen` (push + PR 대기 — 사용자 작업)
+**현재 브랜치**: `main` (PR #21 squash 머지 완료, feat 브랜치 자동 삭제)
 
-**다음 세션 작업**: M11.4 PR → main 머지 → tag v0.2.3 → Trusted Publishing 자동 publish (6회째).
+**다음 세션 작업**:
+1. (선택) v0.2.3 publish — `pyproject.toml` + `__init__.py` 0.2.2 → 0.2.3 bump + tag → Trusted Publishing 6회째 자동
+2. **M11.5 implement** — `milestones/M11_5_plan.md` 의 Phase 1 (LIVE 검증) 부터.  m113_complex 6 자산 재실행 + 결과 표 채워서 분기 결정 (#2 ratio / #3 palette narrow / #4 strict).
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가"를 한 번에 파악하도록 작성된 스냅샷이다.
 
@@ -187,7 +191,8 @@ M11.2 implement 후 사용자 결정 — backlog B/C/D/E 중 우선순위 또는
 | **v0.2.x patches** | batch persist 보강 (label/meta/spritesheet) | ✅ ([PR #18](https://github.com/v0o0v/assetcache-mcp/pull/18) main 머지 `12ebc42`, 회귀 1424 → 1490) |
 | **M11.2** | Batch Spritesheet Modality (`chat_spritesheet` 신설) | ✅ ([PR #19](https://github.com/v0o0v/assetcache-mcp/pull/19) main 머지 `d34f1dd`, +38 신규, 회귀 1528) |
 | **M11.3** | **Detection Cache + 부수 patch 4건** (옵션 B+C, A/B/C/D-2) | ✅ ([PR #20](https://github.com/v0o0v/assetcache-mcp/pull/20) main 머지 `7ad0f3d`, +30 신규, 회귀 1559). **[v0.2.2 PyPI publish 완료](https://pypi.org/project/assetcache-mcp/0.2.2/)** (main `10c3add` bump + tag) |
-| **M11.4** | **grid_detect 강화 + LLM 분류 정확도** (v0.2.3 candidate) | ⏳ implement 5 phase 완료 (`feat/m11-4-grid-detect-strengthen` 4 commit + verification doc), **PR 대기**. 회귀 1559 → 1583 (+24). [spec](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md) / [plan](./milestones/M11_4_plan.md) / [verification](./milestones/M11_4_verification.md) |
+| **M11.4** | **grid_detect 강화 + LLM 분류 정확도** (v0.2.3 candidate) | ✅ ([PR #21](https://github.com/v0o0v/assetcache-mcp/pull/21) main squash 머지 `7794d48`, +33 신규, 회귀 1592). v0.2.3 PyPI publish 단계 보류 가능. [verification](./milestones/M11_4_verification.md) |
+| **M11.5** | **LIVE validation + tuning patches** (v0.2.4 candidate) | 📋 spec/plan starter 작성됨, **다음 세션 implement 대상**. LIVE 결과 기반 분기 patches (AXIS_SPAN_RATIO / palette narrow / acceptable set strict). [spec](./docs/superpowers/specs/2026-05-21-m11-5-live-validation-and-tuning.md) / [plan](./milestones/M11_5_plan.md) |
 | M12~M18 | 측정/Mac-Linux/원격 통신/Unity Editor/유사 검색/성능/분산 | 📋 미정 |
 
 ## 7. 후속 정리거리 (해결됨/잔존)

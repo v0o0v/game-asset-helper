@@ -19,9 +19,9 @@
 
 | 구간 | 상태 | 위치 |
 |---|---|---|
-| M0 ~ M11.3 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
-| **현재 main** | M11.3 (PR #20 `7ad0f3d` squash, [v0.2.2 PyPI](https://pypi.org/project/assetcache-mcp/0.2.2/) 완료) | Detection Cache + 부수 patch 4건. 회귀 **1559 passed + 1 skipped + 57 deselected**. MCP 20 도구 |
-| **작업 브랜치** | M11.4 (`feat/m11-4-grid-detect-strengthen` 5 commit, PR 대기) | grid_detect color-edge + LabelRegistry seed + BATCH_IMAGE_PROMPT enum + sync/batch parity. 회귀 **1592 passed + 1 skipped + 59 deselected** (+24). v0.2.3 candidate. spec: [m11-4](./docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md), plan: [M11_4_plan.md](./milestones/M11_4_plan.md), verification: [M11_4_verification.md](./milestones/M11_4_verification.md) |
+| M0 ~ M11.4 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
+| **현재 main** | M11.4 (PR #21 `7794d48` squash, v0.2.3 publish 보류) | grid_detect color-edge + LabelRegistry seed + BATCH_IMAGE_PROMPT enum + sync/batch parity + Config 전파. 회귀 **1592 passed + 1 skipped + 59 deselected**. MCP 20 도구 |
+| **다음 후보** | M11.5 (📋 spec/plan 작성됨) | LIVE validation + tuning patches (v0.2.4 candidate). LIVE 결과 기반 분기 (AXIS_SPAN_RATIO / palette narrow / acceptable set strict). spec: [m11-5](./docs/superpowers/specs/2026-05-21-m11-5-live-validation-and-tuning.md), plan: [M11_5_plan.md](./milestones/M11_5_plan.md) |
 
 전체 마일스톤 정렬 + future 후보 (M12~M18) 는 [`milestones/ROADMAP.md`](./milestones/ROADMAP.md).  
 한 줄 인계 스냅샷은 [`HANDOFF.md`](./HANDOFF.md).
@@ -107,20 +107,15 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
 
 ## 7. 다음 작업
 
-**M11.4 PR → main 머지 → v0.2.3 publish**.  implement 5 phase 완료 (`feat/m11-4-grid-detect-strengthen` 브랜치, 5 commit, 회귀 1559 → 1583 +24, 회귀 0).  수동 검증은 [`milestones/M11_4_verification.md`](./milestones/M11_4_verification.md) 참고.
+**M11.5 LIVE validation + tuning** (v0.2.4 candidate).  M11.4 는 main `7794d48` squash 머지 완료 ([PR #21](https://github.com/v0o0v/assetcache-mcp/pull/21), 회귀 1559 → 1592 +33).  v0.2.3 PyPI publish 는 선택 (LIVE 검증 후로 미뤄도 됨).
 
-1. (선택) LIVE 수동 검증 — `M11_4_verification.md` §3 의 m113_complex 자산 재실행.
-
-2. 브랜치 push + PR 생성:
+1. 환경 복원:
 
    ```powershell
-   git push -u origin feat/m11-4-grid-detect-strengthen
-   ```
-   ```powershell
-   gh pr create --base main --head feat/m11-4-grid-detect-strengthen --title "M11.4 — grid_detect color-edge + LLM 분류 정확도 (v0.2.3 candidate)" --body-file milestones/M11_4_verification.md
+   & "$env:USERPROFILE\.venvs\gah\Scripts\Activate.ps1"
    ```
 
-3. squash merge 후 v0.2.3 bump + tag:
+2. main 동기화 + 회귀 baseline 확인:
 
    ```powershell
    git checkout main
@@ -128,14 +123,30 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
    ```powershell
    git pull
    ```
-   - `pyproject.toml` + `src/assetcache/__init__.py` 0.2.2 → 0.2.3 bump
+   ```powershell
+   pytest -q
+   ```
+   → `1592 passed, 1 skipped, 59 deselected` 확인.
+
+3. (선택) v0.2.3 publish — `pyproject.toml` + `src/assetcache/__init__.py` 0.2.2 → 0.2.3 bump + commit + tag:
+
    ```powershell
    git tag v0.2.3
    ```
    ```powershell
    git push origin main v0.2.3
    ```
-   → Trusted Publishing OIDC 자동 (6회째).
+   → Trusted Publishing OIDC 6회째 자동.
+
+4. M11.5 implement — 새 브랜치 + LIVE 검증 부터:
+
+   ```powershell
+   git checkout -b feat/m11-5-live-validation-tuning
+   ```
+
+   spec/plan:
+   - [`docs/superpowers/specs/2026-05-21-m11-5-live-validation-and-tuning.md`](./docs/superpowers/specs/2026-05-21-m11-5-live-validation-and-tuning.md)
+   - [`milestones/M11_5_plan.md`](./milestones/M11_5_plan.md) — Phase 1 LIVE 검증 → 분기 결정 (Phase 3/5/6 trigger)
 
 ## 8. 알려진 이슈·주의사항
 
