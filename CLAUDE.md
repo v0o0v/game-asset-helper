@@ -19,9 +19,9 @@
 
 | 구간 | 상태 | 위치 |
 |---|---|---|
-| M0 ~ M11.5 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
-| **현재 main** | M11.5 (PR #23 `ed47403` squash + PR #24 `1be53ae` docs cleanup, v0.2.3/v0.2.4 publish 보류) | LIVE Gemini batch 통과 (D-1 elemental_cyan→spritesheet ✓ + LLM #3 crown_icon→inventory_item ✓) + Phase 5 acceptable set strict (`{inventory_item,item}` / `{ui_icon,ui}`) + LIVE 헬퍼 `scripts/drive_live_batch.py`. 별→별도 정리 30 파일. 회귀 **1592 passed + 1 skipped + 59 deselected**. MCP 20 도구 |
-| **다음 후보** | M11.6 (📋 spec/plan 작성됨) | BATCH_SPRITESHEET_PROMPT palette + 'other' fallback 정리 (v0.2.5 candidate). M11.5 의 별도 발견 2건 해소. spec: [m11-6](./docs/superpowers/specs/2026-05-22-m11-6-spritesheet-palette-and-other-cleanup.md), plan: [M11_6_plan.md](./milestones/M11_6_plan.md) |
+| M0 ~ M11.7 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
+| **현재 main** | M11.7 (PR #27 `04c205e` squash, v0.2.3~v0.2.6 publish 누적 보류) | mood OPTIONAL + category 별 mood 차단 (A1 + A2). LIVE: crown mood 2→0 토큰 (A2 완벽), 시트 mood 10→5 토큰 (58% 감소). 회귀 **1601 passed + 1 skipped + 63 deselected**. 옵트인 6/6 PASSED. MCP 20 도구 |
+| **다음 후보** | M11.8 (📋 spec/plan 작성됨) | mood 시드 `neutral`/`minimalist` `is_enabled=0` 마이그 (v0.2.7 candidate). M11.7 LIVE 의 catch-all 'neutral' 시트 4/5 잔존 해소. ⚠️ `palette.neutral` 은 절대 유지 (M11.6 tone group 핵심). spec: [m11-8](./docs/superpowers/specs/2026-05-22-m11-8-mood-seed-disable.md), plan: [M11_8_plan.md](./milestones/M11_8_plan.md) |
 
 전체 마일스톤 정렬 + future 후보 (M12~M18) 는 [`milestones/ROADMAP.md`](./milestones/ROADMAP.md).  
 한 줄 인계 스냅샷은 [`HANDOFF.md`](./HANDOFF.md).
@@ -89,14 +89,14 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
 │       ├── config.py / logging_setup.py / app.py / tray.py
 │       ├── platform/         # single_instance
 │       ├── updater/          # PyPI 알림 (M10 Phase 2)
-│       ├── core/             # 도메인 로직 (M1~M11.3)
+│       ├── core/             # 도메인 로직 (M1~M11.7)
 │       │   ├── store.py / pack_manager.py / scanner.py / watcher.py
 │       │   ├── analyzer/     # payload_parser / tech_meta / spritesheet_meta / messages
 │       │   ├── batch/        # manager / poller / sheet_classifier
 │       │   ├── llm/backends/ # ollama / gemini / claude / openai / openrouter / huggingface
 │       │   └── sheet/        # detect / grid_detect
 │       └── web/              # FastAPI 웹 서버
-└── tests/                    # pytest 1559 passed (M11.3 baseline)
+└── tests/                    # pytest 1601 passed (M11.7 baseline) + 옵트인 6 (llm_integration)
 ```
 
 후속 마일스톤에서 추가될 모듈은 `DESIGN.md §7` 참고.
@@ -107,7 +107,7 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
 
 ## 7. 다음 작업
 
-**M11.6 BATCH_SPRITESHEET_PROMPT palette + 'other' fallback 정리** (v0.2.5 candidate).  M11.5 는 main `ed47403` squash 머지 완료 ([PR #23](https://github.com/v0o0v/assetcache-mcp/pull/23), 회귀 1592 그대로 + 옵트인 strict 2 PASSED) + PR #24 `1be53ae` 별→별도 docs cleanup.  v0.2.3/v0.2.4 PyPI publish 모두 보류 (M11.6 머지 후 0.2.2 → 0.2.5 직접 bump 권장).
+**M11.8 mood 시드 `neutral`/`minimalist` 비활성화** (v0.2.7 candidate).  M11.7 main `04c205e` squash 머지 완료 ([PR #27](https://github.com/v0o0v/assetcache-mcp/pull/27), 회귀 1601 + 옵트인 6 PASSED).  M11.4~M11.7 의 v0.2.3~v0.2.6 publish 모두 보류 누적 (M11.8 머지 후 0.2.2 → 0.2.7 직접 bump 권장).
 
 1. 환경 복원 + 회귀 baseline:
 
@@ -123,37 +123,29 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
    ```powershell
    pytest -q
    ```
-   → `1592 passed, 1 skipped, 59 deselected` 확인.
+   → `1601 passed, 1 skipped, 63 deselected` 확인.
 
-2. **M11.6 implement** — 새 브랜치 + prompt TDD red→green 부터:
+2. **M11.8 implement** — 새 브랜치 + 시드 마이그 TDD red→green 부터:
 
    ```powershell
-   git checkout -b feat/m11-6-prompt-cleanup
+   git checkout -b feat/m11-8-mood-seed-disable
    ```
 
    spec/plan:
-   - [`docs/superpowers/specs/2026-05-22-m11-6-spritesheet-palette-and-other-cleanup.md`](./docs/superpowers/specs/2026-05-22-m11-6-spritesheet-palette-and-other-cleanup.md)
-   - [`milestones/M11_6_plan.md`](./milestones/M11_6_plan.md) — Phase 1 prompt fix → Phase 2 LIVE 검증 → Phase 3 A2-filter 분기 → Phase 4 PR
+   - [`docs/superpowers/specs/2026-05-22-m11-8-mood-seed-disable.md`](./docs/superpowers/specs/2026-05-22-m11-8-mood-seed-disable.md)
+   - [`milestones/M11_8_plan.md`](./milestones/M11_8_plan.md) — Phase 1 시드+migration TDD → Phase 2 prompt 동기화 → Phase 3 LIVE 검증 → Phase 4 PR
 
-3. (선택, M11.6 머지 후) v0.2.5 publish — `pyproject.toml` + `src/assetcache/__init__.py` 0.2.2 → 0.2.5 bump + tag:
+   ⚠️ **핵심 주의**: `palette.neutral` 은 절대 비활성화 X (M11.6 tone group enum 핵심 토큰).  `mood.neutral` + `mood.minimalist` 만 대상.
 
-   ```powershell
-   git tag v0.2.5
-   ```
-   ```powershell
-   git push origin main v0.2.5
-   ```
-   → Trusted Publishing OIDC 6회째 자동.
-
-4. M11.5 implement — 새 브랜치 + LIVE 검증 부터:
+3. (선택, M11.8 머지 후) v0.2.7 publish — `pyproject.toml` + `src/assetcache/__init__.py` 0.2.2 → 0.2.7 bump + tag:
 
    ```powershell
-   git checkout -b feat/m11-5-live-validation-tuning
+   git tag v0.2.7
    ```
-
-   spec/plan:
-   - [`docs/superpowers/specs/2026-05-21-m11-5-live-validation-and-tuning.md`](./docs/superpowers/specs/2026-05-21-m11-5-live-validation-and-tuning.md)
-   - [`milestones/M11_5_plan.md`](./milestones/M11_5_plan.md) — Phase 1 LIVE 검증 → 분기 결정 (Phase 3/5/6 trigger)
+   ```powershell
+   git push origin main v0.2.7
+   ```
+   → Trusted Publishing OIDC 6회째 자동 (M11.3 v0.2.2 publish 이후 5 마일스톤 누적 deliver).
 
 ## 8. 알려진 이슈·주의사항
 

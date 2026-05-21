@@ -1,7 +1,7 @@
 # HANDOFF — Cowork → Claude Code (또는 다음 세션)
 
-**마지막 인계 시각**: 2026-05-22 (M11.5 [PR #23](https://github.com/v0o0v/assetcache-mcp/pull/23) main 머지 (`ed47403`) + [PR #24](https://github.com/v0o0v/assetcache-mcp/pull/24) 별→별도 정리 (`1be53ae`) + M11.6 starter 작성)
-**마지막 완료 작업**: **M11.5 main 머지 + 별→별도 정리 + M11.6 starter** — M11.5 가 M11.4 의 두 핵심 신기능 (D-1 grid_detect color-edge + LLM #3 inventory_item patch) 의 LIVE Gemini batch 검증을 통과 (elemental_cyan→spritesheet ✓, crown_icon→inventory_item ✓, 시트 5/5 success), 그 결과 기반으로 `tests/test_llm_backend_gemini_inventory_item_integration.py` 의 acceptable set 을 strict 화 (`{inventory_item,item}` / `{ui_icon,ui}`).  신규 헬퍼 `scripts/make_complex_sheets.py` + `scripts/drive_live_batch.py` (Qt tray 우회 — M11.6+ 재사용).  Phase 3 AXIS_SPAN_RATIO 튜닝 SKIP + Phase 6 palette narrow SKIP + M12 모델 업그레이드 trigger 안 함.  PR #24 가 별→별도 30 파일 일괄 치환 + memory `feedback_no_abbrev_byeol` 등록.  회귀 **1592 passed + 1 skipped + 59 deselected** (M11.4 baseline 그대로).  **M11.6 spec/plan starter 작성됨** ([spec](./docs/superpowers/specs/2026-05-22-m11-6-spritesheet-palette-and-other-cleanup.md) / [plan](./milestones/M11_6_plan.md)) — BATCH_SPRITESHEET_PROMPT palette enum + 'other' fallback 제거 (M11.5 별도 발견 2건 해소, v0.2.5 candidate).
+**마지막 인계 시각**: 2026-05-22 (M11.6 [PR #26](https://github.com/v0o0v/assetcache-mcp/pull/26) main 머지 (`da4f169`) + M11.7 [PR #27](https://github.com/v0o0v/assetcache-mcp/pull/27) main 머지 (`04c205e`) + M11.8 starter 작성)
+**마지막 완료 작업**: **M11.6 + M11.7 main 머지 + M11.8 starter** — M11.6 (PR #26) 가 M11.5 LIVE 의 별도 발견 2건 (시트 5/5 palette 라벨 부재 + animation='other' fallback) 을 BATCH_SPRITESHEET_PROMPT palette tone group enum + 두 prompt 의 "do NOT use 'other'" 가이드로 해소 — LIVE 결과 시트 palette 5/5 + 'other' 0/6 완전 차단.  M11.7 (PR #27) 가 M11.6 LIVE 의 mood 노이즈 2건 (crown 에 mood=heroic/playful + 시트 5/5 일률 mood=minimalist/neutral) 을 mood OPTIONAL + category 별 mood 차단으로 해소 — LIVE 결과 crown mood 2→0 (A2 완벽), 시트 mood 10→5 (58% 감소, A1 부분).  회귀 **1601 passed + 1 skipped + 63 deselected** + 옵트인 6/6 PASSED (M11.5 strict 2 + M11.6 신규 2 + M11.7 신규 2).  M11.7 한계: catch-all 'neutral' 시트 4/5 잔존 → **M11.8 spec/plan starter 작성됨** ([spec](./docs/superpowers/specs/2026-05-22-m11-8-mood-seed-disable.md) / [plan](./milestones/M11_8_plan.md)) — LabelRegistry 시드 `mood.neutral` + `mood.minimalist` `is_enabled=0` 마이그 (v0.2.7 candidate).  ⚠️ `palette.neutral` 은 절대 유지 (M11.6 tone group 핵심).
 
 **M11.3 PR #20 산출물** (squash 후 `7ad0f3d`):
 - `core/batch/sheet_classifier.py` — `classify_image_assets` 에 `cache` + `save_sprite_meta` 인자 추가 (시트 hit 시 자동 sprite_meta enrich+save)
@@ -23,11 +23,14 @@
 - `milestones/M11_4_verification.md` — auto 1592 + 옵트인 Gemini + 수동 synthetic + LIVE 시나리오 + 한계
 - 신규 test: 9 grid_detect color-edge + 3 seed + 9 payload/prompt + 5 sync (3 + 2 옵트인 llm_integration) + 5 wiring + 2 hex 일관성 + 2 guidance 동적화 = **+33**
 
-**현재 브랜치**: `main` (PR #21 squash 머지 완료, feat 브랜치 자동 삭제)
+**현재 브랜치**: `main` (PR #27 squash 머지 완료, feat 브랜치 자동 삭제 + remote prune 완료)
 
 **다음 세션 작업**:
-1. (선택) v0.2.3 publish — `pyproject.toml` + `__init__.py` 0.2.2 → 0.2.3 bump + tag → Trusted Publishing 6회째 자동
-2. **M11.5 implement** — `milestones/M11_5_plan.md` 의 Phase 1 (LIVE 검증) 부터.  m113_complex 6 자산 재실행 + 결과 표 채워서 분기 결정 (#2 ratio / #3 palette narrow / #4 strict).
+1. **M11.8 implement** — `milestones/M11_8_plan.md` 의 Phase 1 (시드 비활성화 + migration TDD) 부터.
+   - 신규 모듈/함수: `core/labels.py` `DISABLED_BY_DEFAULT` 상수 + `core/store.py` `set_label_enabled_if_unchanged` helper + `meta.disabled_by_default_signature` 마커
+   - ⚠️ **핵심 주의**: `palette.neutral` 은 절대 비활성화 X (M11.6 tone group enum 핵심 토큰).  `mood.neutral` + `mood.minimalist` 만 대상
+   - LIVE 검증: `scripts/drive_live_batch.py` 그대로 재사용
+2. (선택, M11.8 머지 후) v0.2.7 publish — `pyproject.toml` + `__init__.py` 0.2.2 → 0.2.7 bump + tag → Trusted Publishing 6회째 자동 (M11.4~M11.7 의 v0.2.3~v0.2.6 결번 누적 deliver).
 
 이 문서는 작업이 중단될 때 다음 세션이 "현재 어디까지 와 있는가"를 한 번에 파악하도록 작성된 스냅샷이다.
 
@@ -93,39 +96,41 @@ git pull
 pytest -q
 ```
 
-→ main 기준 (PR #20 머지 후): **`1559 passed, 1 skipped, 57 deselected`**.
+→ main 기준 (PR #27 머지 후): **`1601 passed, 1 skipped, 63 deselected`** + 옵트인 6 PASSED (llm_integration).
 
-**현재 브랜치 = `main`** (PR #20 squash merge tag `7ad0f3d`, feat/m11-3-detection-cache 자동 삭제). 다음 작업은 (A) v0.2.2 publish (tag push 한 줄) 또는 (B) 새 feature 브랜치 `feat/m11-4-grid-detect-strengthen`.
+**현재 브랜치 = `main`** (PR #27 squash merge `04c205e`, feat/m11-7-mood-noise-cleanup 자동 삭제 + remote prune 완료).
 
-## 5. 다음 세션 진입 절차 (PR #20 머지 + v0.2.2 publish 완료 — M11.4)
+## 5. 다음 세션 진입 절차 (PR #27 머지 — M11.8)
 
-### 5.0 v0.2.2 publish — ✅ 완료
+### 5.0 v0.2.2 이후 publish 누적 보류
 
-main `10c3add` (`pyproject.toml` + `src/assetcache/__init__.py` 0.2.0 → 0.2.2 bump) + `git tag v0.2.2` + push → Trusted Publishing OIDC 5회째 실 publish. [PyPI v0.2.2](https://pypi.org/project/assetcache-mcp/0.2.2/) 도착 (`pip install -U assetcache-mcp` 가능). **v0.2.1 은 PyPI 영구 결번** — pyproject 미bump 상태로 tag push → `skip-existing: true` silent skip ([HISTORY "Trusted Publishing 패턴"](./milestones/HISTORY.md) 참조). GitHub release v0.2.2 는 수동 생성 단계 진행.
+M11.3 의 v0.2.2 publish 이후 M11.4 (v0.2.3) / M11.5 (v0.2.4) / M11.6 (v0.2.5) / M11.7 (v0.2.6) 4 마일스톤 publish 모두 보류 누적.  M11.8 머지 후 `pyproject.toml` + `src/assetcache/__init__.py` 0.2.2 → 0.2.7 직접 bump + tag v0.2.7 push → Trusted Publishing OIDC 자동 (6회째) 권장.
 
-### 5.1 M11.4 implement (grid_detect 강화 + LLM 분류 정확도)
+### 5.1 M11.8 implement (mood 시드 `neutral`/`minimalist` 비활성화)
 
 **spec 읽기**:
 
 ```powershell
-code docs/superpowers/specs/2026-05-21-m11-4-grid-detect-strengthen-llm-accuracy.md
+code docs/superpowers/specs/2026-05-22-m11-8-mood-seed-disable.md
 ```
 
 ```powershell
-code milestones/M11_4_plan.md
+code milestones/M11_8_plan.md
 ```
 
 **브랜치 생성 + baseline 확인**:
 
 ```powershell
-git checkout -b feat/m11-4-grid-detect-strengthen
+git checkout -b feat/m11-8-mood-seed-disable
 ```
 
 ```powershell
 pytest -q
 ```
 
-→ 1559 passed 확인 후 Phase 1 (D-1 grid_detect color-edge) TDD red→green 부터.
+→ 1601 passed 확인 후 Phase 1 (시드 비활성화 + migration TDD) red→green 부터.
+
+⚠️ **핵심 주의**: `palette.neutral` 은 절대 비활성화 X (M11.6 tone group enum 핵심).  `mood.neutral` + `mood.minimalist` 만 대상.
 
 ### 5.0.1 v0.2.x reactive patch backlog (M11.2 외 잔존)
 
@@ -191,8 +196,11 @@ M11.2 implement 후 사용자 결정 — backlog B/C/D/E 중 우선순위 또는
 | **v0.2.x patches** | batch persist 보강 (label/meta/spritesheet) | ✅ ([PR #18](https://github.com/v0o0v/assetcache-mcp/pull/18) main 머지 `12ebc42`, 회귀 1424 → 1490) |
 | **M11.2** | Batch Spritesheet Modality (`chat_spritesheet` 신설) | ✅ ([PR #19](https://github.com/v0o0v/assetcache-mcp/pull/19) main 머지 `d34f1dd`, +38 신규, 회귀 1528) |
 | **M11.3** | **Detection Cache + 부수 patch 4건** (옵션 B+C, A/B/C/D-2) | ✅ ([PR #20](https://github.com/v0o0v/assetcache-mcp/pull/20) main 머지 `7ad0f3d`, +30 신규, 회귀 1559). **[v0.2.2 PyPI publish 완료](https://pypi.org/project/assetcache-mcp/0.2.2/)** (main `10c3add` bump + tag) |
-| **M11.4** | **grid_detect 강화 + LLM 분류 정확도** (v0.2.3 candidate) | ✅ ([PR #21](https://github.com/v0o0v/assetcache-mcp/pull/21) main squash 머지 `7794d48`, +33 신규, 회귀 1592). v0.2.3 PyPI publish 단계 보류 가능. [verification](./milestones/M11_4_verification.md) |
-| **M11.5** | **LIVE validation + tuning patches** (v0.2.4 candidate) | 📋 spec/plan starter 작성됨, **다음 세션 implement 대상**. LIVE 결과 기반 분기 patches (AXIS_SPAN_RATIO / palette narrow / acceptable set strict). [spec](./docs/superpowers/specs/2026-05-21-m11-5-live-validation-and-tuning.md) / [plan](./milestones/M11_5_plan.md) |
+| **M11.4** | **grid_detect 강화 + LLM 분류 정확도** (v0.2.3 candidate) | ✅ ([PR #21](https://github.com/v0o0v/assetcache-mcp/pull/21) main squash `7794d48`, +33 신규, 회귀 1592). v0.2.3 publish 보류 |
+| **M11.5** | **LIVE validation + acceptable set strict** (v0.2.4 candidate) | ✅ ([PR #23](https://github.com/v0o0v/assetcache-mcp/pull/23) main squash `ed47403` + [PR #24](https://github.com/v0o0v/assetcache-mcp/pull/24) `1be53ae` docs cleanup, 회귀 1592). v0.2.4 publish 보류. LIVE Gemini batch 통과 (D-1 + LLM #3) + acceptable set strict |
+| **M11.6** | **BATCH_SPRITESHEET_PROMPT palette + 'other' fallback 정리** (v0.2.5 candidate) | ✅ ([PR #26](https://github.com/v0o0v/assetcache-mcp/pull/26) main squash `da4f169`, +7 신규 4 옵트인, 회귀 1597). v0.2.5 publish 보류. 시트 palette 5/5 + 'other' 0/6 |
+| **M11.7** | **mood OPTIONAL + category 별 mood 차단** (v0.2.6 candidate) | ✅ ([PR #27](https://github.com/v0o0v/assetcache-mcp/pull/27) main squash `04c205e`, +6 신규 2 옵트인, 회귀 1601). v0.2.6 publish 보류. crown mood 2→0 + 시트 mood 10→5 |
+| **M11.8** | **mood 시드 `neutral`/`minimalist` 비활성화** (v0.2.7 candidate) | 📋 spec/plan starter 작성됨, **다음 세션 implement 대상**. ⚠️ palette.neutral 절대 유지. [spec](./docs/superpowers/specs/2026-05-22-m11-8-mood-seed-disable.md) / [plan](./milestones/M11_8_plan.md) |
 | M12~M18 | 측정/Mac-Linux/원격 통신/Unity Editor/유사 검색/성능/분산 | 📋 미정 |
 
 ## 7. 후속 정리거리 (해결됨/잔존)
