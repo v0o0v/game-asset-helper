@@ -637,7 +637,11 @@ def api_thumbnail(asset_id: int, request: Request) -> Response:
         media_type="image/png",
         headers={
             "ETag": etag,
-            "Cache-Control": "public, max-age=86400",
+            # M11.10 — browser 가 매번 ETag 검증 (conditional request).  이전:
+            # max-age=86400 이라 DB reset / re-import 후 같은 asset_id 의 새
+            # thumbnail 이 browser disk cache 의 stale image 에 가려짐.
+            # 새: 매번 server 검증 → ETag (file_hash 포함) 일치하면 304, 다르면 200.
+            "Cache-Control": "no-cache",
         },
     )
 
