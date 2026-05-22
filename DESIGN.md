@@ -554,7 +554,7 @@ src/assetcache/core/analyzer/
 
 - Image/audio Gemini 결과 → labels 실제 파싱 미구현 (empty labels + mark ok). M12 candidate.
 - 파일 크기 > 20MB inline 제한 — file destination batch 방식은 v0.2.x 후속.
-- OpenAI/Anthropic Batch API — v0.3.0 candidate.
+- OpenAI Batch API — v0.3.0 candidate (M11.9 에서 Anthropic 백엔드 제거 — Anthropic Batch API 후보는 SDK 재도입 시점에 재평가).
 
 
 ## 5. 데이터 스키마

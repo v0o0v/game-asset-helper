@@ -141,7 +141,7 @@ PR #18 (patch A/B/C) 머지 완료로 backlog 정리됨. 남은 후보:
 | ~~A~~ | ~~image/audio Gemini batch 결과 → label parsing~~ | ✅ **PR #18 patch A 완료** | — |
 | B | **`BatchPoller polling silent fail` root cause 조사** (M11.1 manual 검증 중 사용자 첫 tray 가 polling 안 한 이유 — silent crash 의심, thread-local SQLite connection 가능성) | reproducibility | ~수시간 |
 | C | **`store.list_labels_raw` race condition 진짜 원인** + thread-safe enforce | rare 발생 (defensive skip 이미 `4a798fd` patch) | ~수시간 |
-| D | **OpenAI Batch API** + **Anthropic Batch API** | 다중 backend batch | 1~2일 |
+| D | **OpenAI Batch API** | 다중 backend batch | 1~2일 (M11.9 에서 Anthropic 백엔드 제거 — Anthropic Batch API 후보는 SDK 재도입 시점에 재평가) |
 | E | **file destination batch** (>20MB inline 우회) | 큰 batch 지원 | 1일 |
 
 M11.2 implement 후 사용자 결정 — backlog B/C/D/E 중 우선순위 또는 M12 (C4 측정) 진행.
@@ -155,7 +155,7 @@ M11.2 implement 후 사용자 결정 — backlog B/C/D/E 중 우선순위 또는
 | **0** (완료) | M11 | Multi-backend LLM Architecture | ✅ v0.2.0 |
 | **0** (완료) | M11.1 | Gemini Batch API + /analyzing dashboard | ✅ v0.2.1 |
 | **0** (다음) | **M11.2** | **Batch Spritesheet Modality** (`chat_spritesheet` 신설) — PR #18 한계 (grid-only 시트 animation 라벨) 해소 | M11.1 + PR #18 |
-| **1** | M12 | C4 측정 / 학습 / 벤치마크 (6 backend 정확도 비교) | M11 |
+| **1** | M12 | C4 측정 / 학습 / 벤치마크 (3 backend 정확도 비교) | M11 |
 | 1 | M13 | Mac/Linux 검증 + M11 cross-platform | M11 |
 | **2** (큰 새 기능) | M14 | MCP 원격 통신 (HTTP/SSE + 인증) | 독립 |
 | 2 | M15 | Unity Editor 통합 (drag-drop / 자동 import) | 독립 |

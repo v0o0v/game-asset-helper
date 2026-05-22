@@ -1,7 +1,7 @@
 """OpenAIBackend — openai SDK wrap (M11 Phase 3).
 
-3 modality 모두 지원 + ``base_url`` 인자 expose (Phase 4 의 ``OpenRouterBackend``
-가 ``https://openrouter.ai/api/v1`` 로 specialization 가능).
+3 modality 모두 지원 + ``base_url`` 인자 expose (M11.9 에서 OpenRouterBackend 제거됨,
+``base_url`` 은 OpenAI-compatible endpoint 재사용 가능성을 위해 유지).
 
 - chat_image: gpt-5.4-mini 등 vision — content type=image_url, data URI
 - chat_audio: gpt-4o-audio-preview — content type=input_audio (base64 + format)
