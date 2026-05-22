@@ -158,6 +158,12 @@ class BatchPoller(threading.Thread):
         """JOB_STATE_SUCCEEDED — modality 별 persist + 부분 실패 fallback.
 
         v0.2.1: inline destination 만 지원. file destination 은 expired 처리.
+
+        M11.10 — chat_image/chat_spritesheet/chat_audio 결과 persist 후
+        ``chain['text_embed'].batch_embed(texts)`` 로 모든 description 임베딩을
+        1회 multi-input HTTP 호출로 채움.  개별 sync ``embed_content(contents=str)``
+        호출 ~N회 → 1회 (≥10× 절감).  embed 실패는 chat persist 와 분리 — chat
+        결과는 정상 'ok' 마킹, embedding 만 누락.
         """
         if status.inlined_responses is None:
             if status.file_name:
@@ -183,6 +189,9 @@ class BatchPoller(threading.Thread):
         asset_rows = self._store.list_assets_in_batch(job.id)
         success_count = 0
         failure_count = 0
+        # M11.10 — chat_* 결과 persist 후 multi-input embed batch 대상 수집.
+        # (asset_id, for_embed_text) tuple — for_embed 빈 문자열도 그대로 전송 (단순화).
+        chat_embed_targets: list[tuple[int, str]] = []
 
         for asset, resp in zip(asset_rows, status.inlined_responses, strict=False):
             # 개별 응답 오류 처리
@@ -194,16 +203,22 @@ class BatchPoller(threading.Thread):
             try:
                 if job.modality == "chat_image":
                     payload = json.loads(resp.response.text)
-                    self._persist_image_payload(asset, payload)
+                    for_embed = self._persist_image_payload(asset, payload)
                     self._store.mark_asset_backends(asset.id, image="gemini")
+                    if for_embed:
+                        chat_embed_targets.append((asset.id, for_embed))
                 elif job.modality == "chat_spritesheet":
                     payload = json.loads(resp.response.text)
-                    self._persist_spritesheet_payload(asset, payload)
+                    for_embed = self._persist_spritesheet_payload(asset, payload)
                     self._store.mark_asset_backends(asset.id, image="gemini")
+                    if for_embed:
+                        chat_embed_targets.append((asset.id, for_embed))
                 elif job.modality == "chat_audio":
                     payload = json.loads(resp.response.text)
-                    self._persist_audio_payload(asset, payload)
+                    for_embed = self._persist_audio_payload(asset, payload)
                     self._store.mark_asset_backends(asset.id, audio="gemini")
+                    if for_embed:
+                        chat_embed_targets.append((asset.id, for_embed))
                 elif job.modality == "text_embed":
                     vec = list(resp.embedding.values)
                     blob = _serialize_vec(vec)
@@ -223,6 +238,11 @@ class BatchPoller(threading.Thread):
                 self._fail_asset(asset)
                 failure_count += 1
 
+        # M11.10 — chat_* 결과 multi-input embed batch.  text_embed modality 자체는
+        # 이미 위 루프에서 처리됨.  실패는 swallow (chat 결과는 'ok' 유지, embedding 누락).
+        if chat_embed_targets:
+            self._embed_chat_results(chat_embed_targets)
+
         self._store.update_batch_job_state(
             job.id,
             state="succeeded",
@@ -231,12 +251,49 @@ class BatchPoller(threading.Thread):
             failure_count=failure_count,
         )
 
+    def _embed_chat_results(
+        self, targets: list[tuple[int, str]]
+    ) -> None:
+        """chat_* batch persist 후 모든 description 모아 1회 multi-input embed.
+
+        chain.batch_embed 가 raise 하면 swallow + log — chat persist 는 이미
+        완료 (asset state='ok').  embedding 만 누락 — 다음 사용자 검색 시 FTS
+        fallback 로 동작 (vector cosine 만 누락).
+        """
+        asset_ids = [aid for aid, _ in targets]
+        texts = [t for _, t in targets]
+        try:
+            chain = self._chain.get_chain("text_embed")
+        except Exception:
+            log.exception("text_embed chain 조회 실패 — embedding skip")
+            return
+        try:
+            vectors, backend_name = chain.batch_embed(texts)
+        except Exception:
+            log.exception(
+                "multi-input embed batch 실패 — asset count=%d, embedding 누락",
+                len(targets),
+            )
+            return
+        model = self._get_gemini_embed_model() if backend_name == "gemini" else backend_name
+        for asset_id, vec in zip(asset_ids, vectors, strict=False):
+            if not vec:
+                continue
+            blob = _serialize_vec(list(vec))
+            try:
+                self._store.save_embedding(asset_id, model, blob, len(vec))
+                self._store.mark_asset_backends(asset_id, embed=backend_name)
+            except Exception:
+                log.exception(
+                    "save_embedding 실패 — asset_id=%d, embedding 누락", asset_id,
+                )
+
     def _fail_asset(self, asset) -> None:
         """단일 asset 실패 — batch_state='failed' + interactive 재시도 enqueue."""
         self._store.mark_asset_batch_state(asset.id, "failed")
         self._aq.enqueue_asset(asset.id)
 
-    def _persist_image_payload(self, asset, payload: dict) -> None:
+    def _persist_image_payload(self, asset, payload: dict) -> str:
         """이미지 batch 결과를 실 labels + sprite_meta + searchable text 로 persist.
 
         sync SpriteAnalyzer 와 동일한 ``validate_image_payload`` →
@@ -257,6 +314,10 @@ class BatchPoller(threading.Thread):
         한계: batch prompt 는 시트를 의식하지 않으므로 sync 와 달리 Gemma
         의 ``animation_hint`` 추측 라벨은 없음.  Aseprite frameTags 가
         없는 grid-only 시트는 animation 라벨이 비어 있음.
+
+        M11.10 — ``searchable.for_embed`` 를 반환 → caller (``_handle_succeeded``)
+        가 모든 응답을 모은 후 1회 multi-input embed batch 호출.  ``_registry``
+        가 None 이면 빈 문자열 반환 (embed skip).
         """
         analyzed_at = int(time.time())
         if self._registry is None:
@@ -264,7 +325,7 @@ class BatchPoller(threading.Thread):
             self._store.mark_asset_state(
                 asset.id, "ok", error=None, analyzed_at=analyzed_at,
             )
-            return
+            return ""
 
         ok, err, fixed = validate_image_payload(payload, self._registry)
         if not ok:
@@ -296,8 +357,9 @@ class BatchPoller(threading.Thread):
         self._store.mark_asset_state(
             asset.id, "ok", error=None, analyzed_at=analyzed_at,
         )
+        return searchable.for_embed
 
-    def _persist_spritesheet_payload(self, asset, payload: dict) -> None:
+    def _persist_spritesheet_payload(self, asset, payload: dict) -> str:
         """시트 batch 결과를 sync SpritesheetAnalyzer 와 동등하게 persist.
 
         sync 와 차이:
@@ -311,6 +373,8 @@ class BatchPoller(threading.Thread):
 
         kind 는 이미 ``classify_image_assets`` 단계에서 ``spritesheet`` 로
         promote 된 상태.  ``_try_enrich_with_sheet`` 가 다시 호출돼도 idempotent.
+
+        M11.10 — ``searchable.for_embed`` 반환 → caller 가 batch_embed 로 처리.
         """
         analyzed_at = int(time.time())
         if self._registry is None:
@@ -318,7 +382,7 @@ class BatchPoller(threading.Thread):
             self._store.mark_asset_state(
                 asset.id, "ok", error=None, analyzed_at=analyzed_at,
             )
-            return
+            return ""
 
         ok, err, fixed = validate_image_payload(payload, self._registry)
         if not ok:
@@ -358,6 +422,7 @@ class BatchPoller(threading.Thread):
         self._store.mark_asset_state(
             asset.id, "ok", error=None, analyzed_at=analyzed_at,
         )
+        return searchable.for_embed
 
     def _try_compute_sprite_meta(self, asset):
         """library_dir 가 있으면 파일에서 SpriteMeta 계산, 실패 시 None."""
@@ -412,7 +477,7 @@ class BatchPoller(threading.Thread):
         anim_labels = detection_to_animation_labels(detection)
         return enriched, anim_labels
 
-    def _persist_audio_payload(self, asset, payload: dict) -> None:
+    def _persist_audio_payload(self, asset, payload: dict) -> str:
         """오디오 batch 결과를 실 labels + sound_meta + searchable text 로 persist.
 
         sync SoundAnalyzer 와 동일한 ``validate_audio_payload`` →
@@ -420,6 +485,8 @@ class BatchPoller(threading.Thread):
         ``compute_sound_meta`` 로 tech (duration/sr/channels/loudness/bpm)
         + payload (category/loopable/tempo 등) 를 합쳐서 SoundMeta 채움.
         ``audio_path_used`` 는 ``'batch'`` 로 표시.
+
+        M11.10 — ``searchable.for_embed`` 반환 → caller 가 batch_embed 로 처리.
         """
         analyzed_at = int(time.time())
         if self._registry is None:
@@ -427,7 +494,7 @@ class BatchPoller(threading.Thread):
             self._store.mark_asset_state(
                 asset.id, "ok", error=None, analyzed_at=analyzed_at,
             )
-            return
+            return ""
 
         ok, fixed, err = validate_audio_payload(payload, self._registry)
         if not ok:
@@ -454,6 +521,7 @@ class BatchPoller(threading.Thread):
         self._store.mark_asset_state(
             asset.id, "ok", error=None, analyzed_at=analyzed_at,
         )
+        return searchable.for_embed
 
     def _try_compute_sound_meta(self, asset, payload: dict):
         """library_dir 가 있으면 파일에서 SoundMeta 계산, 실패 시 None."""
