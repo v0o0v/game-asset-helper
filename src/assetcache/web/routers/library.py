@@ -619,12 +619,16 @@ def api_thumbnail(asset_id: int, request: Request) -> Response:
 
     asset_path = resolve_asset_path(deps, asset.path)
     cache_dir = deps.paths.cache_dir / "thumbnails"
-    thumb = ensure_thumbnail(asset_path, asset.kind, cache_dir, asset_id, max_size=256)
+    # M11.10 — file_hash 전달 → cache key 에 hash prefix 포함, stale cache 차단.
+    thumb = ensure_thumbnail(
+        asset_path, asset.kind, cache_dir, asset_id,
+        max_size=256, file_hash=asset.file_hash,
+    )
     if thumb is None or not thumb.exists():
         raise HTTPException(status_code=404, detail="thumbnail generation failed")
 
-    # asset_id 를 prefix 로 포함해 동일 mtime 의 다른 에셋 간 충돌 방지
-    etag = f'"{asset_id}:{thumb.stat().st_mtime_ns}"'
+    # asset_id + file_hash 접두로 동일 mtime 의 다른 에셋 충돌 방지
+    etag = f'"{asset_id}:{asset.file_hash[:12]}:{thumb.stat().st_mtime_ns}"'
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304)
 
