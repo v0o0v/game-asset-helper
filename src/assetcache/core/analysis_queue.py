@@ -209,23 +209,27 @@ class AnalysisQueue(QObject):
         return len(asset_ids)
 
     def drain_pending(self) -> int:
-        """Boot-time helper: enqueue everything currently marked pending."""
-        # 한 번에 sweep
+        """Boot-time helper: enqueue everything currently marked pending.
+
+        M11.10 — race 차단: ``_try_batch_submit`` 를 큐 push **전에** 호출.
+        batch 가 모든 pending row 를 ``batch_state='submitted'`` 마킹 후 큐에 push →
+        worker pop 시 try_mark_asset_analyzing 가 batch_state='none' 조건 실패로 skip.
+        """
         rows = []
         while True:
             row = self.store.next_pending_asset()
             if row is None:
                 break
             rows.append(row)
-            # 다음 next_pending_asset 가 같은 행을 다시 반환하지 않게 표시
             self.store.mark_asset_analyzing(row.id)
-        # 표시는 했지만 실제 분석은 워커에 위임 — 큐에 다시 넣는다
+        # 표시는 했지만 실제 분석은 워커/배치에 위임 — 먼저 pending 복원
         for row in rows:
-            # pending 으로 되돌려서 워커가 정상 처리하게.
-            # M2.1: raw conn.execute 가 아니라 Store 메서드를 거쳐 write_lock 안에서.
             self.store.mark_asset_pending(row.id)
-            self._queue.put(row.id)
             self._enqueued_packs.add(row.pack_id)
+        # M11.10 — batch 먼저 시도 (큐 push 전 race 차단)
+        self._try_batch_submit()
+        for row in rows:
+            self._queue.put(row.id)
         self._emit_progress()
         self._try_batch_submit()
         return len(rows)

@@ -255,10 +255,25 @@ def test_fetch_pending_by_modality_chat_image(fresh_store, _seed_assets):
     assert all(r.kind == "sprite" for r in rows)
 
 
-def test_fetch_pending_by_modality_excludes_already_queued(fresh_store, _seed_assets):
+def test_fetch_pending_by_modality_includes_queued_default(fresh_store, _seed_assets):
+    """M11.10 — default batch_state_in=('none','queued') — chat_image classify 후
+    sheet promote 로 'queued' 마킹된 row 도 chat_spritesheet 가 fetch.
+    """
     ids = _seed_assets(3)
     fresh_store.mark_assets_batch_queued(ids[:2])
     rows = fresh_store.fetch_pending_by_modality("chat_image", limit=10)
+    # 'none' 1 + 'queued' 2 = 3
+    assert len(rows) == 3
+    assert {r.id for r in rows} == set(ids)
+
+
+def test_fetch_pending_by_modality_explicit_none_only(fresh_store, _seed_assets):
+    """명시적으로 batch_state_in=('none',) 전달 시 queued 제외."""
+    ids = _seed_assets(3)
+    fresh_store.mark_assets_batch_queued(ids[:2])
+    rows = fresh_store.fetch_pending_by_modality(
+        "chat_image", batch_state_in=("none",), limit=10,
+    )
     assert len(rows) == 1
     assert rows[0].id == ids[2]
 

@@ -2620,10 +2620,14 @@ class Store:
         self,
         modality: str,
         *,
-        batch_state_in: tuple[str, ...] = ("none",),
+        batch_state_in: tuple[str, ...] = ("none", "queued"),
         limit: int = 1000,
     ) -> list[AssetRow]:
-        """analysis_state='pending' AND batch_state IN (...) AND modality kind 필터."""
+        """analysis_state='pending' AND batch_state IN (...) AND modality kind 필터.
+
+        M11.10 — default 가 ('none', 'queued') — chat_image classify 단계에서 sheet
+        promote 후 batch_state='queued' 마킹된 row 도 chat_spritesheet 가 fetch.
+        """
         kinds = _MODALITY_KIND_FILTER.get(modality)
         state_ph = ",".join("?" * len(batch_state_in))
         if kinds is None:

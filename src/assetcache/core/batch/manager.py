@@ -131,11 +131,17 @@ class BatchManager:
             # 다음 sweep 의 chat_spritesheet 가 픽업.  sprite rows 만 chat_image batch.
             # M11.3 — sweep cache 전달 + sprite_meta 자동 enrich+save (옵션 B+C).
             from .sheet_classifier import classify_image_assets
-            _sheets, rows = classify_image_assets(
+            sheets, rows = classify_image_assets(
                 rows, library_dir=self._library_dir, store=self._store,
                 cache=self._detection_cache,
                 alpha_color_weight=self._cfg.grid_detect_alpha_color_weight,
             )
+            # M11.10 — sheet 로 promote 된 row 도 batch_state='queued' 로 마킹해
+            # worker race 차단.  chat_spritesheet try_submit 가 fetch 시 'queued'
+            # 도 허용 (fetch_pending_by_modality 의 default batch_state_in 확장).
+            if sheets:
+                sheet_ids = [row.id for row, _ in sheets]
+                self._store.mark_assets_batch_queued(sheet_ids)
             if not rows:
                 # 전부 시트 — promote 만 수행, batch submit 0.
                 return None
