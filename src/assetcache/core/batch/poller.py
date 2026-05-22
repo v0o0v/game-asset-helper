@@ -53,6 +53,10 @@ def _serialize_vec(vec: list[float]) -> bytes:
     return arr.tobytes()
 
 
+# M11.10 — polling 주기 5초 hardcoded.  사용자 설정 불가 (batch-only 정책).
+_POLL_INTERVAL_SECONDS = 5.0
+
+
 # Gemini Job state → (DB state, terminal_flag | None)
 # terminal_flag None  = transient (PENDING / RUNNING)
 # terminal_flag str   = terminal state name
@@ -104,12 +108,12 @@ class BatchPoller(threading.Thread):
             self.join(timeout=timeout)
 
     def run(self) -> None:
-        interval = max(0.01, float(self._cfg.batch.poll_interval_seconds))
-        log.info("BatchPoller daemon started (poll_interval=%.1fs)", interval)
-        # 부팅 시 즉시 1회 sweep (재개 보장)
+        # M11.10 — polling 5초 hardcoded.  cfg.batch.poll_interval_seconds 무시
+        # (사용자 설정 불가 정책).  부팅 시 즉시 1회 sweep + 이후 5초마다 wake.
+        interval = _POLL_INTERVAL_SECONDS
+        log.info("BatchPoller daemon started (poll_interval=%.1fs, hardcoded)", interval)
         self._poll_once()
         while not self._stop_event.is_set():
-            interval = max(0.01, float(self._cfg.batch.poll_interval_seconds))
             if self._stop_event.wait(interval):
                 break
             self._poll_once()

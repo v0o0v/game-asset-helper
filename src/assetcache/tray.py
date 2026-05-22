@@ -249,51 +249,8 @@ def make_tray_icon(
     menu.addAction(autostart_action)
     menu.addSeparator()
 
-    # M11.1 Task 5.4 — Batch mode toggle (auto / forced_on / forced_off)
-    # 클릭할 때마다 다음 상태로 순환하며 라벨이 갱신된다.
-    # cfg / cfg_path 가 없을 때는 action 이 no-op 로 동작 (안전).
-    def _batch_action_label(toggle: str) -> str:
-        return _tr("Batch: {state}").format(state=toggle)
-
-    # cfg / cfg_path 가 caller 에서 명시 전달되면 그것을 사용 (run_tray 가 share).
-    # 명시 안 되면 fallback: disk 에서 load (단 별도 instance 라 web 과 sync X — 테스트/CLI 용).
-    if cfg is not None and cfg_path is not None:
-        _cfg = cfg
-        _cfg_path = cfg_path
-        try:
-            _initial_toggle = _cfg.batch.toggle
-        except AttributeError:
-            log.warning("tray batch toggle: cfg.batch 없음 — fallback auto")
-            _initial_toggle = "auto"
-    else:
-        try:
-            from assetcache.config import default_app_paths, load_config
-            _cfg_path = default_app_paths().config_path
-            _cfg = load_config(_cfg_path)
-            _initial_toggle = _cfg.batch.toggle
-        except Exception:
-            log.exception("tray batch toggle: load_config 실패 — action 비활성")
-            _cfg = None
-            _cfg_path = None
-            _initial_toggle = "auto"
-
-    batch_action = QAction(_batch_action_label(_initial_toggle), menu)
-    # batch_action 을 tray 오브젝트에 attribute 로 노출 → 테스트 접근 가능
-    tray._batch_action = batch_action  # type: ignore[attr-defined]
-
-    def _on_batch_toggle() -> None:
-        nonlocal _cfg
-        if _cfg is None or _cfg_path is None:
-            return
-        try:
-            cycle_batch_toggle(_cfg, _cfg_path)
-            batch_action.setText(_batch_action_label(_cfg.batch.toggle))
-        except Exception:
-            log.exception("batch toggle 저장 실패")
-
-    batch_action.triggered.connect(_on_batch_toggle)
-    menu.addAction(batch_action)
-    menu.addSeparator()
+    # M11.10 — batch toggle 메뉴 항목 제거 (batch-only 정책).
+    # 사용자가 batch 켜기/끄기 / threshold / polling 모두 설정 불가 — hardcoded.
 
     quit_action = QAction(_tr("종료"), menu)
     quit_action.triggered.connect(qapp.quit)

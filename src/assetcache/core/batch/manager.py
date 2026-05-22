@@ -31,6 +31,10 @@ _MODALITIES = ("chat_image", "chat_spritesheet", "chat_audio", "text_embed")
 # M11.3 — sweep memory cache 최대 entries.  일반 라이브러리는 ≤ 1000장 시트.
 _DETECTION_CACHE_MAX_SIZE = 1024
 
+# M11.10 — batch chunk size.  Gemini Batch API inline payload 안전 한도 100.
+# threshold 사용자 설정 제거 (batch-only 정책) — chunk 단위 hardcoded.
+_BATCH_CHUNK_SIZE = 100
+
 
 class _BoundedLRUCache(collections.OrderedDict):
     """OrderedDict 변형 — max_size 초과 시 가장 오래된 entry 부터 evict.
@@ -85,28 +89,18 @@ class BatchManager:
     def try_submit(self, modality: str) -> int | None:
         """Try to submit a batch job for `modality`. Return batch_jobs.id or None.
 
-        Decision flow:
-        1. modality 유효성 check
-        2. cfg.batch.toggle == 'forced_off' → None
-        3. chain[modality][0] not gemini / no batch support → None
-        4. auto 모드 + pending < threshold → None
-        5. race lock acquire (non-blocking) → _do_submit
+        M11.10 — batch-only 정책: ``cfg.batch.toggle`` / ``cfg.batch.threshold`` 무시.
+        gemini backend + supports_batch() 만족하면 무조건 batch 시도.  fetch_pending
+        이 0 row 반환하면 자연스럽게 None (no work to do).
         """
         if modality not in _MODALITIES:
             log.warning("try_submit invalid modality: %s", modality)
-            return None
-        toggle = self._cfg.batch.toggle
-        if toggle == "forced_off":
             return None
         backend = self._chain.first_backend(modality)
         if backend is None:
             return None
         if backend.info.name != "gemini" or not backend.supports_batch():
             return None
-        if toggle == "auto":
-            pending = self._store.count_pending_by_modality(modality)
-            if pending < self._cfg.batch.threshold:
-                return None
         if not self._locks[modality].acquire(blocking=False):
             return None
         try:
@@ -115,8 +109,10 @@ class BatchManager:
             self._locks[modality].release()
 
     def _do_submit(self, modality: str, backend) -> int | None:
-        threshold = self._cfg.batch.threshold
-        rows = self._store.fetch_pending_by_modality(modality, limit=threshold)
+        # M11.10 — batch chunk size 는 hardcoded 100 (Gemini Batch API inline payload
+        # 안전 한도).  사용자 설정 불가.  pending > 100 이면 다음 try_submit 가 자연
+        # 처리 (race lock + 다시 호출).
+        rows = self._store.fetch_pending_by_modality(modality, limit=_BATCH_CHUNK_SIZE)
         if not rows:
             return None
 

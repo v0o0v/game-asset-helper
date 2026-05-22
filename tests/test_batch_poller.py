@@ -41,12 +41,16 @@ def test_poller_calls_list_active_at_boot(poller_factory):
     assert store.list_active_batch_jobs.call_count >= 1
 
 
-def test_poller_polls_periodically(poller_factory):
-    p, store = poller_factory(poll_interval=0.05)
+def test_poller_polls_periodically(poller_factory, monkeypatch):
+    """M11.10 — polling 5초 hardcoded.  테스트는 _POLL_INTERVAL_SECONDS 를 짧게
+    override 해 short window 안에 여러 tick 검증.
+    """
+    import assetcache.core.batch.poller as poller_mod
+    monkeypatch.setattr(poller_mod, "_POLL_INTERVAL_SECONDS", 0.05)
+    p, store = poller_factory()
     p.start()
     time.sleep(0.25)  # ~5 ticks
     p.stop(timeout=1.0)
-    # boot + ~4 periodic = 5+
     assert store.list_active_batch_jobs.call_count >= 3
 
 

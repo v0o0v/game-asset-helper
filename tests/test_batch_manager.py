@@ -62,10 +62,17 @@ def manager_factory():
     return make
 
 
-def test_try_submit_returns_none_when_forced_off(manager_factory):
+def test_try_submit_ignores_toggle_forced_off(manager_factory):
+    """M11.10 batch-only 정책 — toggle 'forced_off' 무시하고 항상 시도.
+
+    이전 동작: toggle='forced_off' 면 즉시 None.  변경: cfg.batch.toggle 자체를
+    무시하고 backend 가 batch 지원하면 무조건 시도.  사용자는 batch 끄기 불가.
+    """
     m, store, *_ = manager_factory(toggle="forced_off", pending_count=100)
-    assert m.try_submit("chat_image") is None
-    store.fetch_pending_by_modality.assert_not_called()
+    result = m.try_submit("chat_image")
+    # 실제 batch submit 시도 (fetch_pending 호출) — pending=100 이라 submit 성공
+    store.fetch_pending_by_modality.assert_called()
+    assert result is not None
 
 
 def test_try_submit_returns_none_when_chain_first_not_gemini(manager_factory):
@@ -79,10 +86,17 @@ def test_try_submit_returns_none_when_chain_first_no_batch_support(manager_facto
     assert m.try_submit("chat_image") is None
 
 
-def test_try_submit_returns_none_when_below_threshold_in_auto(manager_factory):
+def test_try_submit_ignores_threshold_below_in_auto(manager_factory):
+    """M11.10 batch-only 정책 — pending < threshold 여도 무조건 submit.
+
+    이전: auto 모드 + pending < threshold → None.  변경: threshold 무시.
+    pending=10 (이전 임계 미만) 도 submit 성공.
+    """
     m, store, *_ = manager_factory(toggle="auto", threshold=30, pending_count=10)
-    assert m.try_submit("chat_image") is None
-    store.fetch_pending_by_modality.assert_not_called()
+    store.save_batch_job.return_value = 7
+    job_id = m.try_submit("chat_image")
+    assert job_id == 7
+    store.fetch_pending_by_modality.assert_called()
 
 
 def test_try_submit_proceeds_at_threshold_in_auto(manager_factory):
@@ -144,14 +158,20 @@ def test_do_submit_text_embed_calls_batch_embed(manager_factory):
     backend.batch_chat.assert_not_called()
 
 
-def test_do_submit_caps_at_threshold(manager_factory):
+def test_do_submit_caps_at_hardcoded_chunk_size(manager_factory):
+    """M11.10 — fetch limit 은 hardcoded _BATCH_CHUNK_SIZE (100).
+
+    이전: cfg.batch.threshold 가 chunk size.  변경: 사용자 설정 불가 — 100 hardcoded
+    (Gemini Batch API inline payload 안전 한도).
+    """
+    from assetcache.core.batch.manager import _BATCH_CHUNK_SIZE
     m, store, _, aq, backend = manager_factory(
-        toggle="forced_on", pending_count=100, threshold=30,
+        toggle="forced_on", pending_count=200, threshold=30,
     )
     store.save_batch_job.return_value = 1
     m.try_submit("chat_image")
     fetch_kw = store.fetch_pending_by_modality.call_args.kwargs
-    assert fetch_kw["limit"] == 30
+    assert fetch_kw["limit"] == _BATCH_CHUNK_SIZE == 100
 
 
 def test_do_submit_filters_out_oserror_skipped_assets(manager_factory, monkeypatch):
