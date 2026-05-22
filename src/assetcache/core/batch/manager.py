@@ -92,9 +92,18 @@ class BatchManager:
         M11.10 — batch-only 정책: ``cfg.batch.toggle`` / ``cfg.batch.threshold`` 무시.
         gemini backend + supports_batch() 만족하면 무조건 batch 시도.  fetch_pending
         이 0 row 반환하면 자연스럽게 None (no work to do).
+
+        ``text_embed`` modality 는 async Gemini Batch API 가 inlined_responses 를
+        반환하지 않는 케이스가 있어 asset 이 stuck 되는 버그.  M11.10 부터는
+        ``_embed_chat_results`` 가 chat 결과 persist 직후 multi-input sync embed
+        (``chain.batch_embed``) 로 처리 — text_embed modality 의 별도 batch 불필요.
         """
         if modality not in _MODALITIES:
             log.warning("try_submit invalid modality: %s", modality)
+            return None
+        if modality == "text_embed":
+            # M11.10 — multi-input sync embed (BatchPoller._embed_chat_results) 가
+            # chat 결과 후 자동 처리.  async text_embed batch 는 obsolete.
             return None
         backend = self._chain.first_backend(modality)
         if backend is None:

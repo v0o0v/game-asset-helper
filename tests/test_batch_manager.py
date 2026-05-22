@@ -149,13 +149,19 @@ def test_do_submit_rollback_when_backend_fails(manager_factory):
     aq.dequeue_assets.assert_not_called()
 
 
-def test_do_submit_text_embed_calls_batch_embed(manager_factory):
+def test_text_embed_modality_disabled_in_m11_10(manager_factory):
+    """M11.10 — try_submit('text_embed') 는 즉시 None.
+
+    이전: text_embed async batch 가 batch_embed 호출.  변경: multi-input sync
+    embed (BatchPoller._embed_chat_results) 로 대체 — async path 비활성.
+    """
     m, store, _, aq, backend = manager_factory(pending_count=30)
-    store.save_batch_job.return_value = 5
-    backend.batch_embed.return_value = "batches/embed-1"
-    m.try_submit("text_embed")
-    backend.batch_embed.assert_called_once()
+    result = m.try_submit("text_embed")
+    assert result is None
+    backend.batch_embed.assert_not_called()
     backend.batch_chat.assert_not_called()
+    # fetch_pending 도 호출 안 됨 (modality reject 단계에서 즉시 return)
+    store.fetch_pending_by_modality.assert_not_called()
 
 
 def test_do_submit_caps_at_hardcoded_chunk_size(manager_factory):

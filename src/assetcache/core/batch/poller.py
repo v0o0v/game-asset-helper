@@ -183,9 +183,14 @@ class BatchPoller(threading.Thread):
         결과는 정상 'ok' 마킹, embedding 만 누락.
         """
         if status.inlined_responses is None:
+            # M11.10 — 응답 없는 succeeded / file destination 케이스도 asset 복원.
+            # batch_state='submitted' 그대로 두면 worker 가 영영 stuck (race fix 로
+            # try_mark_asset_analyzing 가 batch_state='none' 만 허용).
+            for asset in self._store.list_assets_in_batch(job.id):
+                self._store.mark_asset_batch_state(asset.id, "none")
             if status.file_name:
                 log.warning(
-                    "batch job %d file destination (%s) — v0.2.1 미지원, expired 처리",
+                    "batch job %d file destination (%s) — v0.2.1 미지원, expired 처리 + asset 복원",
                     job.id, status.file_name,
                 )
                 self._store.update_batch_job_state(
@@ -195,7 +200,10 @@ class BatchPoller(threading.Thread):
                     error="file destination not supported in v0.2.1",
                 )
                 return
-            # 응답 없음 — 빈 succeeded 마킹
+            log.warning(
+                "batch job %d succeeded but inlined_responses=None — asset 복원",
+                job.id,
+            )
             self._store.update_batch_job_state(
                 job.id,
                 state="succeeded",

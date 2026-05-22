@@ -2541,6 +2541,35 @@ class Store:
             return None
         return BatchJobRow(*row)
 
+    def recover_stuck_batch_assets(self) -> int:
+        """M11.10 — boot-time recovery: batch_state='submitted/queued' 이지만
+        batch_jobs 가 이미 terminal 인 stuck asset 들을 batch_state='none' 으로 복원.
+
+        시나리오: BatchPoller _handle_succeeded 가 빈 inlined_responses 또는
+        file destination 만 받은 경우 batch_jobs.state='succeeded' 또는 'expired'
+        는 update 되지만 개별 asset 의 batch_state 는 'submitted' 그대로.  사용자
+        입장에서 분석 stuck.
+
+        Returns 복원된 asset 수.  app.py 가 부팅 시 호출하면 자연스럽게 다음
+        try_submit 가 다시 잡아 분석.
+        """
+        with self.write_lock:
+            cur = self.conn.execute(
+                """
+                UPDATE assets SET batch_state = 'none', batch_job_id = NULL
+                WHERE analysis_state = 'pending'
+                  AND batch_state IN ('submitted', 'queued')
+                  AND (
+                    batch_job_id IS NULL
+                    OR batch_job_id IN (
+                        SELECT id FROM batch_jobs
+                        WHERE state IN ('succeeded', 'failed', 'expired', 'cancelled')
+                    )
+                  )
+                """
+            )
+            return cur.rowcount
+
     def list_active_batch_jobs(self) -> list[BatchJobRow]:
         """state IN ('submitted', 'running') 만 반환."""
         rows = self.conn.execute(
