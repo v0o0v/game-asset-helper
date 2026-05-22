@@ -215,8 +215,13 @@ def test_multi_label_gemma_full_sheet_range(tmp_path, sprite_mock, ollama_mock, 
 
 
 def test_non_rgba_png_handled(tmp_path, sprite_mock, ollama_mock, registry_mock, embedder_mock):
+    """RGB (no alpha) + 비정수배수 사이즈 → sprite 로 delegate.
+
+    M11.10 ratio fallback 회피용 — 사이즈를 비정수배수 (100×72) 로 둠.
+    원 의도 (RGB 라도 SpritesheetAnalyzer 가 sprite 로 위임) 유지.
+    """
     png = tmp_path / "rgb.png"
-    Image.new("RGB", (128, 32), (100, 100, 100)).save(png)
+    Image.new("RGB", (100, 72), (100, 100, 100)).save(png)
     analyzer = SpritesheetAnalyzer(
         sprite=sprite_mock, ollama=ollama_mock,
         registry=registry_mock, embedder=embedder_mock, clip=None,
