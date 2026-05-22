@@ -183,8 +183,17 @@ class AnalysisQueue(QObject):
         return db_count + queue_count
 
     def enqueue_pack(self, pack_id: int) -> int:
+        """팩의 모든 pending asset 을 분석 큐에 추가 + batch 우선 시도.
+
+        M11.10 — batch 를 큐 enqueue **전에** 시도하면 batch 가 row 들을
+        ``batch_state='submitted'`` 으로 atomic 마킹.  이후 큐에 push 해도
+        worker 가 pop 시 ``try_mark_asset_analyzing`` 가 ``batch_state='none'``
+        조건 실패로 skip → race window 0.
+        """
         rows = self.store.pending_assets_for_pack(pack_id)
         self._enqueued_packs.add(pack_id)
+        # M11.10 — batch 먼저 시도 (큐 enqueue 전 race 차단)
+        self._try_batch_submit()
         for row in rows:
             self._queue.put(row.id)
         self._emit_progress()
@@ -200,23 +209,27 @@ class AnalysisQueue(QObject):
         return len(asset_ids)
 
     def drain_pending(self) -> int:
-        """Boot-time helper: enqueue everything currently marked pending."""
-        # 한 번에 sweep
+        """Boot-time helper: enqueue everything currently marked pending.
+
+        M11.10 — race 차단: ``_try_batch_submit`` 를 큐 push **전에** 호출.
+        batch 가 모든 pending row 를 ``batch_state='submitted'`` 마킹 후 큐에 push →
+        worker pop 시 try_mark_asset_analyzing 가 batch_state='none' 조건 실패로 skip.
+        """
         rows = []
         while True:
             row = self.store.next_pending_asset()
             if row is None:
                 break
             rows.append(row)
-            # 다음 next_pending_asset 가 같은 행을 다시 반환하지 않게 표시
             self.store.mark_asset_analyzing(row.id)
-        # 표시는 했지만 실제 분석은 워커에 위임 — 큐에 다시 넣는다
+        # 표시는 했지만 실제 분석은 워커/배치에 위임 — 먼저 pending 복원
         for row in rows:
-            # pending 으로 되돌려서 워커가 정상 처리하게.
-            # M2.1: raw conn.execute 가 아니라 Store 메서드를 거쳐 write_lock 안에서.
             self.store.mark_asset_pending(row.id)
-            self._queue.put(row.id)
             self._enqueued_packs.add(row.pack_id)
+        # M11.10 — batch 먼저 시도 (큐 push 전 race 차단)
+        self._try_batch_submit()
+        for row in rows:
+            self._queue.put(row.id)
         self._emit_progress()
         self._try_batch_submit()
         return len(rows)
@@ -282,13 +295,17 @@ class AnalysisQueue(QObject):
         row = self.store.get_asset_by_id(asset_id)
         if row is None:
             return
+        # M11.10 — race guard: batch_state='submitted/queued/completed' 이거나
+        # analysis_state != 'pending' 이면 worker 가 sync 분석 안 함.  atomic
+        # 'pending'+'none' → 'analyzing' UPDATE 가 0 row 변경하면 skip.
+        if not self.store.try_mark_asset_analyzing(asset_id):
+            return
         self._in_flight_path = row.path
         self._touched_packs.add(row.pack_id)
         self._emit_progress()
         t0 = self._clock()
         success = True
         try:
-            self.store.mark_asset_analyzing(asset_id)
             inp = self._build_input(row)
             # M6: 이미지 kind (sprite/spritesheet) 는 SpritesheetAnalyzer 로 라우팅.
             # 한 번 promote 된 spritesheet 도 재분석 시 같은 analyzer 가 받아야 함

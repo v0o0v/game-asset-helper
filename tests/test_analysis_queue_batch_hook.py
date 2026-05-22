@@ -86,7 +86,9 @@ def test_enqueue_pack_calls_try_batch_submit():
     q.set_batch_manager(bm)
     q.enqueue_pack(99)
     # M11.2 — 4 modality (chat_spritesheet 신설)
-    assert bm.try_submit.call_count == 4
+    # M11.10 — race 차단 위해 enqueue_pack 가 큐 push 전/후 두 번 _try_batch_submit
+    # 호출 → 4 modality × 2 = 8 try_submit
+    assert bm.try_submit.call_count == 8
 
 
 def test_try_batch_submit_swallows_exceptions():

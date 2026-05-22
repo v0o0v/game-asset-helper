@@ -896,6 +896,26 @@ class Store:
                 (asset_id,),
             )
 
+    def try_mark_asset_analyzing(self, asset_id: int) -> bool:
+        """M11.10 — atomic 'pending'+'none' → 'analyzing'. race window 0.
+
+        worker thread 가 큐에서 pop 한 후 mark_asset_analyzing 하기 직전에
+        BatchManager 가 같은 asset 을 batch 에 넣어 ``batch_state='submitted'`` 으로
+        마킹하는 race 차단.  SQLite UPDATE … WHERE 가 atomic 이라 batch 가
+        이미 잡았으면 rowcount=0 반환 → worker skip.
+
+        Returns True 면 worker 가 analysis 진행, False 면 batch 또는 다른 worker 가
+        이미 잡았으므로 즉시 skip.
+        """
+        with self.write_lock:
+            cur = self.conn.execute(
+                "UPDATE assets SET analysis_state = 'analyzing'"
+                " WHERE id = ? AND analysis_state = 'pending'"
+                " AND batch_state = 'none'",
+                (asset_id,),
+            )
+            return cur.rowcount > 0
+
     def mark_asset_state(
         self,
         asset_id: int,
@@ -958,19 +978,33 @@ class Store:
             )
 
     def next_pending_asset(self) -> Optional[AssetRow]:
+        """analysis_state='pending' AND batch_state='none' 인 asset 만 반환.
+
+        M11.10 — batch 처리 중 (`batch_state IN ('queued','submitted','completed','failed')`)
+        인 asset 은 worker 가 sync 분석하면 race.  BatchPoller 가 batch_get 응답을
+        받기 전에 worker 가 동일 sprite 를 sync 처리하던 LIVE 회귀 차단.
+        """
         row = self.conn.execute(
             "SELECT id, pack_id, path, kind, file_hash, file_size, added_at,"
             "       analyzed_at, analysis_state, analysis_error"
             " FROM assets WHERE analysis_state = 'pending'"
+            "   AND batch_state = 'none'"
             " ORDER BY added_at ASC, id ASC LIMIT 1"
         ).fetchone()
         return _asset_row(row) if row else None
 
     def pending_assets_for_pack(self, pack_id: int) -> list[AssetRow]:
+        """팩 내 analysis_state='pending' AND batch_state='none' asset 만.
+
+        M11.10 — drain_pending / enqueue_pack 시 batch 처리 중인 asset 을 큐에
+        다시 안 넣음.  count_pending_assets 는 변경 안 함 (대시보드는 batch
+        진행 중도 'pending' 으로 표시 — 분석 안 끝났으니).
+        """
         rows = self.conn.execute(
             "SELECT id, pack_id, path, kind, file_hash, file_size, added_at,"
             "       analyzed_at, analysis_state, analysis_error"
             " FROM assets WHERE pack_id = ? AND analysis_state = 'pending'"
+            "   AND batch_state = 'none'"
             " ORDER BY added_at, id",
             (pack_id,),
         ).fetchall()
@@ -2507,6 +2541,35 @@ class Store:
             return None
         return BatchJobRow(*row)
 
+    def recover_stuck_batch_assets(self) -> int:
+        """M11.10 — boot-time recovery: batch_state='submitted/queued' 이지만
+        batch_jobs 가 이미 terminal 인 stuck asset 들을 batch_state='none' 으로 복원.
+
+        시나리오: BatchPoller _handle_succeeded 가 빈 inlined_responses 또는
+        file destination 만 받은 경우 batch_jobs.state='succeeded' 또는 'expired'
+        는 update 되지만 개별 asset 의 batch_state 는 'submitted' 그대로.  사용자
+        입장에서 분석 stuck.
+
+        Returns 복원된 asset 수.  app.py 가 부팅 시 호출하면 자연스럽게 다음
+        try_submit 가 다시 잡아 분석.
+        """
+        with self.write_lock:
+            cur = self.conn.execute(
+                """
+                UPDATE assets SET batch_state = 'none', batch_job_id = NULL
+                WHERE analysis_state = 'pending'
+                  AND batch_state IN ('submitted', 'queued')
+                  AND (
+                    batch_job_id IS NULL
+                    OR batch_job_id IN (
+                        SELECT id FROM batch_jobs
+                        WHERE state IN ('succeeded', 'failed', 'expired', 'cancelled')
+                    )
+                  )
+                """
+            )
+            return cur.rowcount
+
     def list_active_batch_jobs(self) -> list[BatchJobRow]:
         """state IN ('submitted', 'running') 만 반환."""
         rows = self.conn.execute(
@@ -2557,10 +2620,14 @@ class Store:
         self,
         modality: str,
         *,
-        batch_state_in: tuple[str, ...] = ("none",),
+        batch_state_in: tuple[str, ...] = ("none", "queued"),
         limit: int = 1000,
     ) -> list[AssetRow]:
-        """analysis_state='pending' AND batch_state IN (...) AND modality kind 필터."""
+        """analysis_state='pending' AND batch_state IN (...) AND modality kind 필터.
+
+        M11.10 — default 가 ('none', 'queued') — chat_image classify 단계에서 sheet
+        promote 후 batch_state='queued' 마킹된 row 도 chat_spritesheet 가 fetch.
+        """
         kinds = _MODALITY_KIND_FILTER.get(modality)
         state_ph = ",".join("?" * len(batch_state_in))
         if kinds is None:

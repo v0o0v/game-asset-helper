@@ -304,11 +304,15 @@ def test_failed_assets_re_enqueued_to_interactive_queue(e2e_setup, monkeypatch):
     )
 
 
-# ── 시나리오 3: threshold 미달 시 batch submit 안 함 ─────────────────────────
+# ── 시나리오 3: M11.10 batch-only — threshold 무시, 작은 pending 도 batch ───
 
 
-def test_below_threshold_no_batch_submit(e2e_setup):
-    """pending < threshold (30) 일 때 batch_jobs 생성 안 함."""
+def test_pending_below_old_threshold_still_submits_batch(e2e_setup):
+    """M11.10 batch-only — pending=10 (이전 threshold=30 미만) 도 batch submit.
+
+    이전: pending<threshold → batch 안 만듦.  변경: threshold 무시, gemini backend
+    + supports_batch 만 만족하면 무조건 submit.
+    """
     ctx = e2e_setup
 
     for i in range(10):
@@ -316,8 +320,7 @@ def test_below_threshold_no_batch_submit(e2e_setup):
     ctx.aq.enqueue_pack(ctx.pack_id)
 
     jobs = ctx.store.list_active_batch_jobs()
-    # pending=10 < threshold=30 → batch submit 없어야 함
-    assert len(jobs) == 0
+    assert len(jobs) == 1
 
 
 # ── 시나리오 4: terminal failure → 전체 asset interactive 재enqueue ───────────

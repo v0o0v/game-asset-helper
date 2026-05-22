@@ -95,3 +95,37 @@ class BackendChain:
             )
         primary = eligible[0]
         return primary.embed(text, model=model), primary.info.name
+
+    def batch_embed(
+        self, texts: list[str]
+    ) -> tuple[list[list[float]], str]:
+        """M11.10 — multi-input sync batch embed.
+
+        primary backend 가 ``embed_multi`` 를 노출하면 1회 HTTP 호출로 N 개
+        임베딩을 받아 반환.  미지원 backend 는 단일 ``embed()`` 호출 N 회로
+        graceful fallback (vector dim 일관성 보장은 backend 책임).
+
+        text_embed modality chain 에서만 호출 가능 — chain.embed() 와 동일하게
+        fallback 안 함 (dim 일관성).  빈 input → 빈 output, API 호출 없음.
+        """
+        if self.modality != "text_embed":
+            raise BackendError(
+                backend="<chain>",
+                stage="batch_embed",
+                transient=False,
+                cause=ValueError(
+                    f"batch_embed() called on {self.modality} chain"
+                ),
+            )
+        eligible = self._eligible()
+        if not eligible:
+            raise BackendError(
+                backend="<chain>", stage="batch_embed", transient=False
+            )
+        primary = eligible[0]
+        if not texts:
+            return [], primary.info.name
+        embed_multi = getattr(primary, "embed_multi", None)
+        if embed_multi is not None:
+            return embed_multi(list(texts)), primary.info.name
+        return [primary.embed(t) for t in texts], primary.info.name

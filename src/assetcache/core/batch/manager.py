@@ -31,6 +31,10 @@ _MODALITIES = ("chat_image", "chat_spritesheet", "chat_audio", "text_embed")
 # M11.3 — sweep memory cache 최대 entries.  일반 라이브러리는 ≤ 1000장 시트.
 _DETECTION_CACHE_MAX_SIZE = 1024
 
+# M11.10 — batch chunk size.  Gemini Batch API inline payload 안전 한도 100.
+# threshold 사용자 설정 제거 (batch-only 정책) — chunk 단위 hardcoded.
+_BATCH_CHUNK_SIZE = 100
+
 
 class _BoundedLRUCache(collections.OrderedDict):
     """OrderedDict 변형 — max_size 초과 시 가장 오래된 entry 부터 evict.
@@ -85,28 +89,27 @@ class BatchManager:
     def try_submit(self, modality: str) -> int | None:
         """Try to submit a batch job for `modality`. Return batch_jobs.id or None.
 
-        Decision flow:
-        1. modality 유효성 check
-        2. cfg.batch.toggle == 'forced_off' → None
-        3. chain[modality][0] not gemini / no batch support → None
-        4. auto 모드 + pending < threshold → None
-        5. race lock acquire (non-blocking) → _do_submit
+        M11.10 — batch-only 정책: ``cfg.batch.toggle`` / ``cfg.batch.threshold`` 무시.
+        gemini backend + supports_batch() 만족하면 무조건 batch 시도.  fetch_pending
+        이 0 row 반환하면 자연스럽게 None (no work to do).
+
+        ``text_embed`` modality 는 async Gemini Batch API 가 inlined_responses 를
+        반환하지 않는 케이스가 있어 asset 이 stuck 되는 버그.  M11.10 부터는
+        ``_embed_chat_results`` 가 chat 결과 persist 직후 multi-input sync embed
+        (``chain.batch_embed``) 로 처리 — text_embed modality 의 별도 batch 불필요.
         """
         if modality not in _MODALITIES:
             log.warning("try_submit invalid modality: %s", modality)
             return None
-        toggle = self._cfg.batch.toggle
-        if toggle == "forced_off":
+        if modality == "text_embed":
+            # M11.10 — multi-input sync embed (BatchPoller._embed_chat_results) 가
+            # chat 결과 후 자동 처리.  async text_embed batch 는 obsolete.
             return None
         backend = self._chain.first_backend(modality)
         if backend is None:
             return None
         if backend.info.name != "gemini" or not backend.supports_batch():
             return None
-        if toggle == "auto":
-            pending = self._store.count_pending_by_modality(modality)
-            if pending < self._cfg.batch.threshold:
-                return None
         if not self._locks[modality].acquire(blocking=False):
             return None
         try:
@@ -115,8 +118,10 @@ class BatchManager:
             self._locks[modality].release()
 
     def _do_submit(self, modality: str, backend) -> int | None:
-        threshold = self._cfg.batch.threshold
-        rows = self._store.fetch_pending_by_modality(modality, limit=threshold)
+        # M11.10 — batch chunk size 는 hardcoded 100 (Gemini Batch API inline payload
+        # 안전 한도).  사용자 설정 불가.  pending > 100 이면 다음 try_submit 가 자연
+        # 처리 (race lock + 다시 호출).
+        rows = self._store.fetch_pending_by_modality(modality, limit=_BATCH_CHUNK_SIZE)
         if not rows:
             return None
 
@@ -126,11 +131,17 @@ class BatchManager:
             # 다음 sweep 의 chat_spritesheet 가 픽업.  sprite rows 만 chat_image batch.
             # M11.3 — sweep cache 전달 + sprite_meta 자동 enrich+save (옵션 B+C).
             from .sheet_classifier import classify_image_assets
-            _sheets, rows = classify_image_assets(
+            sheets, rows = classify_image_assets(
                 rows, library_dir=self._library_dir, store=self._store,
                 cache=self._detection_cache,
                 alpha_color_weight=self._cfg.grid_detect_alpha_color_weight,
             )
+            # M11.10 — sheet 로 promote 된 row 도 batch_state='queued' 로 마킹해
+            # worker race 차단.  chat_spritesheet try_submit 가 fetch 시 'queued'
+            # 도 허용 (fetch_pending_by_modality 의 default batch_state_in 확장).
+            if sheets:
+                sheet_ids = [row.id for row, _ in sheets]
+                self._store.mark_assets_batch_queued(sheet_ids)
             if not rows:
                 # 전부 시트 — promote 만 수행, batch submit 0.
                 return None

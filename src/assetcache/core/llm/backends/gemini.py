@@ -165,6 +165,32 @@ class GeminiBackend:
             ) from e
         return list(r.embeddings[0].values)
 
+    def embed_multi(self, texts: list[str]) -> list[list[float]]:
+        """M11.10 — multi-input sync embed (1 HTTP call → N embeddings).
+
+        Gemini SDK 의 ``embed_content`` 는 ``contents`` 인자가 list[str] 일 때
+        multi-input batch 로 처리해 단일 HTTP 호출로 모든 임베딩을 반환한다.
+        BatchPoller 가 chat_image 결과 persist 후 한 번에 호출 — sync 단일
+        호출 ~26회 → 1회 multi-input 로 (≥10× 절감).
+
+        빈 input → 빈 output (API 호출 안 함).
+        """
+        if not texts:
+            return []
+        try:
+            r = self._client.models.embed_content(
+                model=self.model_embed,
+                contents=list(texts),
+            )
+        except Exception as e:
+            raise BackendError(
+                backend="gemini",
+                stage="embed",
+                transient=_classify(e),
+                cause=e,
+            ) from e
+        return [list(e.values) for e in r.embeddings]
+
     def test_connection(self) -> bool:
         try:
             list(self._client.models.list())

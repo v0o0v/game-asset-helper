@@ -178,8 +178,16 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
         cfg=config,
         registry=registry,
         library_dir=library_root,
+        clip=clip,
     )
     _batch_poller.start()
+
+    # M11.10 — stuck batch asset 복구 (terminal batch_jobs 의 잔여 'submitted').
+    # _handle_succeeded 가 빈 inlined_responses / file destination 응답을 받았을 때
+    # asset 의 batch_state 가 안 풀려 stuck.  여기서 batch_state='none' 으로 복원.
+    recovered = store.recover_stuck_batch_assets()
+    if recovered:
+        log.info("M11.10 stuck batch asset 복구: %d개 batch_state='none' 으로 reset", recovered)
 
     queue.start()
     queue.drain_pending()
@@ -225,6 +233,7 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
         on_open_main=lambda: webbrowser.open(url),
         cfg=config,
         cfg_path=paths.config_path,
+        library_dir=library_root,
     )
     queue.progressChanged.connect(lambda snap: update_tray_tooltip(tray, snap))
     queue.progressChanged.connect(

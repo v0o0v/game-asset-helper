@@ -25,10 +25,14 @@ def ensure_thumbnail(
     asset_id: int,
     *,
     max_size: int = 256,
+    file_hash: str | None = None,
 ) -> Path | None:
     """sprite + spritesheet 자산 256×256 PNG 생성.  sound → None.
 
-    캐시 hit (`<cache_dir>/<asset_id>.png` 존재) 시 즉시 반환.
+    M11.10 — cache key 에 ``file_hash`` 의 첫 12자 포함.  같은 asset_id 가
+    다른 file 을 가리키게 된 경우 (DB reset / re-import) stale cache 차단.
+    file_hash=None 이면 legacy ``<asset_id>.png`` path 유지 (backward compat).
+
     실패 시 (Pillow 에러 / 파일 미존재) None + log.exception.
     """
     if kind not in ("sprite", "spritesheet"):
@@ -38,7 +42,10 @@ def ensure_thumbnail(
     except OSError:
         log.exception("thumbnail cache dir creation failed: %s", cache_dir)
         return None
-    out = cache_dir / f"{asset_id}.png"
+    if file_hash:
+        out = cache_dir / f"{asset_id}_{file_hash[:12]}.png"
+    else:
+        out = cache_dir / f"{asset_id}.png"
     if out.exists():
         return out
     try:

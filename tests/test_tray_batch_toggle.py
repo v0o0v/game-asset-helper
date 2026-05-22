@@ -17,9 +17,11 @@ from pathlib import Path
 # ─── Test 1: make_tray_icon 이 batch_toggle_action attribute 를 설정한 tray 반환 ──
 
 
-def test_make_tray_icon_batch_submenu_exists(qapp, tmp_path):
-    """make_tray_icon 이 반환하는 QSystemTrayIcon.contextMenu() 에
-    'Batch' 라는 텍스트가 들어간 메뉴 항목 또는 sub-menu 가 있어야 한다.
+def test_make_tray_icon_no_batch_menu(qapp, tmp_path):
+    """M11.10 batch-only — 트레이 메뉴에 batch toggle 항목 없음.
+
+    이전: 'Batch: auto/forced_on/forced_off' 항목으로 순환.  변경: batch-only
+    정책이라 사용자 설정 불가, 메뉴 항목 제거.
     """
     from assetcache.tray import make_tray_icon
 
@@ -27,8 +29,6 @@ def test_make_tray_icon_batch_submenu_exists(qapp, tmp_path):
     try:
         menu = tray.contextMenu()
         assert menu is not None
-
-        # 메뉴 액션 중 'batch' (대소문자 무시) 가 포함된 항목이 하나 이상 있어야 한다.
         action_texts = [a.text().lower() for a in menu.actions()]
         sub_texts: list[str] = []
         for a in menu.actions():
@@ -36,8 +36,8 @@ def test_make_tray_icon_batch_submenu_exists(qapp, tmp_path):
                 sub_texts.extend(sa.text().lower() for sa in a.menu().actions())
 
         all_texts = action_texts + sub_texts
-        assert any("batch" in t for t in all_texts), (
-            f"'batch' 텍스트 미발견 — 메뉴 항목: {action_texts}, 서브메뉴: {sub_texts}"
+        assert not any("batch" in t for t in all_texts), (
+            f"'batch' 항목이 남아있음 — 메뉴 항목: {action_texts}, 서브메뉴: {sub_texts}"
         )
     finally:
         tray.hide()

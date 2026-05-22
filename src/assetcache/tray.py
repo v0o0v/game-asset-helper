@@ -18,8 +18,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
-from PySide6.QtCore import QCoreApplication, QObject, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QCoreApplication, QObject, QUrl, Signal
+from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from assetcache.platform.autostart import is_autostart_enabled, set_autostart
@@ -113,6 +113,7 @@ def make_tray_icon(
     on_open_main: Optional[Callable[[], None]] = None,
     cfg: Optional[Any] = None,
     cfg_path: Optional["Path"] = None,
+    library_dir: Optional["Path"] = None,
 ) -> "QSystemTrayIcon":
     """Build a tray icon and return it.
 
@@ -152,6 +153,48 @@ def make_tray_icon(
         open_action.triggered.connect(on_open_main)
         menu.addAction(open_action)
         menu.addSeparator()
+
+    # M11.10 piggyback — 라이브러리 폴더 1-click 열기 (격리 data-dir LIVE 검증 UX).
+    # 우선순위:
+    #   1. 명시 ``library_dir`` 파라미터 (app.py 가 paths.library_dir 전달 — 정상 경로).
+    #   2. ``cfg.library_dir`` (legacy — Config 에는 library_dir 필드 없음, 미사용).
+    #   3. ``default_app_paths().library_dir`` (cfg=None 호출자 fallback).
+    _library_dir: Optional[Path] = None
+    if library_dir is not None:
+        try:
+            _library_dir = Path(library_dir)
+        except TypeError:
+            _library_dir = None
+    if _library_dir is None and cfg is not None:
+        try:
+            _library_dir = Path(cfg.library_dir)
+        except (AttributeError, TypeError):
+            _library_dir = None
+    if _library_dir is None:
+        try:
+            from assetcache.config import default_app_paths
+            _library_dir = default_app_paths().library_dir
+            log.warning("tray: library_dir 명시 인자 없음 — default_app_paths fallback")
+        except Exception:
+            log.exception("tray: default_app_paths fallback 실패 — library 메뉴 skip")
+            _library_dir = None
+    if _library_dir is not None:
+        log.info("tray: 라이브러리 폴더 열기 메뉴 활성 — %s", _library_dir)
+        open_library_action = QAction(_tr("라이브러리 폴더 열기"), menu)
+
+        def _on_open_library() -> None:
+            try:
+                _library_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                log.warning("library_dir mkdir 실패: %s", e)
+                return
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(_library_dir)))
+
+        open_library_action.triggered.connect(_on_open_library)
+        menu.addAction(open_library_action)
+        menu.addSeparator()
+    else:
+        log.warning("tray: library_dir 결정 불가 — 라이브러리 폴더 열기 메뉴 미추가")
 
     # M7: Unity 캐시 스캔 메뉴
     unity_scan_action = QAction(_tr("Unity 캐시 스캔"), menu)
@@ -213,51 +256,8 @@ def make_tray_icon(
     menu.addAction(autostart_action)
     menu.addSeparator()
 
-    # M11.1 Task 5.4 — Batch mode toggle (auto / forced_on / forced_off)
-    # 클릭할 때마다 다음 상태로 순환하며 라벨이 갱신된다.
-    # cfg / cfg_path 가 없을 때는 action 이 no-op 로 동작 (안전).
-    def _batch_action_label(toggle: str) -> str:
-        return _tr("Batch: {state}").format(state=toggle)
-
-    # cfg / cfg_path 가 caller 에서 명시 전달되면 그것을 사용 (run_tray 가 share).
-    # 명시 안 되면 fallback: disk 에서 load (단 별도 instance 라 web 과 sync X — 테스트/CLI 용).
-    if cfg is not None and cfg_path is not None:
-        _cfg = cfg
-        _cfg_path = cfg_path
-        try:
-            _initial_toggle = _cfg.batch.toggle
-        except AttributeError:
-            log.warning("tray batch toggle: cfg.batch 없음 — fallback auto")
-            _initial_toggle = "auto"
-    else:
-        try:
-            from assetcache.config import default_app_paths, load_config
-            _cfg_path = default_app_paths().config_path
-            _cfg = load_config(_cfg_path)
-            _initial_toggle = _cfg.batch.toggle
-        except Exception:
-            log.exception("tray batch toggle: load_config 실패 — action 비활성")
-            _cfg = None
-            _cfg_path = None
-            _initial_toggle = "auto"
-
-    batch_action = QAction(_batch_action_label(_initial_toggle), menu)
-    # batch_action 을 tray 오브젝트에 attribute 로 노출 → 테스트 접근 가능
-    tray._batch_action = batch_action  # type: ignore[attr-defined]
-
-    def _on_batch_toggle() -> None:
-        nonlocal _cfg
-        if _cfg is None or _cfg_path is None:
-            return
-        try:
-            cycle_batch_toggle(_cfg, _cfg_path)
-            batch_action.setText(_batch_action_label(_cfg.batch.toggle))
-        except Exception:
-            log.exception("batch toggle 저장 실패")
-
-    batch_action.triggered.connect(_on_batch_toggle)
-    menu.addAction(batch_action)
-    menu.addSeparator()
+    # M11.10 — batch toggle 메뉴 항목 제거 (batch-only 정책).
+    # 사용자가 batch 켜기/끄기 / threshold / polling 모두 설정 불가 — hardcoded.
 
     quit_action = QAction(_tr("종료"), menu)
     quit_action.triggered.connect(qapp.quit)

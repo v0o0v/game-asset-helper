@@ -233,35 +233,13 @@ _VALID_TOGGLES = frozenset({"auto", "forced_on", "forced_off"})
 
 
 @router.post("/settings/batch")
-async def post_batch_settings(
-    request: Request,
-    threshold: int = Form(...),
-    toggle: str = Form(...),
-    poll_interval_seconds: int = Form(1800),
-) -> RedirectResponse:
-    """cfg.batch 업데이트 + save_config → /settings 리다이렉트.
+async def post_batch_settings(request: Request) -> RedirectResponse:
+    """M11.10 batch-only — 사용자 설정 불가.  form 자체 제거됨, 호출 시 noop 리다이렉트.
 
-    threshold: 1~200 clamp.
-    toggle: auto/forced_on/forced_off (그 외 → "auto" 폴백).
-    poll_interval_seconds: 그대로 저장.
+    이전: threshold / toggle / poll_interval_seconds 입력을 cfg 에 저장.
+    변경: hardcoded 정책이라 입력 모두 무시.  legacy 브라우저 캐시의 form submit
+    이 도착해도 단순 리다이렉트.
     """
-    deps = request.app.state.deps
-    cfg: Config = deps.config
-
-    # 유효성 검사 + clamp
-    threshold = max(1, min(threshold, 200))
-    if toggle not in _VALID_TOGGLES:
-        toggle = "auto"
-
-    cfg.batch.threshold = threshold
-    cfg.batch.toggle = toggle  # type: ignore[assignment]
-    cfg.batch.poll_interval_seconds = poll_interval_seconds
-
-    try:
-        save_config(cfg, deps.paths.config_path)
-    except Exception as e:
-        log.warning("batch config save failed: %s", e)
-
     return RedirectResponse("/settings", status_code=303)
 
 
