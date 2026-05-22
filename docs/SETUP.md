@@ -32,7 +32,7 @@ pytest -q
 
 옵트인 마커:
 - `pytest -m mcp_integration` — 실 `python -m assetcache --mcp` subprocess + JSON-RPC (20 도구)
-- `pytest -m llm_integration` — 16 케이스 (Gemini 6 + Claude 3 + OpenAI 3 + OpenRouter 2 + HuggingFace 2). 각 backend 별 환경변수 셋업 필요
+- `pytest -m llm_integration` — Gemini + OpenAI 옵트인 케이스. 각 backend 별 환경변수 셋업 필요 (M11.9 에서 Claude/OpenRouter/HuggingFace 통합 테스트 제거)
 
 ## 2. 자주 쓰는 명령
 

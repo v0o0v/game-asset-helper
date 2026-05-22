@@ -87,11 +87,11 @@ _VALID_UI_THEMES = ("auto", "light", "dark")
 
 # M11 — multi-backend LLM
 _VALID_CHAIN_MODALITIES = ("chat_image", "chat_spritesheet", "chat_audio", "text_embed")
-_KNOWN_BACKENDS = ("ollama", "gemini", "claude", "openai", "openrouter", "huggingface")
+_KNOWN_BACKENDS = ("ollama", "gemini", "openai")
 
 
 def _default_backends() -> dict[str, dict[str, Any]]:
-    """6 backend 기본 설정. ollama 만 enabled=True, 나머지는 disabled."""
+    """3 backend 기본 설정. ollama 만 enabled=True, 나머지는 disabled."""
     return {
         "ollama": {
             "enabled": True,
@@ -114,29 +114,12 @@ def _default_backends() -> dict[str, dict[str, Any]]:
             # embedding 은 별도 family — 모델 변경 불필요 (gemini-embedding-001 그대로).
             "model_embed": "gemini-embedding-001",
         },
-        "claude": {
-            "enabled": False,
-            "api_key": "",
-            "model_image": "claude-haiku-4-5-20251001",
-        },
         "openai": {
             "enabled": False,
             "api_key": "",
             "model_image": "gpt-5.4-mini",
             "model_audio": "gpt-4o-audio-preview",
             "model_embed": "text-embedding-3-small",
-        },
-        "openrouter": {
-            "enabled": False,
-            "api_key": "",
-            "model_image": "google/gemma-4-27b-it:free",
-        },
-        "huggingface": {
-            "enabled": False,
-            "api_key": "",
-            "model_image": "Qwen/Qwen2.5-VL-72B-Instruct",
-            "model_audio": "",
-            "model_embed": "",
         },
     }
 

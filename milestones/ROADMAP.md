@@ -21,7 +21,7 @@
 | **M11.6** | BATCH_SPRITESHEET_PROMPT palette + 'other' fallback 정리 (v0.2.5 candidate) | ✅ ([PR #26](https://github.com/v0o0v/assetcache-mcp/pull/26) main `da4f169`, +5 신규 + 2 옵트인, 회귀 1597) — publish 보류 |
 | **M11.7** | mood OPTIONAL + category 별 mood 차단 (v0.2.6 candidate) | ✅ ([PR #27](https://github.com/v0o0v/assetcache-mcp/pull/27) main `04c205e`, +4 신규 + 2 옵트인, 회귀 1601) — publish 보류 |
 | **M11.8** | mood 시드 `neutral`/`minimalist` `is_enabled=0` 마이그 (v0.2.7 candidate) | 📋 spec/plan 작성됨, **다음 세션 implement** — ⚠️ palette.neutral 절대 유지 |
-| M12 | C4 측정/학습/벤치마크 (6 backend 정확도) | 📋 미정 (M11 의존) |
+| M12 | C4 측정/학습/벤치마크 (3 backend 정확도) | 📋 미정 (M11 의존) |
 | M13 | Mac/Linux 검증 | 📋 미정 (M11 의존) |
 | M14 | MCP 원격 통신 (HTTP/SSE + 인증) | 📋 미정 |
 | M15 | Unity Editor 통합 | 📋 미정 |

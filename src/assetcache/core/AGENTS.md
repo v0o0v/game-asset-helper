@@ -34,7 +34,7 @@
 |-----------|---------|
 | `analyzer/` | sprite / sound / spritesheet 분석기 + 메시지 + tech_meta + spritesheet_meta + payload parser (see `analyzer/AGENTS.md`) |
 | `batch/` | Gemini Batch API 제출/폴링 (M11.1) + 시트 classifier + detection cache (M11.3) (see `batch/AGENTS.md`) |
-| `llm/` | Multi-backend LLM 추상화 (M11) + 6 backend wrapper (see `llm/AGENTS.md`) |
+| `llm/` | Multi-backend LLM 추상화 (M11) + 3 backend wrapper (see `llm/AGENTS.md`) |
 | `sheet/` | 스프라이트 시트 검출 / 격자 추정 / JSON 사이드카 파서 / 미리보기 합성 (M6) (see `sheet/AGENTS.md`) |
 | `unity_import/` | Unity Asset Store `.unitypackage` 임포트 (M7) (see `unity_import/AGENTS.md`) |
 | `updater/` | PyPI 신버전 알림 (M10 Phase 2) — semver + checker + pip command 분기 (see `updater/AGENTS.md`) |

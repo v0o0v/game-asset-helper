@@ -149,39 +149,3 @@ def test_chain_embed_on_wrong_modality_raises():
         chain.embed("x")
 
 
-def test_chain_skips_real_claude_in_audio_modality():
-    """실 ClaudeBackend (capability audio=False) 가 chat_audio chain 에서 skip."""
-    from assetcache.core.llm.backends.claude import ClaudeBackend
-
-    claude = ClaudeBackend.__new__(ClaudeBackend)  # info 만 필요, __init__ 미호출
-    ollama_like = _backend("ollama")  # 모든 modality True
-    chain = BackendChain([claude, ollama_like], modality="chat_audio")
-    result, used = chain.chat([ChatMessage("user", "hi")])
-    assert used == "ollama"  # claude skip 됨
-
-
-def test_chain_skips_real_claude_in_text_embed_modality():
-    """실 ClaudeBackend (capability embed=False) 가 text_embed chain 에서 skip."""
-    from assetcache.core.llm.backends.claude import ClaudeBackend
-
-    claude = ClaudeBackend.__new__(ClaudeBackend)
-    ollama_like = _backend("ollama", embed_result=[0.5, 0.5])
-    chain = BackendChain([claude, ollama_like], modality="text_embed")
-    vec, used = chain.embed("x")
-    assert used == "ollama"
-    assert vec == [0.5, 0.5]
-
-
-def test_chain_uses_real_claude_in_image_modality():
-    """실 ClaudeBackend 가 chat_image chain 의 1순위로 동작 (capability=True)."""
-    from assetcache.core.llm.backends.claude import ClaudeBackend
-    from unittest.mock import MagicMock
-
-    claude = ClaudeBackend.__new__(ClaudeBackend)
-    # chat 메서드를 stub — _client 없이 동작하도록
-    claude.chat = MagicMock(return_value={"category": "icon"})
-    ollama_like = _backend("ollama")
-    chain = BackendChain([claude, ollama_like], modality="chat_image")
-    result, used = chain.chat([ChatMessage("user", "hi")])
-    assert used == "claude"
-    assert result == {"category": "icon"}

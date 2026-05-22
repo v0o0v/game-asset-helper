@@ -81,7 +81,7 @@
            ko/en partial 만 보이고, 다른 5개는 표시 안 됨 (DOM 에는 6 partial 다 렌더링). #}
         <details class="backend-help">
           <summary>{{ _("ⓘ Pricing & setup") }}</summary>
-          {% for bname in ["ollama", "gemini", "claude", "openai", "openrouter", "huggingface"] %}
+          {% for bname in ["ollama", "gemini", "openai"] %}
             <template x-if="name === '{{ bname }}'">
               <div>
                 {% include "settings/help_" + bname + "_" + lang + ".html" %}
@@ -194,7 +194,7 @@
 function settingsForm() {
     const backendsInit = {{ config.backends | tojson }};
     const chainsInit = {{ config.chains | tojson }};
-    const backendOrder = ["ollama", "gemini", "claude", "openai", "openrouter", "huggingface"];
+    const backendOrder = ["ollama", "gemini", "openai"];
     return {
         form: {
             ui_language: "{{ config.ui_language }}",
@@ -216,18 +216,12 @@ function settingsForm() {
         setupUrls: {
             ollama: "https://ollama.com/download",
             gemini: "https://aistudio.google.com/apikey",
-            claude: "https://console.anthropic.com/settings/keys",
             openai: "https://platform.openai.com/api-keys",
-            openrouter: "https://openrouter.ai/settings/keys",
-            huggingface: "https://huggingface.co/settings/tokens",
         },
         setupLinkLabels: {
             ollama: "{{ _('Download Ollama →') }}",
             gemini: "{{ _('Get key from Google AI Studio →') }}",
-            claude: "{{ _('Get key from Anthropic Console →') }}",
             openai: "{{ _('Get key from OpenAI Platform →') }}",
-            openrouter: "{{ _('Get key from OpenRouter Settings →') }}",
-            huggingface: "{{ _('Get token from HuggingFace →') }}",
         },
 
         // M11 — chains

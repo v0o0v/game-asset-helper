@@ -63,7 +63,7 @@
 - **`src/` layout** — 패키지가 `src/assetcache/` 아래에 있고 `pyproject.toml` 의 `[tool.setuptools] package-dir = { "" = "src" }` 로 매핑.
 - **WAL SQLite** + `busy_timeout=5000` + `store.write_lock` 로 GUI ↔ MCP stdio 동시 접근.
 - **Layered analyzer chain** — sync (`SpriteAnalyzer` / `SoundAnalyzer` / `SpritesheetAnalyzer`) + async batch (`BatchManager` / `BatchPoller`) 둘 다 동일 JSON 스키마.
-- **6 backend LLM** — `core/llm/backends/{ollama, gemini, claude, openai_backend, openrouter, huggingface}.py`, modality 별 chain 으로 자동 fallback.
+- **3 backend LLM** — `core/llm/backends/{ollama, gemini, openai_backend}.py`, modality 별 chain 으로 자동 fallback. M11.9 에서 claude/openrouter/huggingface 제거.
 - **Trusted Publishing OIDC** — tag push → GitHub Actions 자동 publish (`.github/workflows/publish.yml`). 평균 ~30초.
 
 ## Dependencies

@@ -48,16 +48,6 @@ def _default_gemini_factory(*, settings: dict, cfg: Config) -> LLMBackend:
     )
 
 
-def _default_claude_factory(*, settings: dict, cfg: Config) -> LLMBackend:
-    from .backends.claude import ClaudeBackend
-
-    return ClaudeBackend(
-        api_key=settings.get("api_key") or _env("ANTHROPIC_API_KEY"),
-        model_image=settings["model_image"],
-        timeout=cfg.analysis_timeout_seconds,
-    )
-
-
 def _default_openai_factory(*, settings: dict, cfg: Config) -> LLMBackend:
     from .backends.openai_backend import OpenAIBackend
 
@@ -66,34 +56,6 @@ def _default_openai_factory(*, settings: dict, cfg: Config) -> LLMBackend:
         model_image=settings["model_image"],
         model_audio=settings["model_audio"],
         model_embed=settings["model_embed"],
-        timeout=cfg.analysis_timeout_seconds,
-        # base_url=None — Phase 4 OpenRouter 가 sub-factory 로 override
-    )
-
-
-def _default_openrouter_factory(*, settings: dict, cfg: Config) -> LLMBackend:
-    from .backends.openrouter import OpenRouterBackend
-
-    return OpenRouterBackend(
-        api_key=settings.get("api_key") or _env("OPENROUTER_API_KEY"),
-        model_image=settings["model_image"],
-        timeout=cfg.analysis_timeout_seconds,
-    )
-
-
-def _default_huggingface_factory(*, settings: dict, cfg: Config) -> LLMBackend:
-    from .backends.huggingface import HuggingFaceBackend
-
-    api_key = (
-        settings.get("api_key")
-        or _env("HF_TOKEN")
-        or _env("HUGGINGFACE_API_KEY")
-    )
-    return HuggingFaceBackend(
-        api_key=api_key,
-        model_image=settings["model_image"],
-        model_audio=settings.get("model_audio", "") or "",
-        model_embed=settings.get("model_embed", "") or "",
         timeout=cfg.analysis_timeout_seconds,
     )
 
@@ -137,24 +99,15 @@ class BackendRegistry:
         *,
         ollama_factory: BackendFactory | None = None,
         gemini_factory: BackendFactory | None = None,
-        claude_factory: BackendFactory | None = None,
         openai_factory: BackendFactory | None = None,
-        openrouter_factory: BackendFactory | None = None,
-        huggingface_factory: BackendFactory | None = None,
     ) -> "BackendRegistry":
         ollama_factory = ollama_factory or _default_ollama_factory
         gemini_factory = gemini_factory or _default_gemini_factory
-        claude_factory = claude_factory or _default_claude_factory
         openai_factory = openai_factory or _default_openai_factory
-        openrouter_factory = openrouter_factory or _default_openrouter_factory
-        huggingface_factory = huggingface_factory or _default_huggingface_factory
         factories: dict[str, BackendFactory | None] = {
             "ollama": ollama_factory,
             "gemini": gemini_factory,
-            "claude": claude_factory,
             "openai": openai_factory,
-            "openrouter": openrouter_factory,
-            "huggingface": huggingface_factory,
         }
         instances: dict[str, LLMBackend] = {}
         for name, settings in cfg.backends.items():

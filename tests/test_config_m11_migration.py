@@ -54,15 +54,23 @@ def test_new_keys_only_preserved(tmp_path):
     assert cfg.chains["chat_image"] == ["gemini", "ollama"]
 
 
-def test_default_config_has_all_six_backends(tmp_path):
-    """Config() 인스턴스화만으로 6 backend 모두 사전 등록 — disabled 기본."""
+def test_default_config_has_all_three_backends(tmp_path):
+    """Config() 인스턴스화만으로 3 backend 모두 사전 등록 — disabled 기본 (ollama 외).
+
+    M11.9: claude/openrouter/huggingface 제거 후 3 backend 만.
+    """
     cfg = Config()
-    for name in ("ollama", "gemini", "claude", "openai", "openrouter", "huggingface"):
+    for name in ("ollama", "gemini", "openai"):
         assert name in cfg.backends, f"backend {name} missing from defaults"
     # ollama 만 enabled 기본
     assert cfg.backends["ollama"]["enabled"] is True
-    for name in ("gemini", "claude", "openai", "openrouter", "huggingface"):
+    for name in ("gemini", "openai"):
         assert cfg.backends[name]["enabled"] is False
+    # M11.9 — 제거된 backend 는 부재
+    for removed in ("claude", "openrouter", "huggingface"):
+        assert removed not in cfg.backends, (
+            f"removed backend {removed} should not be in defaults"
+        )
 
 
 def test_default_gemini_model_is_3_1_flash_lite(tmp_path):
@@ -85,10 +93,11 @@ def test_save_then_load_roundtrip(tmp_path):
     cfg2 = load_config(p)
     assert cfg2.backends["ollama"]["enabled"] is True
     assert "gemini" in cfg2.backends
-    assert "claude" in cfg2.backends
     assert "openai" in cfg2.backends
-    assert "openrouter" in cfg2.backends
-    assert "huggingface" in cfg2.backends
+    # M11.9 — 제거된 backend 는 부재
+    assert "claude" not in cfg2.backends
+    assert "openrouter" not in cfg2.backends
+    assert "huggingface" not in cfg2.backends
     # M11.2 — chat_spritesheet modality 신설.  default 는 chat_image 와 동일 ["ollama"].
     assert cfg2.chains == {
         "chat_image": ["ollama"],

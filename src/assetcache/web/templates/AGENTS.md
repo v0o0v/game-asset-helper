@@ -46,7 +46,7 @@ Jinja2 템플릿. **3 종류**:
 | Directory | Purpose |
 |-----------|---------|
 | `analyzing/` | M11.1 — `/analyzing` 페이지 + `_partial.html` (HTMX poll target, active/pending/done 카운트 + 항목 행) |
-| `settings/` | 설정 페이지 partial + 백엔드별 도움말 (`help_{backend}_{locale}.html` 6 backend × ko/en = 12 파일) + `_batch_card.html` |
+| `settings/` | 설정 페이지 partial + 백엔드별 도움말 (`help_{backend}_{locale}.html` 3 backend × ko/en = 6 파일) + `_batch_card.html` |
 
 ## For AI Agents
 

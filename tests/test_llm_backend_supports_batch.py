@@ -17,17 +17,6 @@ def test_ollama_supports_batch_default_false():
     assert backend.supports_batch() is False
 
 
-def test_claude_supports_batch_default_false(monkeypatch):
-    monkeypatch.setattr(
-        "assetcache.core.llm.backends.claude.Anthropic",
-        lambda **kw: MagicMock(),
-    )
-    from assetcache.core.llm.backends.claude import ClaudeBackend
-
-    b = ClaudeBackend(api_key="x", model_image="m", timeout=60.0)
-    assert b.supports_batch() is False
-
-
 def test_openai_supports_batch_default_false(monkeypatch):
     monkeypatch.setattr(
         "assetcache.core.llm.backends.openai_backend.OpenAI",
@@ -36,34 +25,6 @@ def test_openai_supports_batch_default_false(monkeypatch):
     from assetcache.core.llm.backends.openai_backend import OpenAIBackend
 
     b = OpenAIBackend(
-        api_key="x",
-        model_image="m",
-        model_audio="m",
-        model_embed="m",
-        timeout=60.0,
-    )
-    assert b.supports_batch() is False
-
-
-def test_openrouter_supports_batch_default_false(monkeypatch):
-    monkeypatch.setattr(
-        "assetcache.core.llm.backends.openai_backend.OpenAI",
-        lambda **kw: MagicMock(),
-    )
-    from assetcache.core.llm.backends.openrouter import OpenRouterBackend
-
-    b = OpenRouterBackend(api_key="x", model_image="m", timeout=60.0)
-    assert b.supports_batch() is False
-
-
-def test_huggingface_supports_batch_default_false(monkeypatch):
-    monkeypatch.setattr(
-        "assetcache.core.llm.backends.huggingface.InferenceClient",
-        lambda **kw: MagicMock(),
-    )
-    from assetcache.core.llm.backends.huggingface import HuggingFaceBackend
-
-    b = HuggingFaceBackend(
         api_key="x",
         model_image="m",
         model_audio="m",

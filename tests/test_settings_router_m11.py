@@ -99,13 +99,13 @@ def test_post_backend_update_persists_to_file(client, web_deps, monkeypatch):
 
 
 def test_post_backend_update_rejects_unknown_fields(client, web_deps):
-    """알려진 필드만 갱신 — `evil` 같은 임의 키는 무시."""
+    """알려진 필드만 갱신 — `evil` 같은 임의 키는 무시. M11.9: claude→openai 로 backend swap."""
     r = client.post(
-        "/api/settings/backends/claude",
-        json={"api_key": "sk-ant-x", "evil": "injected"},
+        "/api/settings/backends/openai",
+        json={"api_key": "sk-x", "evil": "injected"},
     )
     assert r.status_code == 200
-    assert "evil" not in web_deps.config.backends["claude"]
+    assert "evil" not in web_deps.config.backends["openai"]
 
 
 # ---- POST /api/settings/backends/<name>/test ----
@@ -158,7 +158,10 @@ def test_post_backend_test_unknown_backend_404(client):
 def test_post_backend_test_disabled_backend_returns_message(
     client, web_deps, monkeypatch
 ):
-    """비활성 backend — registry 가 instantiation 안 해 None 반환 → {ok: False, message}."""
+    """비활성 backend — registry 가 instantiation 안 해 None 반환 → {ok: False, message}.
+
+    M11.9: openrouter→openai 로 swap (openai 도 default disabled).
+    """
     from assetcache.web.routers import settings as settings_mod
 
     fake_registry = MagicMock()
@@ -167,7 +170,7 @@ def test_post_backend_test_disabled_backend_returns_message(
         settings_mod, "_build_registry_for_test",
         lambda cfg: fake_registry,
     )
-    r = client.post("/api/settings/backends/openrouter/test")
+    r = client.post("/api/settings/backends/openai/test")
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is False
@@ -236,11 +239,11 @@ def test_post_chains_empty_list_allowed(client, web_deps):
 
 
 def test_settings_page_includes_backends_section(client):
-    """/settings 페이지가 6 backend 이름 모두 렌더링."""
+    """/settings 페이지가 3 backend 이름 모두 렌더링 (M11.9: 6→3)."""
     r = client.get("/settings")
     assert r.status_code == 200
     body = r.text
-    for name in ("ollama", "gemini", "claude", "openai", "openrouter", "huggingface"):
+    for name in ("ollama", "gemini", "openai"):
         assert name in body, f"settings page missing backend: {name}"
 
 
@@ -330,14 +333,14 @@ def test_settings_page_includes_ko_partial_for_gemini(client, web_deps):
     assert "Google AI Studio" in body
 
 
-def test_settings_page_includes_en_partial_for_claude(client, web_deps):
-    """en locale 일 때 claude 카드의 details block 안에 en partial 본문 포함."""
+def test_settings_page_includes_en_partial_for_openai(client, web_deps):
+    """en locale 일 때 openai 카드의 details block 안에 en partial 본문 포함.
+
+    M11.9: claude→openai 로 backend swap (claude help partial 6 파일 삭제됨).
+    """
     web_deps.config.ui_language = "en"
     r = client.get("/settings", headers={"Accept-Language": "en"})
     assert r.status_code == 200
     body = r.text
-    # claude en partial 의 식별 가능한 본문
-    assert "Paid only" in body
-    assert "claude-haiku-4-5" in body
-    # setup link label (en msgid)
-    assert "Anthropic Console" in body
+    # openai en partial 의 식별 가능한 본문
+    assert "OpenAI Platform" in body
