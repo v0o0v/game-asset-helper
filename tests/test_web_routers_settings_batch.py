@@ -55,21 +55,20 @@ def test_get_settings_contains_batch_section(client):
     assert "batch-settings" in r.text or "batch" in r.text.lower()
 
 
-def test_get_settings_batch_threshold_input(client):
-    """GET /settings HTML 에 threshold input 이 포함된다."""
+def test_get_settings_batch_no_threshold_input(client):
+    """M11.10 batch-only — settings 페이지에 threshold input 없음."""
     r = client.get("/settings")
     assert r.status_code == 200
-    assert 'name="threshold"' in r.text
+    assert 'name="threshold"' not in r.text
 
 
-def test_get_settings_batch_toggle_radios(client):
-    """GET /settings HTML 에 toggle radio button 3개 (auto/forced_on/forced_off) 가 있다."""
+def test_get_settings_batch_no_toggle_radios(client):
+    """M11.10 batch-only — toggle radio (auto/forced_on/forced_off) 모두 제거."""
     r = client.get("/settings")
     assert r.status_code == 200
     text = r.text
-    assert 'value="auto"' in text
-    assert 'value="forced_on"' in text
-    assert 'value="forced_off"' in text
+    # form 의 batch toggle radio 가 사라졌는지 — name="toggle" 미포함
+    assert 'name="toggle"' not in text
 
 
 def test_get_settings_no_active_jobs_message(client):
@@ -84,75 +83,35 @@ def test_get_settings_no_active_jobs_message(client):
 # ─── 2~4. POST /settings/batch 정상 처리 ─────────────────────────────────────
 
 
-def test_post_batch_settings_threshold(client):
-    """POST /settings/batch threshold=50 → cfg.batch.threshold=50 + 303 리다이렉트."""
+def test_post_batch_settings_is_noop(client):
+    """M11.10 batch-only — POST /settings/batch 는 noop (cfg 변경 X).
+
+    legacy form submit 도착 시 단순 303 리다이렉트.  threshold / toggle /
+    poll_interval 모두 사용자 설정 불가.
+    """
+    cfg = client.app.state.deps.config
+    original_threshold = cfg.batch.threshold
+    original_toggle = cfg.batch.toggle
+    original_poll = cfg.batch.poll_interval_seconds
+
     r = client.post(
         "/settings/batch",
-        data={"threshold": "50", "toggle": "auto", "poll_interval_seconds": "1800"},
+        data={"threshold": "999", "toggle": "forced_on", "poll_interval_seconds": "60"},
     )
     assert r.status_code == 303
     assert r.headers["location"] == "/settings"
-    # config 가 업데이트 됐는지 확인
-    cfg = client.app.state.deps.config
-    assert cfg.batch.threshold == 50
+
+    # cfg 가 그대로 — 입력 무시
+    assert cfg.batch.threshold == original_threshold
+    assert cfg.batch.toggle == original_toggle
+    assert cfg.batch.poll_interval_seconds == original_poll
 
 
-def test_post_batch_settings_toggle(client):
-    """POST /settings/batch toggle=forced_on → cfg.batch.toggle='forced_on'."""
-    r = client.post(
-        "/settings/batch",
-        data={"threshold": "30", "toggle": "forced_on", "poll_interval_seconds": "1800"},
-    )
+def test_post_batch_settings_accepts_empty_body(client):
+    """POST /settings/batch 가 form body 없이도 안전하게 303 리다이렉트."""
+    r = client.post("/settings/batch")
     assert r.status_code == 303
-    cfg = client.app.state.deps.config
-    assert cfg.batch.toggle == "forced_on"
-
-
-def test_post_batch_settings_poll_interval(client):
-    """POST /settings/batch poll_interval_seconds=3600 → cfg.batch.poll_interval_seconds=3600."""
-    r = client.post(
-        "/settings/batch",
-        data={"threshold": "30", "toggle": "auto", "poll_interval_seconds": "3600"},
-    )
-    assert r.status_code == 303
-    cfg = client.app.state.deps.config
-    assert cfg.batch.poll_interval_seconds == 3600
-
-
-# ─── 5~7. POST /settings/batch 유효성 검사 ──────────────────────────────────
-
-
-def test_post_batch_settings_negative_threshold_clamped(client):
-    """음수 threshold → 1 로 clamp."""
-    r = client.post(
-        "/settings/batch",
-        data={"threshold": "-5", "toggle": "auto", "poll_interval_seconds": "1800"},
-    )
-    assert r.status_code == 303
-    cfg = client.app.state.deps.config
-    assert cfg.batch.threshold == 1
-
-
-def test_post_batch_settings_over200_threshold_clamped(client):
-    """threshold > 200 → 200 으로 clamp."""
-    r = client.post(
-        "/settings/batch",
-        data={"threshold": "999", "toggle": "auto", "poll_interval_seconds": "1800"},
-    )
-    assert r.status_code == 303
-    cfg = client.app.state.deps.config
-    assert cfg.batch.threshold == 200
-
-
-def test_post_batch_settings_invalid_toggle_fallback(client):
-    """invalid toggle → 'auto' 로 폴백."""
-    r = client.post(
-        "/settings/batch",
-        data={"threshold": "30", "toggle": "invalid_value", "poll_interval_seconds": "1800"},
-    )
-    assert r.status_code == 303
-    cfg = client.app.state.deps.config
-    assert cfg.batch.toggle == "auto"
+    assert r.headers["location"] == "/settings"
 
 
 # ─── 8. POST /settings/batch/jobs/{id}/cancel ────────────────────────────────
