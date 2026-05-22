@@ -233,6 +233,7 @@ def run_tray(paths: AppPaths, config: Config, argv: Sequence[str] | None = None)
         on_open_main=lambda: webbrowser.open(url),
         cfg=config,
         cfg_path=paths.config_path,
+        library_dir=library_root,
     )
     queue.progressChanged.connect(lambda snap: update_tray_tooltip(tray, snap))
     queue.progressChanged.connect(

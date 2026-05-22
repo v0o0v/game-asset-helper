@@ -113,6 +113,7 @@ def make_tray_icon(
     on_open_main: Optional[Callable[[], None]] = None,
     cfg: Optional[Any] = None,
     cfg_path: Optional["Path"] = None,
+    library_dir: Optional["Path"] = None,
 ) -> "QSystemTrayIcon":
     """Build a tray icon and return it.
 
@@ -154,20 +155,26 @@ def make_tray_icon(
         menu.addSeparator()
 
     # M11.10 piggyback — 라이브러리 폴더 1-click 열기 (격리 data-dir LIVE 검증 UX).
-    # cfg.library_dir 우선.  미전달 / 누락 시 default_app_paths() 로 fallback —
-    # PyInstaller 빌드, 다른 entry, 또는 cfg=None 호출자 (예: 트레이 단독 실행)
-    # 모두 라이브러리 폴더 메뉴 노출.
+    # 우선순위:
+    #   1. 명시 ``library_dir`` 파라미터 (app.py 가 paths.library_dir 전달 — 정상 경로).
+    #   2. ``cfg.library_dir`` (legacy — Config 에는 library_dir 필드 없음, 미사용).
+    #   3. ``default_app_paths().library_dir`` (cfg=None 호출자 fallback).
     _library_dir: Optional[Path] = None
-    if cfg is not None:
+    if library_dir is not None:
+        try:
+            _library_dir = Path(library_dir)
+        except TypeError:
+            _library_dir = None
+    if _library_dir is None and cfg is not None:
         try:
             _library_dir = Path(cfg.library_dir)
         except (AttributeError, TypeError):
-            log.warning("tray: cfg.library_dir 누락 — default fallback 시도")
             _library_dir = None
     if _library_dir is None:
         try:
             from assetcache.config import default_app_paths
             _library_dir = default_app_paths().library_dir
+            log.warning("tray: library_dir 명시 인자 없음 — default_app_paths fallback")
         except Exception:
             log.exception("tray: default_app_paths fallback 실패 — library 메뉴 skip")
             _library_dir = None
