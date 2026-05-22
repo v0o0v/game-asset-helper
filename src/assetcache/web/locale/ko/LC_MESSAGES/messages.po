@@ -928,20 +928,8 @@ msgid "Get key from Google AI Studio →"
 msgstr "Google AI Studio 에서 발급 →"
 
 #: src/assetcache/web/templates/settings.html
-msgid "Get key from Anthropic Console →"
-msgstr "Anthropic Console 에서 발급 →"
-
-#: src/assetcache/web/templates/settings.html
 msgid "Get key from OpenAI Platform →"
 msgstr "OpenAI Platform 에서 발급 →"
-
-#: src/assetcache/web/templates/settings.html
-msgid "Get key from OpenRouter Settings →"
-msgstr "OpenRouter Settings 에서 발급 →"
-
-#: src/assetcache/web/templates/settings.html
-msgid "Get token from HuggingFace →"
-msgstr "HuggingFace 에서 토큰 발급 →"
 
 # M11.1 — Gemini Batch API
 
