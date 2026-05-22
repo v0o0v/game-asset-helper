@@ -132,8 +132,58 @@ pytest -m llm_integration -v
 - **OpenAI / Ollama backend 의 multi-input embed**: 본 마일스톤 범위 외. `BackendChain.batch_embed` 가 `embed_multi` 미지원 backend 일 때 loop fallback 으로 graceful — 호출 수는 줄지 않지만 동작은 정상.
 - **순서 매칭**: Gemini API spec 상 `embed_content(contents=list)` 의 결과 순서 = 입력 순서 (보장). 외부 SDK 가 응답 객체에 input id 를 동봉하지 않아 순서로만 매칭 — `zip(asset_ids, vectors)` 의 short-circuit (배열 길이 불일치) 도 graceful 처리됨.
 
-## 6. 다음 작업 (별도 트리거)
+## 6. LIVE 검증 결과 (2026-05-22 ~ 2026-05-23)
 
-- M11.x patches backlog item D — OpenAI Batch API embed 지원 (`OpenAIBackend.embed_multi` 추가 시 chain 자동 활용)
-- v0.2.9 publish — M11.9 backend 정리 + CLIP fix + M11.10 batch 완성 동시 deliver. `pyproject.toml` + `__init__.py` 0.2.7 → 0.2.9 bump + tag (사용자 명시 시)
-- (LIVE 결과에 따라) AC #3 1000 sprite 라이브러리 wall-clock 측정 — 옵트인 perf 테스트로 정착 후보
+### 6.1 26 sprite `pixel_food_items_fruits` 팩 (AC #1 1차 검증)
+
+| 시점 | Total | batchGenerateContent | batchEmbedContents | Sync generateContent |
+|---|:-:|:-:|:-:|:-:|
+| 1차 (race 잔존) | 8 | 1 | 4 | 3 |
+| 2차 (race fix 후) | 10 | 1 | 4 | 0 |
+| 최종 (race + cache) | **2** | 1 | 1 | **0** |
+
+**AC #1 ≤5 호출 달성** — 26 sprite 재분석에 chat_image batch 1회 + multi-input embed batch 1회 = **2 호출** (목표 5, baseline 53).  **26× 감소** ✅.
+
+### 6.2 142 assets 7 packs 대규모 LIVE (sheet detection)
+
+| 항목 | 결과 |
+|---|---|
+| Total assets | 142 → 32 (re-import 케이스) → 33 |
+| kind='spritesheet' | 26 (1D strip fallback 후) |
+| kind='sprite' | 7 (모두 비정수배수 2D grid — known limit) |
+| Sync `generateContent` | **0** |
+| 라벨 풍부도 | 185-189 (모두 균일, CLIP 14 axes + Gemma) |
+
+### 6.3 검증된 fix 누적
+
+| Commit | Fix |
+|---|---|
+| `1b18bd7` | text_embed multi-input batch + chat 결과 embedding 채움 (PR 본문) |
+| `fb5b3cb` | 트레이 "라이브러리 폴더 열기" UX |
+| `84fb124` | next_pending_asset SQL 의 batch_state='none' 필터 |
+| `4842bf0` | batch-only 정책 — toggle/threshold/polling 사용자 설정 제거 |
+| `19854d4` | settings UI 정리 (batch 입력 form 제거) |
+| `814ac54` | atomic try_mark_asset_analyzing (worker race guard) |
+| `2e29fd0` | drain_pending 순서 + chat_image classify sheet 'queued' 마킹 |
+| `48ec1e8` | text_embed modality 비활성 + stuck recover |
+| `d82df2b` | fetch_pending_by_modality default 'queued' 포함 |
+| `c5a4c8e` | detect_sheet ratio fallback (1D strip 정수배수) |
+| `3fd2fdb` | thumbnail cache key 에 file_hash 포함 |
+| `0215d2c` | tray library_dir 명시 인자 |
+| `4304c35` | thumbnail Cache-Control: no-cache |
+
+## 7. 알려진 한계
+
+- **AC #1 자동 검증 불가**: API 호출 카운트는 sandbox 에서 mock 만 가능. 실제 5 이하 도달 여부는 §4.1 LIVE 만 답할 수 있다.  LIVE 결과 2 호출 (목표 5 초과 달성).
+- **2D grid sheet detection 한계** — Female1/Male1-3 (256×576) 및 Warrior_Sheet-* (414×748) 같은 NxM grid 시트는 비정수 aspect ratio → 1D strip fallback 진입 X.  같은 팩 안 Male4 (32×48 frame × 96 grid) 는 grid_detect 의 alpha valley 임계가 우연히 통과해 인식.  **M11.11 별도 마일스톤**: `grid_detect.py` 임계 완화 + 파일명 `Sheet`/`Strip` keyword + GCD 기반 2D fallback.
+- **`_embed_chat_results` 실패 시 embedding 누락**: chat 결과는 `'ok'` 상태로 남고 embedding 만 0. 사용자 검색 시 FTS BM25 만 가능 (cosine 누락) — 의도된 graceful degradation.
+- **OpenAI / Ollama backend 의 multi-input embed**: 본 마일스톤 범위 외. `BackendChain.batch_embed` 가 `embed_multi` 미지원 backend 일 때 loop fallback 으로 graceful — 호출 수는 줄지 않지만 동작은 정상.
+- **순서 매칭**: Gemini API spec 상 `embed_content(contents=list)` 의 결과 순서 = 입력 순서 (보장).  `zip(asset_ids, vectors)` 의 short-circuit 도 graceful.
+- **stuck browser cache** — 이전 prod LIVE 의 `max-age=86400` 응답이 browser disk cache 에 24h 유지.  본 PR 의 `Cache-Control: no-cache` 는 새 응답에만 적용 → 사용자가 한 번 cache 청소하면 그 후 안 생김.
+
+## 8. 다음 작업 (별도 트리거)
+
+- **M11.11 후보** — 2D grid sheet detection 정확도 강화 (grid_detect alpha 임계 완화 + 파일명 keyword + GCD 기반 2D fallback)
+- **v0.2.9 publish** — M11.9 + CLIP fix + M11.10 batch 완성 동시 deliver.  `pyproject.toml` + `__init__.py` 0.2.7 → 0.2.9 bump + tag (사용자 명시 시)
+- **M11.x patches backlog item D** — OpenAI Batch API embed (`OpenAIBackend.embed_multi` 추가 시 chain 자동 활용)
+- **AC #3 1000 sprite wall-clock 측정** — 옵트인 perf 테스트로 정착 후보
