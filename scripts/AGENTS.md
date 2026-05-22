@@ -11,6 +11,7 @@
 |------|-------------|
 | `drive_live_batch.py` | LIVE 검증 — 실 LLM 백엔드로 batch 분석 시나리오 실행 (M11.4~M11.7 mood/palette 분석 검증에 재사용) |
 | `generate_tray_ico.py` | `assets/tray.ico` 트레이 아이콘 PIL 생성 |
+| `launch-tray-test.ps1` | LIVE 검증 — prod `config.toml` (API key / backend chains / 가중치) 만 fresh data-dir 로 복사 + 트레이 부팅.  매번 설정 재입력 없이 격리 환경 (`$env:TEMP\assetcache-test-<scenario>-data`) 에서 검증.  사용자 실 DB·라이브러리 안 건드림.  사용: `.\scripts\launch-tray-test.ps1 <scenario>` |
 | `make_complex_sheets.py` | spritesheet 테스트 fixture 생성 (다양한 격자/색상 패턴) |
 
 ## For AI Agents
