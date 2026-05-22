@@ -18,8 +18,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
-from PySide6.QtCore import QCoreApplication, QObject, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QCoreApplication, QObject, QUrl, Signal
+from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from assetcache.platform.autostart import is_autostart_enabled, set_autostart
@@ -151,6 +151,29 @@ def make_tray_icon(
         open_action = QAction(_tr("메인 창 열기"), menu)
         open_action.triggered.connect(on_open_main)
         menu.addAction(open_action)
+        menu.addSeparator()
+
+    # M11.10 piggyback — 라이브러리 폴더 1-click 열기 (격리 data-dir LIVE 검증 UX).
+    # cfg.library_dir 필요. 미전달이면 항목 추가 안 함 (legacy 호환).
+    _library_dir: Optional[Path] = None
+    if cfg is not None:
+        try:
+            _library_dir = Path(cfg.library_dir)
+        except (AttributeError, TypeError):
+            _library_dir = None
+    if _library_dir is not None:
+        open_library_action = QAction(_tr("라이브러리 폴더 열기"), menu)
+
+        def _on_open_library() -> None:
+            try:
+                _library_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                log.warning("library_dir mkdir 실패: %s", e)
+                return
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(_library_dir)))
+
+        open_library_action.triggered.connect(_on_open_library)
+        menu.addAction(open_library_action)
         menu.addSeparator()
 
     # M7: Unity 캐시 스캔 메뉴
