@@ -154,14 +154,25 @@ def make_tray_icon(
         menu.addSeparator()
 
     # M11.10 piggyback — 라이브러리 폴더 1-click 열기 (격리 data-dir LIVE 검증 UX).
-    # cfg.library_dir 필요. 미전달이면 항목 추가 안 함 (legacy 호환).
+    # cfg.library_dir 우선.  미전달 / 누락 시 default_app_paths() 로 fallback —
+    # PyInstaller 빌드, 다른 entry, 또는 cfg=None 호출자 (예: 트레이 단독 실행)
+    # 모두 라이브러리 폴더 메뉴 노출.
     _library_dir: Optional[Path] = None
     if cfg is not None:
         try:
             _library_dir = Path(cfg.library_dir)
         except (AttributeError, TypeError):
+            log.warning("tray: cfg.library_dir 누락 — default fallback 시도")
+            _library_dir = None
+    if _library_dir is None:
+        try:
+            from assetcache.config import default_app_paths
+            _library_dir = default_app_paths().library_dir
+        except Exception:
+            log.exception("tray: default_app_paths fallback 실패 — library 메뉴 skip")
             _library_dir = None
     if _library_dir is not None:
+        log.info("tray: 라이브러리 폴더 열기 메뉴 활성 — %s", _library_dir)
         open_library_action = QAction(_tr("라이브러리 폴더 열기"), menu)
 
         def _on_open_library() -> None:
@@ -175,6 +186,8 @@ def make_tray_icon(
         open_library_action.triggered.connect(_on_open_library)
         menu.addAction(open_library_action)
         menu.addSeparator()
+    else:
+        log.warning("tray: library_dir 결정 불가 — 라이브러리 폴더 열기 메뉴 미추가")
 
     # M7: Unity 캐시 스캔 메뉴
     unity_scan_action = QAction(_tr("Unity 캐시 스캔"), menu)

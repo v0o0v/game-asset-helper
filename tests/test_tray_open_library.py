@@ -107,14 +107,43 @@ def test_open_library_action_calls_desktop_services(qapp, tmp_path):
         tray.hide()
 
 
-def test_menu_without_cfg_has_no_library_action(qapp):
-    """cfg 미전달 시 '라이브러리 폴더 열기' 항목 없음 (기존 동작 보존)."""
+def test_menu_without_cfg_falls_back_to_default_app_paths(qapp, monkeypatch, tmp_path):
+    """cfg 미전달이라도 default_app_paths fallback 로 항목 노출.
+
+    이전 동작 (cfg 없으면 메뉴 미추가) 은 PyInstaller 빌드 / 다른 entry 에서
+    cfg 가 안 넘어올 때 사용자 진단 어려움 — UX 차원에서 default fallback 으로
+    변경.  default_app_paths 자체가 raise 하는 경우만 메뉴 미추가.
+    """
+    from assetcache import config as cfg_mod
+    fake_lib = tmp_path / "default-library"
+    fake_paths = MagicMock()
+    fake_paths.library_dir = fake_lib
+    monkeypatch.setattr(cfg_mod, "default_app_paths", lambda: fake_paths)
+
+    from assetcache.tray import make_tray_icon
+    tray = make_tray_icon(qapp, on_open_main=lambda: None)
+    try:
+        actions = tray.contextMenu().actions()
+        labels = [a.text() for a in actions]
+        assert any("라이브러리" in t and "열기" in t for t in labels), \
+            f"default_app_paths fallback 안 됨: {labels}"
+    finally:
+        tray.hide()
+
+
+def test_menu_skipped_when_default_app_paths_raises(qapp, monkeypatch):
+    """default_app_paths 가 raise 하면 메뉴 미추가 (최종 안전망)."""
+    from assetcache import config as cfg_mod
+    def _raise():
+        raise RuntimeError("default paths unavailable")
+    monkeypatch.setattr(cfg_mod, "default_app_paths", _raise)
+
     from assetcache.tray import make_tray_icon
     tray = make_tray_icon(qapp, on_open_main=lambda: None)
     try:
         actions = tray.contextMenu().actions()
         labels = [a.text() for a in actions]
         assert not any("라이브러리" in t and "열기" in t for t in labels), \
-            f"cfg 없이도 항목이 추가됨: {labels}"
+            f"fallback 실패 시 메뉴 추가됨: {labels}"
     finally:
         tray.hide()
