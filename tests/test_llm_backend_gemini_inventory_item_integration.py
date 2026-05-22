@@ -268,3 +268,43 @@ def test_ui_button_response_has_no_mood_labels(gemini) -> None:
             f"ui_icon 자산에 mood 라벨이 응답됨 (A2 가이드 위반): "
             f"{mood!r} (full={out!r})"
         )
+
+
+# === M11.8 — mood 시드 neutral/minimalist 비활성화 + prompt enum 동기화 ====
+
+
+def test_spritesheet_response_has_no_neutral_or_minimalist_mood(gemini) -> None:
+    """M11.8 A3 — 시트 strip 응답 mood 에 'neutral' / 'minimalist' 0건.
+
+    M11.7 LIVE 의 catch-all 잔존 (시트 4/5 mood='neutral' + 1/5 mood='minimalist')
+    이 M11.8 의 prompt enum 제거 + 시드 비활성화로 차단되는지 직접 단언.
+    LIVE driver 결과는 `M11_8_verification.md §3` 에 시트 5/5 모두 0건 기록.
+    """
+    img_b64 = _make_warrior_strip_png()
+    system_prompt = BATCH_SPRITESHEET_PROMPT.format(
+        anim_enum="idle, walk, attack, hurt"
+    )
+    out = gemini.chat(
+        [
+            ChatMessage("system", system_prompt),
+            ChatMessage(
+                "user",
+                "Identify the animation in this strip.",
+                images_b64=[img_b64],
+            ),
+        ],
+        force_json=True,
+    )
+    mood = out.get("mood") or []
+    assert isinstance(mood, list), (
+        f"mood 응답이 list 가 아님: {mood!r} (full={out!r})"
+    )
+    mood_lower = {(m or "").lower() if isinstance(m, str) else m for m in mood}
+    assert "neutral" not in mood_lower, (
+        f"시트 응답에 mood='neutral' 잔존 (M11.8 prompt enum 제거 효과 X): "
+        f"{mood!r} (full={out!r})"
+    )
+    assert "minimalist" not in mood_lower, (
+        f"시트 응답에 mood='minimalist' 잔존 (M11.8 prompt enum 제거 효과 X): "
+        f"{mood!r} (full={out!r})"
+    )

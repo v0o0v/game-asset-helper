@@ -425,6 +425,17 @@ CREATE INDEX IF NOT EXISTS idx_unity_imports_state ON unity_imports(import_state
 """
 
 
+# M11.8 — 마이그레이션 마커 등 일반 key/value 메타 저장소.  현재 사용처:
+# `set_label_enabled_if_unchanged` 가 `disabled_by_default_seen:{axis}:{label}`
+# 키로 "DISABLED_BY_DEFAULT 마이그 1회 적용 여부" 추적.
+_M11_8_META_SCHEMA = """
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+"""
+
+
 _M11_1_BATCH_SCHEMA = """
 CREATE TABLE IF NOT EXISTS batch_jobs (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -488,7 +499,7 @@ class Store:
     # -- lifecycle ----------------------------------------------------
 
     def initialize(self) -> None:
-        """Create M1 + M2 + M3 + M4 + M7 + M11.1 tables.  Safe to call repeatedly."""
+        """Create M1 + M2 + M3 + M4 + M7 + M11.1 + M11.8 tables.  Safe to call repeatedly."""
         self.conn.executescript(_M1_SCHEMA)
         self.conn.executescript(_M2_SCHEMA)
         self.conn.executescript(_M3_SCHEMA)
@@ -497,6 +508,12 @@ class Store:
         self._migrate_unity_imports()
         self._migrate_m11_backend_columns()
         self._migrate_m11_1_batch_schema()
+        self._migrate_m11_8_meta_schema()
+
+    def _migrate_m11_8_meta_schema(self) -> None:
+        """M11.8 — meta key/value 테이블 idempotent 생성."""
+        with self.write_lock:
+            self.conn.executescript(_M11_8_META_SCHEMA)
 
     def _migrate_m6_animations_json(self) -> None:
         """M6 — sprite_meta.animations_json 컬럼 idempotent 추가."""
@@ -1259,6 +1276,42 @@ class Store:
             (label_id,),
         ).fetchone()
         return int(row[0]) if row else 0
+
+    # -- M11.8: disabled-by-default migration ----------------------------
+
+    def set_label_enabled_if_unchanged(
+        self, axis: str, label: str, enabled: bool
+    ) -> bool:
+        """LabelRegistry 가 ``DISABLED_BY_DEFAULT`` 토큰을 1회 마이그할 때 호출.
+
+        ``meta`` 테이블의 ``disabled_by_default_seen:{axis}:{label}`` 마커가
+        없으면 ``(axis, label)`` 의 ``is_enabled`` 를 ``enabled`` 로 UPDATE +
+        마커 INSERT.  이미 있으면 no-op — 사용자가 명시적으로 재활성한
+        설정이 후속 bootstrap 에 의해 다시 비활성화되지 않는다.
+
+        Returns ``True`` if migration applied this call, ``False`` if marker
+        already existed.
+        """
+        import time as _time
+
+        marker_key = f"disabled_by_default_seen:{axis}:{label}"
+        with self.write_lock:
+            existing = self.conn.execute(
+                "SELECT 1 FROM meta WHERE key = ?", (marker_key,)
+            ).fetchone()
+            if existing is not None:
+                return False
+            now = int(_time.time())
+            self.conn.execute(
+                "UPDATE labels SET enabled = ?, updated_at = ?"
+                " WHERE axis = ? AND label = ?",
+                (1 if enabled else 0, now, axis, label),
+            )
+            self.conn.execute(
+                "INSERT INTO meta (key, value) VALUES (?, ?)",
+                (marker_key, "1"),
+            )
+            return True
 
     # -- M3: projects -----------------------------------------------------
 

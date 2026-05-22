@@ -435,6 +435,24 @@ SEED_LABELS: dict[str, list[tuple[str, str]]] = {
 # through ``_validate_token`` first.
 
 
+# ── 기본 비활성 시드 (M11.8) ────────────────────────────────────────
+
+
+# `LabelRegistry.bootstrap()` 가 자동으로 ``is_enabled=0`` 으로 마이그할
+# 시드 토큰.  Gemini 등 LLM 이 모호한 자산에 mood='neutral' 또는
+# mood='minimalist' 를 catch-all 로 덤프하는 경향이 강해 (M11.7 LIVE
+# 시트 5/5 자산 → mood 'neutral' 4건 + 'minimalist' 1건), 시드 단계에서
+# whitelist 제거.  사용자가 admin UI 로 명시적으로 enable 복원하면
+# meta 마커가 이미 있어 후속 bootstrap 이 user override 를 존중한다.
+#
+# ⚠️ ``palette.neutral`` 은 M11.6 tone group enum (warm / cool /
+# monochrome / high_contrast / pastel / neutral) 의 핵심 토큰이므로
+# 절대 포함하지 않는다 — axis 단위 격리.
+DISABLED_BY_DEFAULT: dict[str, set[str]] = {
+    "mood": {"neutral", "minimalist"},
+}
+
+
 class LabelRegistry:
     """DB-backed label vocabulary with an in-memory cache.
 
@@ -454,32 +472,45 @@ class LabelRegistry:
     def bootstrap(
         self, seed: dict[str, list[tuple[str, str]]] | None = None
     ) -> int:
-        """Insert seed labels only when the table is empty.  Idempotent."""
+        """Insert seed labels (when table empty) + apply ``DISABLED_BY_DEFAULT`` migration.
+
+        Seed insertion runs only on an empty ``labels`` table — idempotent.
+        The disable-by-default migration runs **every** call but is itself
+        idempotent via ``meta`` markers (see
+        :meth:`Store.set_label_enabled_if_unchanged`), so a token is
+        force-disabled at most once and user re-enables are preserved.
+        """
+        inserted = 0
         with self.store.write_lock:
             rows = self.store.conn.execute(
                 "SELECT COUNT(*) FROM labels"
             ).fetchone()
-            if rows and rows[0] > 0:
-                return 0
-            now = int(time.time())
-            seed = seed if seed is not None else SEED_LABELS
-            inserted = 0
-            self.store.conn.execute("BEGIN")
-            try:
-                for axis, items in seed.items():
-                    for token, desc in items:
-                        self.store.conn.execute(
-                            "INSERT INTO labels"
-                            " (axis, label, description, source, enabled,"
-                            "  created_at, updated_at)"
-                            " VALUES (?, ?, ?, 'seed', 1, ?, ?)",
-                            (axis, token, desc, now, now),
-                        )
-                        inserted += 1
-                self.store.conn.execute("COMMIT")
-            except Exception:
-                self.store.conn.execute("ROLLBACK")
-                raise
+            if not (rows and rows[0] > 0):
+                now = int(time.time())
+                effective_seed = seed if seed is not None else SEED_LABELS
+                self.store.conn.execute("BEGIN")
+                try:
+                    for axis, items in effective_seed.items():
+                        for token, desc in items:
+                            self.store.conn.execute(
+                                "INSERT INTO labels"
+                                " (axis, label, description, source, enabled,"
+                                "  created_at, updated_at)"
+                                " VALUES (?, ?, ?, 'seed', 1, ?, ?)",
+                                (axis, token, desc, now, now),
+                            )
+                            inserted += 1
+                    self.store.conn.execute("COMMIT")
+                except Exception:
+                    self.store.conn.execute("ROLLBACK")
+                    raise
+            # M11.8 — DISABLED_BY_DEFAULT 마이그.  table empty/non-empty 무관.
+            # ``set_label_enabled_if_unchanged`` 가 meta 마커로 1회만 적용.
+            for axis, labels_to_disable in DISABLED_BY_DEFAULT.items():
+                for label in labels_to_disable:
+                    self.store.set_label_enabled_if_unchanged(
+                        axis, label, False
+                    )
             self.invalidate()
             return inserted
 
