@@ -19,9 +19,9 @@
 
 | 구간 | 상태 | 위치 |
 |---|---|---|
-| M0 ~ M11.7 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
-| **현재 main** | M11.7 (PR #27 `04c205e` squash, v0.2.3~v0.2.6 publish 누적 보류) | mood OPTIONAL + category 별 mood 차단 (A1 + A2). LIVE: crown mood 2→0 토큰 (A2 완벽), 시트 mood 10→5 토큰 (58% 감소). 회귀 **1601 passed + 1 skipped + 63 deselected**. 옵트인 6/6 PASSED. MCP 20 도구 |
-| **다음 후보** | M11.8 (📋 spec/plan 작성됨) | mood 시드 `neutral`/`minimalist` `is_enabled=0` 마이그 (v0.2.7 candidate). M11.7 LIVE 의 catch-all 'neutral' 시트 4/5 잔존 해소. ⚠️ `palette.neutral` 은 절대 유지 (M11.6 tone group 핵심). spec: [m11-8](./docs/superpowers/specs/2026-05-22-m11-8-mood-seed-disable.md), plan: [M11_8_plan.md](./milestones/M11_8_plan.md) |
+| M0 ~ M11.10 | ✅ 완료 (모두 main 머지) | 상세 PR/회귀/산출물 → [`milestones/HISTORY.md`](./milestones/HISTORY.md) |
+| **현재 main** | M11.10 (PR #35 `e986032` squash, v0.2.3~v0.2.9 publish 누적 보류) | text_embed multi-input batch + race window 0 + batch-only 정책 + thumbnail cache key file_hash + detect_sheet 1D strip ratio fallback. LIVE: 26 sprite 분석 Gemini API 호출 **53 → 2 (26× 감소)**.  회귀 **1594 passed + 3 skipped + 57 deselected**. MCP 20 도구 |
+| **다음 후보** | M11.11 (📋 spec/plan 작성됨) | 2D grid sheet detection 강화 (v0.2.10 candidate). M11.10 LIVE 한계 해소 — `3_direction_npc_characters/Female1-Male3` (256×576) 및 `warrior_free_asset/Warrior_Sheet-*` (414×748) 같은 NxM grid 시트가 sprite 분류됨.  파일명 keyword + GCD 기반 2D fallback.  spec: [m11-11](./docs/superpowers/specs/2026-05-23-m11-11-2d-grid-sheet-detection.md), plan: [M11_11_plan.md](./milestones/M11_11_plan.md) |
 
 전체 마일스톤 정렬 + future 후보 (M12~M18) 는 [`milestones/ROADMAP.md`](./milestones/ROADMAP.md).  
 한 줄 인계 스냅샷은 [`HANDOFF.md`](./HANDOFF.md).
@@ -107,7 +107,7 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
 
 ## 7. 다음 작업
 
-**M11.8 mood 시드 `neutral`/`minimalist` 비활성화** (v0.2.7 candidate).  M11.7 main `04c205e` squash 머지 완료 ([PR #27](https://github.com/v0o0v/assetcache-mcp/pull/27), 회귀 1601 + 옵트인 6 PASSED).  M11.4~M11.7 의 v0.2.3~v0.2.6 publish 모두 보류 누적 (M11.8 머지 후 0.2.2 → 0.2.7 직접 bump 권장).
+**M11.11 — 2D grid sheet detection 강화** (v0.2.10 candidate).  M11.10 main `e986032` squash 머지 완료 ([PR #35](https://github.com/v0o0v/assetcache-mcp/pull/35), 회귀 1594 + LIVE Gemini API 호출 53→2).  M11.4~M11.10 의 v0.2.3~v0.2.9 publish 모두 보류 누적 (M11.11 머지 후 0.2.7 → 0.2.10 직접 bump 권장).
 
 1. 환경 복원 + 회귀 baseline:
 
@@ -123,29 +123,29 @@ assetcache-mcp/               # M10 에서 game-asset-helper → assetcache-mcp 
    ```powershell
    pytest -q
    ```
-   → `1601 passed, 1 skipped, 63 deselected` 확인.
+   → `1594 passed, 3 skipped, 57 deselected` 확인.
 
-2. **M11.8 implement** — 새 브랜치 + 시드 마이그 TDD red→green 부터:
+2. **M11.11 implement** — 새 브랜치 + 파일명 keyword 검출 TDD red→green 부터:
 
    ```powershell
-   git checkout -b feat/m11-8-mood-seed-disable
+   git checkout -b feat/m11-11-2d-grid-sheet-detection
    ```
 
    spec/plan:
-   - [`docs/superpowers/specs/2026-05-22-m11-8-mood-seed-disable.md`](./docs/superpowers/specs/2026-05-22-m11-8-mood-seed-disable.md)
-   - [`milestones/M11_8_plan.md`](./milestones/M11_8_plan.md) — Phase 1 시드+migration TDD → Phase 2 prompt 동기화 → Phase 3 LIVE 검증 → Phase 4 PR
+   - [`docs/superpowers/specs/2026-05-23-m11-11-2d-grid-sheet-detection.md`](./docs/superpowers/specs/2026-05-23-m11-11-2d-grid-sheet-detection.md)
+   - [`milestones/M11_11_plan.md`](./milestones/M11_11_plan.md) — Phase 0 investigation → Phase 1 파일명 keyword (`Sheet`/`Strip`/`(WxH)`) → Phase 2 GCD 기반 2D grid fallback → Phase 3 LIVE → Phase 4 PR
 
-   ⚠️ **핵심 주의**: `palette.neutral` 은 절대 비활성화 X (M11.6 tone group enum 핵심 토큰).  `mood.neutral` + `mood.minimalist` 만 대상.
+   ⚠️ **핵심 주의**: false positive 차단 — 단일 sprite 가 우연히 GCD 조건 만족해도 잘못 sheet 안 되도록 area + frame size 후보 휴리스틱.
 
-3. (선택, M11.8 머지 후) v0.2.7 publish — `pyproject.toml` + `src/assetcache/__init__.py` 0.2.2 → 0.2.7 bump + tag:
+3. (선택, M11.11 머지 후) v0.2.10 publish — `pyproject.toml` + `src/assetcache/__init__.py` 0.2.7 → 0.2.10 bump + tag:
 
    ```powershell
-   git tag v0.2.7
+   git tag v0.2.10
    ```
    ```powershell
-   git push origin main v0.2.7
+   git push origin main v0.2.10
    ```
-   → Trusted Publishing OIDC 6회째 자동 (M11.3 v0.2.2 publish 이후 5 마일스톤 누적 deliver).
+   → Trusted Publishing OIDC 7회째 자동 (M11.3 v0.2.2 publish 이후 8 마일스톤 누적 deliver).
 
 ## 8. 알려진 이슈·주의사항
 
